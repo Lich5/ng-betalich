@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.12.10](https://github.com/Lich5/ng-betalich/compare/v5.12.9...v5.12.10) (2025-10-11)
+
+
+### Bug Fixes
+
+* **all:** noop bump ([#16](https://github.com/Lich5/ng-betalich/issues/16)) ([1735093](https://github.com/Lich5/ng-betalich/commit/1735093fbb823c70b5af671a396cf44b76c5835f))
+
 ## [5.12.9](https://github.com/elanthia-online/ng-betalich/compare/v5.12.8...v5.12.9) (2025-10-03)
 
 
