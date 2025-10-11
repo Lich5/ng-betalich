@@ -101,10 +101,11 @@ jobs:
               pr.user && (pr.user.login === 'release-please[bot]' || pr.user.login === 'github-actions[bot]') &&
               pr.labels && pr.labels.some(l => l.name === 'autorelease: pending')
             );
-            if (!match) core.setFailed('No open Release Please PR (stable) found.');
+            if (!match) { core.notice('No open Release Please PR (stable) found. Skipping.'); return; }
             core.setOutput('number', String(match.number));
 
       - name: Format body (stable via workflow_run)
+        if: ${{ steps.find.outputs.number }}
         uses: ./.github/actions/format-body
         with:
           mode: stable
