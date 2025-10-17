@@ -106,7 +106,6 @@ jobs:
         env:
           BODY: ${{ steps.seed.outputs.body }}
           MODE: ${{ steps.seed.outputs.mode }}
-        TAG: ${{ steps.seed.outputs.tag }}
           TAG: ${{ steps.seed.outputs.tag }}
         with:
           script: |
