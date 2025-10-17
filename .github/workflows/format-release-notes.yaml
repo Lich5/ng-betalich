@@ -201,9 +201,14 @@ jobs:
           REL_BODY: ${{ steps.seed.outputs.body }}
         with:
           script: |
+            const ev = context.eventName;
+            const action = (context.payload && context.payload.action) || '';
             const prb = process.env.PR_BODY || '';
             const rel = process.env.REL_BODY || '';
-            core.setOutput('body', prb || rel);
+
+            // On manual edit, prefer the current release body; otherwise prefer PR body.
+            const seed = (ev === 'release' && action === 'edited') ? (rel || prb) : (prb || rel);
+            core.setOutput('body', seed);
 
       - name: Transform body (normalize header, drop RP/Ellipsis, plain PR refs, append footer + sentinel)
         if: steps.seed.outputs.skip != 'true' && steps.guard.outputs.skip != 'true'
@@ -219,7 +224,7 @@ jobs:
         with:
           script: |
             const CONTRACT_SHA = '95f8f517411f9058bc92706310677db8cbba97fbd296bc853f2181274cb0e8bb';
-            const seed = process.env.PR_BODY || '';
+            const seedIn = process.env.PR_BODY || '';
             const version = process.env.VERSION || '';
             const mode = (process.env.MODE || 'stable').trim();
             const tag  = (process.env.TAG || '').trim();
@@ -230,7 +235,7 @@ jobs:
             const headerLine = `Lich v${version} (${yyyy}-${mm}-${dd})`;
 
             // 1) Remove any existing formatter sentinels and helper instruction (wherever they appear)
-            let cleaned = seed
+            let cleaned = seedIn
               .replace(/<!--\s*FORMATTER:v1[\s\S]*?-->/g, '')
               .replace(/<!--\s*To force a manual edit update,[\s\S]*?-->/g, '');
 
