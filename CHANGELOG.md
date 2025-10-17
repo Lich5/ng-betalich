@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.12.11](https://github.com/Lich5/ng-betalich/compare/v5.12.10...v5.12.11) (2025-10-17)
+
+
+### Bug Fixes
+
+* **gs:** Bounty parser for SG npcs matching ([#6](https://github.com/Lich5/ng-betalich/issues/6)) ([162d716](https://github.com/Lich5/ng-betalich/commit/162d71670a3c8ac85d0466ab5061e63ae35e9ff4))
+
 ## [5.12.10](https://github.com/Lich5/ng-betalich/compare/v5.12.9...v5.12.10) (2025-10-11)
 
 
