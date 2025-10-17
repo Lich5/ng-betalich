@@ -23,7 +23,7 @@
 #        - the single RP credit link
 #        - inside Ellipsis
 #      Fail if any other markdown links are present.
-#   5) Sentinel at end: <!-- FORMATTER:v1 sha=<contract-hash> mode=<pre|stable> -->
+#   5) Sentinel at end: <!-- FORMATTER:v1 sha=<contract-hash> mode=<beta|stable> -->
 #
 # ============================================================================
 
@@ -31,9 +31,9 @@ name: "Format Release PR Body (PR-link bullets)"
 description: "Sections (feat/fix by scope) with PR links -> RP credit -> Ellipsis -> sentinel"
 inputs:
   mode:
-    description: "pre | stable"
+    description: "beta | stable"
     required: true
-    default: "pre"
+    default: "beta"
   pr_number:
     description: "Explicit PR number (for workflow_run invocations)"
     required: false
@@ -59,8 +59,8 @@ runs:
       run: |
         set -euo pipefail
         case "${{ inputs.mode }}" in
-          pre|stable) ;;
-          *) echo "::error::inputs.mode must be 'pre' or 'stable'"; exit 1;;
+          beta|stable) ;;
+          *) echo "::error::inputs.mode must be 'beta' or 'stable'"; exit 1;;
         esac
 
     - name: Compose prerelease body

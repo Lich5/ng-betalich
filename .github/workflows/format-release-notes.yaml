@@ -106,8 +106,17 @@ jobs:
         env:
           BODY: ${{ steps.seed.outputs.body }}
           MODE: ${{ steps.seed.outputs.mode }}
+        TAG: ${{ steps.seed.outputs.tag }}
+          TAG: ${{ steps.seed.outputs.tag }}
         with:
           script: |
+            const mode = (process.env.MODE || 'stable').trim();
+            const tag  = (process.env.TAG || '').trim();
+            const CONTRACT_SHA = '95f8f517411f9058bc92706310677db8cbba97fbd296bc853f2181274cb0e8bb';
+            const expected = `<!-- FORMATTER:v1 sha=${CONTRACT_SHA} mode=${mode} tag=${tag} -->`;
+            // Skip only if this exact release-scoped sentinel is present
+            const already = (process.env.BODY || '').includes(expected);
+            core.setOutput('skip', already ? 'true' : 'false');          script: |
             const mode = (process.env.MODE || 'stable').trim();
             const re = new RegExp(`<!--\\s*FORMATTER:v1\\s+sha=.*\\s+mode=${mode}\\s*-->`);
             const already = re.test(process.env.BODY || '');
@@ -213,6 +222,61 @@ jobs:
           MODE: ${{ steps.seed.outputs.mode }}
         with:
           script: |
+            const CONTRACT_SHA = '95f8f517411f9058bc92706310677db8cbba97fbd296bc853f2181274cb0e8bb';
+            const seed = process.env.PR_BODY || '';
+            const version = process.env.VERSION || '';
+            const mode = (process.env.MODE || 'stable').trim();
+            const tag  = (process.env.TAG || '').trim();
+            const dt = process.env.PUBLISHED_AT ? new Date(process.env.PUBLISHED_AT) : new Date();
+            const yyyy = dt.getUTCFullYear();
+            const mm = String(dt.getUTCMonth()+1).padStart(2,'0');
+            const dd = String(dt.getUTCDate()).padStart(2,'0');
+            const headerLine = `Lich v${version} (${yyyy}-${mm}-${dd})`;
+
+            // 1) Remove any existing formatter sentinels and helper instruction (wherever they appear)
+            let cleaned = seed
+              .replace(/<!--\s*FORMATTER:v1[\s\S]*?-->/g, '')
+              .replace(/<!--\s*To force a manual edit update,[\s\S]*?-->/g, '');
+
+            // 2) Prepend release-scoped sentinel + human hint
+            const sentinel  = `<!-- FORMATTER:v1 sha=${CONTRACT_SHA} mode=${mode} tag=${tag} -->`;
+            const forceHint = `<!-- To force a manual edit update, remove the preceding sentinel line and save -->`;
+            const lines = cleaned.split(/\r?\n/);
+            lines.unshift(forceHint);
+            lines.unshift(sentinel);
+
+            // 3) Normalize first *content* line (skip blanks & HTML comments) to header
+            let i = 0;
+            while (i < lines.length && (/^\s*$/.test(lines[i]) || /^<!--.*-->\s*$/.test(lines[i]))) i++;
+            if (i >= lines.length) lines.push(headerLine);
+            else lines[i] = headerLine;
+            let body = lines.join('\n');
+
+            // 4) Drop Ellipsis block(s) if present
+            body = body.replace(/<!--\s*ELLIPSIS_HIDDEN\s*-->[\s\S]*?<!--\s*ELLIPSIS_HIDDEN\s*-->/g, '');
+
+            // 5) Drop RP credit/footer regardless of hr style (--- or * * *)
+            body = body.replace(/\n?(?:---|\* \* \*)\nThis PR wa...generated with \[Release Please\][\s\S]*?(\n{2,}|\s*$)/g, '\n');
+
+            // 6) Drop "This description was created by Ellipsis..." blocks if present
+            body = body.replace(/\n?This description was created by .*?ellipsis[\s\S]*?(\n{2,}|\s*$)/gi, '\n');
+
+            // 7) Convert PR links to plain (#123)
+            body = body.replace(/\[#(\d+)\]\([^)]+\)/g, '#$1');
+
+            // 8) Append custom footer (sentinel placed at top)
+            const footer = [
+              '',
+              'For additional usage/install instructions, please visit one of the following:',
+              '',
+              'DragonRealms - https://github.com/elanthia-online/lich-5/wiki/Documentation-for-Installing-and-Upgrading-Lich',
+              'Gemstone IV - https://gswiki.play.net/Lich:Software/Installation',
+              '',
+            ].join('\n');
+
+            // Trim trailing whitespace/newlines before appending
+            body = body.replace(/\s+$/,'') + '\n\n' + footer + '\n';
+            core.setOutput('final', body);          script: |
             const CONTRACT_SHA = '95f8f517411f9058bc92706310677db8cbba97fbd296bc853f2181274cb0e8bb';
             const seed = process.env.PR_BODY || '';
             const version = process.env.VERSION || '';
