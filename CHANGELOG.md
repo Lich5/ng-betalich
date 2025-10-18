@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.12.12](https://github.com/Lich5/ng-betalich/compare/v5.12.11...v5.12.12) (2025-10-18)
+
+
+### Bug Fixes
+
+* **all:** add simplified DB maintenance ([#12](https://github.com/Lich5/ng-betalich/issues/12)) ([5d26ff3](https://github.com/Lich5/ng-betalich/commit/5d26ff39035df7ccf52e106762f4c104532443e3))
+
 ## [5.12.11](https://github.com/Lich5/ng-betalich/compare/v5.12.10...v5.12.11) (2025-10-17)
 
 
