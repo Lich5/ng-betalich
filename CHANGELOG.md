@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.12.13](https://github.com/Lich5/ng-betalich/compare/v5.12.12...v5.12.13) (2025-10-18)
+
+
+### Bug Fixes
+
+* **gs:** Add Armaments (Weapon, Armor, and Shield) Module ([#9](https://github.com/Lich5/ng-betalich/issues/9)) ([db598b9](https://github.com/Lich5/ng-betalich/commit/db598b975c0d35c3e75a5039b847f54c25d5def5))
+* **gs:** match READY/STOW items with a/an/some inside the link ([#8](https://github.com/Lich5/ng-betalich/issues/8)) ([1095be4](https://github.com/Lich5/ng-betalich/commit/1095be4d4d60e265a7692853f33dfe29c8070126))
+
 ## [5.12.12](https://github.com/Lich5/ng-betalich/compare/v5.12.11...v5.12.12) (2025-10-18)
 
 
