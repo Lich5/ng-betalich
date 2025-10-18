@@ -162,6 +162,7 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
           target-branch: ${{ inputs.target_branch || github.ref_name || 'main' }}
+          skip-github-release: true
 
       # PR body and Release body formatting are handled by:
       #  - format-pr-body-stable.yml  (PR body)
