@@ -107,11 +107,12 @@ runs:
           let waited = 0;
           let backoffMs = waitInitial * 1000;
           while (!body.includes(ELLIPSIS_MARK) && waited < waitTotal * 1000) {
-            await sleep(Math.min(backoffMs, waitTotal * 1000 - waited));
+            const actualSleep = Math.min(backoffMs, waitTotal * 1000 - waited);  // CAPTURE the actual duration
+            await sleep(actualSleep);
             pr = await getPR();
             body = pr.body || '';
-            waited += backoffMs;
-            backoffMs = Math.min(backoffMs * 1.5, waitMax * 1000); // Exponential backoff, capped
+            waited += actualSleep;  // Use ACTUAL, not intended
+            backoffMs = Math.min(backoffMs * 1.5, waitMax * 1000);
           }
 
           // Fast-fail: If Ellipsis never appeared but we hit timeout, log and continue
