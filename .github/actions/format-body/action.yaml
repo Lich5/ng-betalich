@@ -121,6 +121,9 @@ runs:
           }
 
           // ----- Smart sentinel short-circuit -----
+          // Output contract: 'skip' is a string boolean ('true' when sentinel is present)
+          // - When 'true': PR already formatted, skip the update step
+          // - When missing/absent: proceed with formatting update
           const idxSent = body.indexOf(sentinelTag);
           const idxEll  = body.indexOf(ELLIPSIS_MARK);
           if (idxSent >= 0 && (idxEll < 0 || (idxEll >= 0 && idxEll < idxSent))) {
