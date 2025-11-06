@@ -175,23 +175,8 @@ resolve_conflicts_union() {
     fi
 
     # Stage the resolved file
-    # git add should clear conflict state (stages 1/2/3) and stage the file
     log_debug "Staging resolved file: $file"
-    if git add "$file" 2>&1; then
-      log_debug "git add succeeded for $file"
-      # Verify it's actually staged
-      if git diff --cached --quiet --exit-code -- "$file" 2>/dev/null; then
-        log_warn "File $file not staged despite successful git add!"
-        # Try alternative: explicitly checkout the file first
-        cp "$file" "$file.backup"
-        git checkout --ours "$file" 2>/dev/null || true
-        cat "$file.backup" > "$file"
-        rm -f "$file.backup"
-        git add -f "$file"
-      fi
-    else
-      log_warn "git add failed for $file with exit code $?"
-    fi
+    git add "$file"
 
     # Analyze and log conflict details
     log_conflict_summary "$file"
