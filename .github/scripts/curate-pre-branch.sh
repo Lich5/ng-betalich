@@ -333,6 +333,13 @@ validate_syntax() {
   source "${SCRIPT_DIR}/strategies/syntax/json.sh"
   validate_json_syntax || exit_code=$?
 
+  # Run Rubocop only when union merge was used
+  if [[ "$USE_UNION" == "true" ]]; then
+    # shellcheck source=.github/scripts/strategies/syntax/rubocop.sh
+    source "${SCRIPT_DIR}/strategies/syntax/rubocop.sh"
+    validate_rubocop || exit_code=$?
+  fi
+
   log_endgroup
 
   return $exit_code
@@ -342,7 +349,7 @@ validate_syntax() {
 # PUSH
 # ===========================================================================
 
-push_branch() {
+push_destination_branch() {
   log_group "Pushing branch"
 
   if [[ "$DRY_RUN_SAFE" == "true" ]]; then
@@ -352,6 +359,7 @@ push_branch() {
     if [[ "$RESET_SAFE" == "true" ]]; then
       push_branch_force_lease "$DEST_SAFE"
     else
+      # Call git-helpers function (not recursive)
       push_branch "$DEST_SAFE"
     fi
   fi
@@ -409,7 +417,7 @@ main() {
   create_prerelease_tag
   process_prs
   validate_syntax
-  push_branch
+  push_destination_branch
   generate_report
 
   log_info "Curation complete"
