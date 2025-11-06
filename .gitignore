@@ -5,6 +5,7 @@ dist/
 logs/
 maps/
 scripts/
+!.github/scripts/
 temp/
 jinxp
 .pre-commit-config.yaml
@@ -17,7 +18,6 @@ R4LGTK3.iss
 .DS_Store
 # handle symlinks since these are files on *nix
 data
-scripts
 .vscode
 .claude/
 CLAUDE.md
