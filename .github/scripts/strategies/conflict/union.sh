@@ -85,6 +85,13 @@ parse_and_resolve_conflicts() {
     fi
   done < "$file"
 
+  # Validate that all conflicts were properly closed
+  if [[ "$in_conflict" == "true" ]]; then
+    log_error "Malformed conflict markers in $file (unclosed conflict region)"
+    rm -f "$temp_resolved" "$temp_audit"
+    return 1
+  fi
+
   # Replace original file with resolved version
   mv "$temp_resolved" "$file"
 
@@ -136,7 +143,19 @@ resolve_conflicts_union() {
     # We parse those markers to find minimal conflict regions
     if git_stage_exists 1 "$file"; then
       # Three-way merge: parse conflict markers intelligently
-      parse_and_resolve_conflicts "$file"
+      if ! parse_and_resolve_conflicts "$file"; then
+        log_error "Failed to parse conflicts in $file, falling back to theirs"
+        checkout_stage theirs "$file"
+
+        # Create audit trail showing fallback
+        {
+          echo "<<<<<<< OURS"
+          echo "(parse failed - used theirs)"
+          echo "======="
+          git_show_stage 3 "$file"
+          echo ">>>>>>> THEIRS"
+        } > "${file}.union-merge"
+      fi
     else
       # No merge base: fallback to theirs
       log_debug "No merge base for $file, using theirs"
