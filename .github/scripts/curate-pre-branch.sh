@@ -299,17 +299,42 @@ handle_merge_conflict() {
 
   if [[ "$USE_UNION" == "true" ]]; then
     log_warn "Resolving merge conflicts for $context"
+
+    # Show git status BEFORE resolution
+    log_debug "Git status before conflict resolution:"
+    git status --short 2>&1 | head -20 | while read -r line; do log_debug "  $line"; done
+
     resolve_conflicts_union "$context"
+
+    # Show git status AFTER resolution
+    log_debug "Git status after conflict resolution:"
+    git status --short 2>&1 | head -20 | while read -r line; do log_debug "  $line"; done
+
+    # Check if resolved files still have conflict markers
+    log_debug "Checking for remaining conflict markers:"
+    if git diff --check 2>&1 | grep -i conflict; then
+      log_warn "WARNING: Files still contain conflict markers!"
+    fi
 
     # After resolving conflicts in a squash merge, stage ALL modified files
     # git merge --squash doesn't stage anything when it fails with conflicts
     log_debug "Staging all modified files after conflict resolution"
-    git add -u
+    git add -u 2>&1 | tee -a /dev/stderr
 
-    log_debug "Staged files:"
-    git diff --cached --name-only | while read -r f; do
-      log_debug "  - $f"
-    done
+    # Check if files are actually staged
+    log_debug "Staged files after git add -u:"
+    local staged_files
+    staged_files="$(git diff --cached --name-status)"
+    if [[ -n "$staged_files" ]]; then
+      echo "$staged_files" | head -20 | while read -r f; do log_debug "  $f"; done
+      log_debug "Staging successful - $(echo "$staged_files" | wc -l) file(s) staged"
+    else
+      log_warn "No files in staging area after git add -u!"
+    fi
+
+    # Final status check
+    log_debug "Final git status before commit:"
+    git status 2>&1 | head -30 | while read -r line; do log_debug "  $line"; done
   else
     merge_abort
     die "Merge conflicts for $context. Use conflict_strategy=union or fix manually."
