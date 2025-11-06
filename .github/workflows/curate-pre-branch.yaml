@@ -78,11 +78,23 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+
       - name: Install dependencies
         run: |
+          # Install jq for JSON parsing
           if ! command -v jq >/dev/null 2>&1; then
             sudo apt-get update -qq
             sudo apt-get install -y jq
+          fi
+
+          # Install rubocop for union merge validation
+          if ! command -v rubocop >/dev/null 2>&1; then
+            gem install rubocop
           fi
 
       - name: Curate pre-branch

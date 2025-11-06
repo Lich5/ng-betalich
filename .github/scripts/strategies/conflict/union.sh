@@ -77,14 +77,48 @@ resolve_conflicts_union() {
 
     stage_file "$file"
 
-    # Log preview
+    # Log conflict details with markers
     {
-      echo "  <details><summary>Preview (first 20 lines)</summary>"
       echo ""
-      echo '  ```'
-      head -n 20 "$file" 2>/dev/null || echo "  (binary/unreadable)"
-      echo '  ```'
-      echo "  </details>"
+
+      # Show the conflict with markers (best for review)
+      if [[ -f "${file}.union-merge" ]]; then
+        echo "<details><summary>📋 Click to see conflict details</summary>"
+        echo ""
+        echo '```diff'
+
+        # Show reasonable amount (100 lines is usually enough)
+        local line_count
+        line_count=$(wc -l < "${file}.union-merge")
+
+        if [[ $line_count -le 100 ]]; then
+          cat "${file}.union-merge"
+        else
+          head -n 100 "${file}.union-merge"
+          echo ""
+          echo "... truncated (showing 100 of $line_count lines)"
+          echo ""
+          # Show where conflict markers are for navigation
+          local ours_line theirs_line
+          ours_line=$(grep -n "<<<<<<< OURS" "${file}.union-merge" | head -1 | cut -d: -f1 || echo 'unknown')
+          theirs_line=$(grep -n ">>>>>>> THEIRS" "${file}.union-merge" | tail -1 | cut -d: -f1 || echo 'unknown')
+          echo "Conflict markers at lines: $ours_line (OURS) to $theirs_line (THEIRS)"
+        fi
+
+        echo '```'
+        echo ""
+        echo "</details>"
+      else
+        # Fallback if union-merge file doesn't exist
+        echo "<details><summary>📋 Click to see resolved result</summary>"
+        echo ""
+        echo '```'
+        head -n 50 "$file" 2>/dev/null || echo "(binary/unreadable)"
+        echo '```'
+        echo ""
+        echo "</details>"
+      fi
+
       echo ""
     } >> "$CONFLICT_LOG_FILE"
   done <<< "$conflicts"
