@@ -87,16 +87,19 @@ parse_and_resolve_conflicts() {
 
   # Validate that all conflicts were properly closed
   if [[ "$in_conflict" == "true" ]]; then
-    log_error "Malformed conflict markers in $file (unclosed conflict region)"
+    log_warn "Malformed conflict markers in $file (unclosed conflict region)"
     rm -f "$temp_resolved" "$temp_audit"
     return 1
   fi
 
   # Replace original file with resolved version
-  mv "$temp_resolved" "$file"
+  # Use cat instead of mv to preserve file tracking
+  cat "$temp_resolved" > "$file"
+  rm -f "$temp_resolved"
 
   # Save audit trail
-  mv "$temp_audit" "${file}.union-merge"
+  cat "$temp_audit" > "${file}.union-merge"
+  rm -f "$temp_audit"
 
   return 0
 }
@@ -144,7 +147,7 @@ resolve_conflicts_union() {
     if git_stage_exists 1 "$file"; then
       # Three-way merge: parse conflict markers intelligently
       if ! parse_and_resolve_conflicts "$file"; then
-        log_error "Failed to parse conflicts in $file, falling back to theirs"
+        log_warn "Failed to parse conflicts in $file, falling back to theirs"
         checkout_stage theirs "$file"
 
         # Create audit trail showing fallback
@@ -172,36 +175,7 @@ resolve_conflicts_union() {
     fi
 
     # Stage the resolved file
-    # Note: git add should automatically resolve conflict state (removes stages 1/2/3)
-    log_debug "Staging resolved file: $file"
-
-    # Verify file exists and is readable
-    if [[ ! -f "$file" ]]; then
-      log_error "File $file does not exist after conflict resolution!"
-      continue
-    fi
-
-    if [[ ! -r "$file" ]]; then
-      log_error "File $file is not readable after conflict resolution!"
-      ls -la "$file" >&2
-      continue
-    fi
-
-    # Stage the file
-    if ! git add "$file" 2>&1 | tee -a "${GITHUB_STEP_SUMMARY:-/dev/stderr}"; then
-      log_error "git add failed for $file"
-    fi
-
-    # Verify staging succeeded
-    if git diff --cached --name-only | grep -qF "$file"; then
-      log_debug "Successfully staged $file"
-    else
-      log_error "File $file not in staging area after git add!"
-      log_debug "Git status for file:"
-      git status "$file" 2>&1 | tee -a "${GITHUB_STEP_SUMMARY:-/dev/stderr}"
-      log_debug "Git diff-index:"
-      git diff-index --cached HEAD "$file" 2>&1 | tee -a "${GITHUB_STEP_SUMMARY:-/dev/stderr}" || true
-    fi
+    stage_file "$file"
 
     # Analyze and log conflict details
     log_conflict_summary "$file"
