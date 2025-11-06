@@ -155,7 +155,9 @@ create_commit() {
 # List commits in range
 list_commits() {
   local range="$1"
-  git rev-list --reverse --no-merges "$range"
+  # Don't quote $range to allow multiple arguments (e.g., "^HEAD branch")
+  # shellcheck disable=SC2086
+  git rev-list --reverse --no-merges $range
 }
 
 # Show git object at stage
