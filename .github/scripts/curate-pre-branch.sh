@@ -300,6 +300,16 @@ handle_merge_conflict() {
   if [[ "$USE_UNION" == "true" ]]; then
     log_warn "Resolving merge conflicts for $context"
     resolve_conflicts_union "$context"
+
+    # After resolving conflicts in a squash merge, stage ALL modified files
+    # git merge --squash doesn't stage anything when it fails with conflicts
+    log_debug "Staging all modified files after conflict resolution"
+    git add -u
+
+    log_debug "Staged files:"
+    git diff --cached --name-only | while read -r f; do
+      log_debug "  - $f"
+    done
   else
     merge_abort
     die "Merge conflicts for $context. Use conflict_strategy=union or fix manually."
