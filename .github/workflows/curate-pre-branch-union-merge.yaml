@@ -1,0 +1,573 @@
+name: Curate Pre Branch (Cherry-pick PRs with Union Merge)
+# Purpose: curate a prerelease branch (e.g., pre/beta or pre/beta/<slug>) from a clean base,
+#          then cherry-pick or squash-merge selected PRs for prerelease testing.
+#
+# NEW IN THIS VERSION:
+#   - Implements working 'both' (union merge) conflict strategy
+#   - Adds syntax validation after conflict resolution
+#   - Includes dry-run mode for testing
+#   - Enhanced error handling and reporting
+#
+# ⚠️  WARNING: Union merge is EXPERIMENTAL and may produce broken code!
+#     Always review the conflict resolution summary before deploying.
+#
+# Footguns guarded here:
+#   - Targeting main (blocked).
+#   - Using a base other than main (blocked).
+#   - Non-pre/beta destinations (normalized/blocked).
+#   - Unsafe destination names (../ or whitespace) (blocked).
+#   - History reset is opt-in via reset_destination=true (destroys existing dest history).
+#   - Union merge is opt-in and includes validation steps.
+#
+# Inputs overview:
+#   - prs: comma-separated PR numbers (digits only).
+#   - mode: auto (prefer merge commit if merged), merged (force merge commit), head (use PR head).
+#   - squash: true to squash PR heads to one commit; false preserves commit history.
+#   - conflict_strategy: abort (default), ours, theirs, both (union merge - EXPERIMENTAL).
+#   - dry_run: true to preview changes without pushing.
+
+on:
+  workflow_dispatch:
+    inputs:
+      destination:
+        description: "Destination pre branch (e.g., pre/beta)"
+        required: true
+        default: "pre/beta"
+      base:
+        description: "Base branch to start from"
+        required: true
+        default: "main"
+      prs:
+        description: "Comma-separated PR numbers to include (e.g., 12,27,43)"
+        required: true
+      mode:
+        description: "auto | merged | head (how to source commits)"
+        required: true
+        default: "auto"
+      squash:
+        description: "Squash multi-commit PRs into one commit on the pre branch? (true/false)"
+        required: true
+        default: "true"
+      conflict_strategy:
+        description: "abort | ours | theirs | both (EXPERIMENTAL: union merge)"
+        required: true
+        default: "abort"
+      reset_destination:
+        description: "Force-create destination from base (discard existing history)? (true/false)"
+        required: true
+        default: "false"
+      dry_run:
+        description: "Preview changes without pushing? (true/false)"
+        required: true
+        default: "false"
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: curate-${{ github.ref }}-${{ github.event.inputs.destination }}
+  cancel-in-progress: true
+
+jobs:
+  curate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Guard validate destination and base
+        id: guard_validate
+        shell: bash
+        env:
+          RAW_DEST: ${{ inputs.destination }}
+          RAW_BASE: ${{ inputs.base }}
+        run: |
+          set -euo pipefail
+          die(){ echo "::error::$*"; exit 1; }
+          norm(){ local s="$1"; s="${s#refs/heads/}"; s="$(echo "$s" | tr -d '[:space:]')"; s="${s%/}"; echo "$s"; }
+
+          DEST="$(norm "$RAW_DEST")"
+          BASE="$(norm "$RAW_BASE")"
+
+          case "$BASE" in
+            main) ;;
+            *) die "Invalid base '$BASE'. Only 'main' is allowed." ;;
+          esac
+
+          if [[ "$DEST" =~ (\.\.|[[:space:]]) ]]; then
+            die "Destination '$DEST' contains illegal sequences."
+          fi
+
+          if [[ "$DEST" != pre/beta && "$DEST" != pre/beta/* ]]; then
+            if [[ "$DEST" =~ ^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$ ]]; then
+              echo "Shaping '$DEST' => 'pre/beta/$DEST'"
+              DEST="pre/beta/$DEST"
+            else
+              die "Destination '$DEST' must be 'pre/beta' or 'pre/beta/<slug>'."
+            fi
+          fi
+
+          printf 'DEST_SAFE=%s\n' "$DEST" >> "$GITHUB_ENV"
+          printf 'BASE_SAFE=%s\n' "$BASE" >> "$GITHUB_ENV"
+          printf 'dest_safe=%s\n' "$DEST" >> "$GITHUB_OUTPUT"
+          printf 'base_safe=%s\n' "$BASE" >> "$GITHUB_OUTPUT"
+
+      - name: Guard refuse to curate into main
+        shell: bash
+        env:
+          DEST_SAFE: ${{ steps.guard_validate.outputs.dest_safe }}
+        run: |
+          if [ "$DEST_SAFE" = "main" ]; then
+            echo "::error::Refusing to curate into 'main'."
+            exit 1
+          fi
+
+      - name: Guard validate PR list
+        shell: bash
+        env:
+          RAW_PRS: ${{ inputs.prs }}
+        run: |
+          set -euo pipefail
+          if [ -z "$RAW_PRS" ]; then
+            echo "::error::'prs' input is required"; exit 1
+          fi
+          if ! printf '%s' "$RAW_PRS" | grep -Eq '^[0-9]+( *[,]+ *[0-9]+)*$'; then
+            echo "::error::'prs' must be a comma-separated list of PR numbers (digits only)"; exit 1
+          fi
+          # Normalize: remove spaces and duplicates
+          PRS_SAFE="$(printf '%s' "$RAW_PRS" | tr -d ' ' | awk -F, '{
+            n=split($0,a,","); delete seen; out="";
+            for(i=1;i<=n;i++){ if(!(a[i] in seen)){ seen[a[i]]=1; out=(out?out",":""); out=out a[i]; } }
+            print out }')"
+          printf 'PRS_SAFE=%s\n' "$PRS_SAFE" >> "$GITHUB_ENV"
+
+      - name: Ensure required tools
+        run: |
+          if ! command -v jq >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y jq
+          fi
+
+      - name: Configure bot identity
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Initialize conflict tracking
+        run: |
+          echo "CONFLICT_LOG_FILE=$(mktemp)" >> "$GITHUB_ENV"
+          echo "HAD_CONFLICTS=false" >> "$GITHUB_ENV"
+
+      - name: Create union merge resolver script
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/union-resolve.sh" <<'RESOLVER_EOF'
+          #!/usr/bin/env bash
+          # union-resolve.sh - Implements union merge conflict resolution
+          # Usage: resolve_conflicts_both [pr_context]
+
+          resolve_conflicts_both() {
+            local pr_context="${1:-}"
+            local conflicts
+            conflicts="$(git diff --name-only --diff-filter=U 2>/dev/null || true)"
+
+            if [ -z "$conflicts" ]; then
+              echo "No conflicts detected during resolution attempt."
+              return 0
+            fi
+
+            echo "HAD_CONFLICTS=true" >> "$GITHUB_ENV"
+
+            # Write conflict context header
+            if [ -n "$pr_context" ]; then
+              {
+                echo ""
+                echo "## 🔀 Conflict Resolution: PR #${pr_context}"
+                echo ""
+                echo "### Files with conflicts (union merged):"
+              } >> "$CONFLICT_LOG_FILE"
+            fi
+
+            local file
+            while IFS= read -r file; do
+              [ -z "$file" ] && continue
+
+              echo "  Resolving conflict in: $file"
+              echo "- \`$file\`" >> "$CONFLICT_LOG_FILE"
+
+              # Attempt union merge: keep both sides
+              if git show :1:"$file" > /dev/null 2>&1; then
+                # Three-way merge available
+                {
+                  echo "<<<<<<< OURS (current branch)"
+                  git show :2:"$file" 2>/dev/null || echo "(deleted in ours)"
+                  echo "======="
+                  git show :3:"$file" 2>/dev/null || echo "(deleted in theirs)"
+                  echo ">>>>>>> THEIRS (incoming changes)"
+                } > "${file}.union-merge"
+
+                # Simple union: concatenate both sides (removes conflict markers)
+                {
+                  git show :2:"$file" 2>/dev/null || true
+                  git show :3:"$file" 2>/dev/null || true
+                } > "$file"
+              else
+                # Fallback: accept theirs if no common ancestor
+                git checkout --theirs "$file" 2>/dev/null || true
+              fi
+
+              git add "$file"
+
+              # Log a sample of the conflict for review
+              {
+                echo ""
+                echo "  **Location preview:**"
+                echo '  ```'
+                head -n 20 "$file" 2>/dev/null || echo "  (binary or unreadable file)"
+                echo '  ```'
+                echo ""
+              } >> "$CONFLICT_LOG_FILE"
+            done <<< "$conflicts"
+
+            echo "Union merge completed for $(echo "$conflicts" | wc -l) file(s)"
+            return 0
+          }
+          RESOLVER_EOF
+
+          chmod +x "$RUNNER_TEMP/union-resolve.sh"
+
+      - name: Prepare destination branch
+        env:
+          DEST: ${{ steps.guard_validate.outputs.dest_safe }}
+          BASE: ${{ steps.guard_validate.outputs.base_safe }}
+          RESET: ${{ inputs.reset_destination }}
+          STRAT: ${{ inputs.conflict_strategy }}
+        run: |
+          set -euo pipefail
+          git fetch origin "$BASE"
+
+          if [ "$RESET" = "true" ]; then
+            git checkout -B "$DEST" "origin/$BASE"
+          else
+            if git ls-remote --exit-code --heads origin "$DEST" >/dev/null 2>&1; then
+              git fetch origin "$DEST"
+              git checkout "$DEST"
+
+              # Preserve train ancestry: try a no-ff merge
+              git merge --no-ff --no-edit "origin/$BASE" || {
+                conflicts="$(git diff --name-only --diff-filter=U || true)"
+                echo "::group::Merge conflicts while syncing $DEST with origin/$BASE"
+
+                if [ -n "$conflicts" ]; then
+                  while IFS= read -r f; do
+                    [ -n "$f" ] && echo "::warning file=$f::merge conflict in $f"
+                  done <<< "$conflicts"
+
+                  {
+                    echo "### Merge conflicts detected while syncing \`$DEST\` with \`origin/$BASE\`"
+                    printf '%s\n' "$conflicts" | awk '{print "- " $0}'
+                  } >> "$GITHUB_STEP_SUMMARY"
+
+                  # If strategy is 'both', resolve via union merge
+                  if [ "$STRAT" = "both" ] && [ -n "$conflicts" ]; then
+                    echo "HAD_CONFLICTS=true" >> "$GITHUB_ENV"
+                    {
+                      echo "## 🔀 Base Sync Conflict Resolution (Union Merge)"
+                      echo "**Operation:** Syncing \`$DEST\` with \`origin/$BASE\`"
+                      echo ""
+                      echo "### Files with conflicts:"
+                    } >> "$CONFLICT_LOG_FILE"
+
+                    # shellcheck source=/dev/null
+                    . "$RUNNER_TEMP/union-resolve.sh"
+                    resolve_conflicts_both
+                    git commit --no-edit -m "chore: sync base (union merge via workflow)"
+                  else
+                    git merge --abort || true
+                    echo "::error::Merge conflicts detected. Use conflict_strategy=both to auto-resolve or fix manually."
+                    exit 1
+                  fi
+                else
+                  echo "::warning::Merge failed but no conflicted files detected."
+                  git merge --abort || true
+                  exit 1
+                fi
+                echo "::endgroup::"
+              }
+            else
+              git checkout -B "$DEST" "origin/$BASE"
+            fi
+          fi
+
+      - name: Create prerelease base tag
+        shell: bash
+        env:
+          DEST: ${{ steps.guard_validate.outputs.dest_safe }}
+          BASE: ${{ steps.guard_validate.outputs.base_safe }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          git fetch --tags origin
+          BASE_SHA=$(git rev-parse "origin/${BASE}")
+          TAG="prebeta-base/${DEST}"
+          echo "Tagging $TAG at $BASE_SHA"
+          git tag -f "$TAG" "$BASE_SHA"
+
+          if [ "$DRY_RUN" != "true" ]; then
+            git push -f origin "refs/tags/$TAG"
+          else
+            echo "[DRY-RUN] Would push tag: $TAG"
+          fi
+
+      - name: Cherry-pick PRs with conflict resolution
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          DEST: ${{ steps.guard_validate.outputs.dest_safe }}
+          PRS:  ${{ inputs.prs }}
+          MODE: ${{ inputs.mode }}
+          SQUASH: ${{ inputs.squash }}
+          STRAT: ${{ inputs.conflict_strategy }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Set conflict strategy flags
+          case "$STRAT" in
+            ours)   XFLAG="-X ours";   USE_BOTH=0 ;;
+            theirs) XFLAG="-X theirs"; USE_BOTH=0 ;;
+            both)   XFLAG="";          USE_BOTH=1 ;;
+            *)      XFLAG="";          USE_BOTH=0 ;;
+          esac
+
+          # API helper
+          api() {
+            curl -sS -H "Authorization: Bearer $GITHUB_TOKEN" \
+                 -H "Accept: application/vnd.github+json" \
+                 -H "X-GitHub-Api-Version: 2022-11-28" "$@"
+          }
+
+          # Load union merge resolver
+          # shellcheck source=/dev/null
+          . "$RUNNER_TEMP/union-resolve.sh"
+
+          # Execute git command with conflict resolution
+          run_with_conflict_resolution() {
+            local pr_context="$1"
+            local continue_cmd="$2"
+            shift 2
+
+            set +e
+            "$@"
+            local status=$?
+            set -e
+
+            if [ $status -ne 0 ]; then
+              if [ "$USE_BOTH" -eq 1 ]; then
+                echo "Conflict detected, applying union merge strategy..."
+                resolve_conflicts_both "$pr_context"
+                if [ -n "$continue_cmd" ]; then
+                  eval "$continue_cmd" || {
+                    echo "::error::Failed to continue after conflict resolution"
+                    exit 1
+                  }
+                fi
+              else
+                echo "::error::Command failed with status $status"
+                return $status
+              fi
+            fi
+          }
+
+          # Ensure PR trailer in commit message
+          with_pr_trailer() {
+            local title="$1" pr="$2"
+            if printf '%s' "$title" | grep -Eq '\(#?[0-9]+\)$'; then
+              printf '%s\n' "$title"
+            else
+              printf '%s (#%s)\n' "$title" "$pr"
+            fi
+          }
+
+          # Process each PR
+          LIST="${PRS_SAFE:-$PRS}"
+          IFS=',' read -ra ARR <<< "$LIST"
+
+          for N in "${ARR[@]}"; do
+            N=$(echo "$N" | xargs)
+            echo "::group::PR #$N"
+
+            PR_JSON=$(api "https://api.github.com/repos/$REPO/pulls/$N")
+            STATE=$(echo "$PR_JSON"     | jq -r '.state')
+            MERGED=$(echo "$PR_JSON"    | jq -r '.merged')
+            MERGE_SHA=$(echo "$PR_JSON" | jq -r '.merge_commit_sha')
+            TITLE=$(echo "$PR_JSON"     | jq -r '.title')
+            SUBJECT=$(with_pr_trailer "$TITLE" "$N")
+
+            # Handle merged PRs
+            if [ "$MODE" = "merged" ] || { [ "$MODE" = "auto" ] && [ "$MERGED" = "true" ] && [ "$MERGE_SHA" != "null" ]; }; then
+              echo "Cherry-picking MERGED PR #$N commit $MERGE_SHA"
+
+              run_with_conflict_resolution "$N" "git cherry-pick --continue" \
+                git cherry-pick -x $XFLAG "$MERGE_SHA"
+
+              BODY="$(git log -1 --pretty=%b HEAD || true)"
+              if [ -n "$BODY" ]; then
+                git commit --amend -m "$SUBJECT" -m "$BODY"
+              else
+                git commit --amend -m "$SUBJECT"
+              fi
+
+              echo "::endgroup::"
+              continue
+            fi
+
+            # Handle open PRs
+            echo "Cherry-picking OPEN PR #$N head"
+            git fetch origin "pull/$N/head:pr-$N"
+
+            if [ "$SQUASH" = "true" ]; then
+              echo "  - Squashing with templated commit subject"
+
+              run_with_conflict_resolution "$N" "" \
+                git merge --squash $XFLAG "pr-$N"
+
+              git commit -m "$SUBJECT" || {
+                echo "::error::Failed to commit squashed changes for PR #$N"
+                exit 1
+              }
+            else
+              echo "  - Cherry-picking each commit (preserving history)"
+
+              for C in $(git rev-list --reverse --no-merges ^HEAD "pr-$N"); do
+                run_with_conflict_resolution "$N" "git cherry-pick --continue" \
+                  git cherry-pick -x $XFLAG "$C"
+              done
+            fi
+
+            echo "::endgroup::"
+          done
+
+      - name: Validate syntax after conflict resolution
+        if: env.HAD_CONFLICTS == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "::group::Syntax Validation"
+
+          # Ruby syntax check
+          echo "Checking Ruby syntax..."
+          find . -name "*.rb" -not -path "./.git/*" -type f | while read -r file; do
+            if ! ruby -c "$file" >/dev/null 2>&1; then
+              echo "::error file=$file::Syntax error in $file"
+              ruby -c "$file" || true
+            fi
+          done
+
+          # YAML syntax check
+          echo "Checking YAML syntax..."
+          find . -name "*.yml" -o -name "*.yaml" -not -path "./.git/*" -type f | while read -r file; do
+            if ! ruby -e "require 'yaml'; YAML.load_file('$file')" >/dev/null 2>&1; then
+              echo "::warning file=$file::Potential YAML syntax issue in $file"
+            fi
+          done
+
+          # JSON syntax check
+          echo "Checking JSON syntax..."
+          find . -name "*.json" -not -path "./.git/*" -type f | while read -r file; do
+            if ! jq empty "$file" >/dev/null 2>&1; then
+              echo "::error file=$file::JSON syntax error in $file"
+              jq empty "$file" || true
+            fi
+          done
+
+          echo "::endgroup::"
+          echo "Syntax validation completed. Review warnings above."
+
+      - name: Push destination branch
+        env:
+          DEST: ${{ steps.guard_validate.outputs.dest_safe }}
+          RESET: ${{ inputs.reset_destination }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "::notice::[DRY-RUN] Would push to: $DEST"
+            echo "::group::Git Log Preview"
+            git log --oneline -10
+            echo "::endgroup::"
+            exit 0
+          fi
+
+          if [ "$RESET" = "true" ]; then
+            git push --force-with-lease origin "$DEST"
+          else
+            git push origin "$DEST"
+          fi
+
+      - name: Report conflict resolutions
+        if: always()
+        env:
+          STRAT: ${{ inputs.conflict_strategy }}
+        run: |
+          if [ "$HAD_CONFLICTS" = "true" ] && [ "$STRAT" = "both" ]; then
+            {
+              echo ""
+              echo "---"
+              echo ""
+              echo "# ⚠️ MANUAL REVIEW REQUIRED"
+              echo ""
+              echo "The workflow used **union merge** strategy to automatically resolve conflicts."
+              echo "**This is EXPERIMENTAL and may have introduced syntax errors or logic issues.**"
+              echo ""
+              echo "## Required Actions:"
+              echo "1. Review all conflicted files listed below"
+              echo "2. Run full test suite before deploying"
+              echo "3. Manually inspect union-merged code sections"
+              echo ""
+              echo "---"
+              echo ""
+              cat "$CONFLICT_LOG_FILE"
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            echo "::warning::Union merge strategy was used. MANUAL REVIEW REQUIRED before deployment!"
+          fi
+
+      - name: Summary
+        if: always()
+        env:
+          DEST: ${{ steps.guard_validate.outputs.dest_safe }}
+          BASE: ${{ steps.guard_validate.outputs.base_safe }}
+          PRS:  ${{ inputs.prs }}
+          STRAT: ${{ inputs.conflict_strategy }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          {
+            echo "### Curate Pre Branch Results"
+            echo ""
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "**Mode:** 🧪 DRY-RUN (no changes pushed)"
+            else
+              echo "**Mode:** ✅ Live (changes pushed)"
+            fi
+            echo "- **Destination:** \`$DEST\`"
+            echo "- **Base:** \`$BASE\`"
+            echo "- **PRs included:** $PRS"
+            echo "- **Conflict strategy:** $STRAT"
+
+            if [ "$HAD_CONFLICTS" = "true" ] && [ "$STRAT" = "both" ]; then
+              echo "- **⚠️ Conflicts auto-resolved:** Yes (see warnings above)"
+              echo ""
+              echo "### 🚨 Next Steps (IMPORTANT)"
+              echo "1. Review conflict resolutions in detail above"
+              echo "2. Run full test suite: \`bundle exec rspec\`"
+              echo "3. Manual code review of all conflicted files"
+              echo "4. If tests pass and code looks good, proceed with **Prepare Pre-release**"
+            else
+              echo "- **Conflicts:** None"
+              echo ""
+              echo "### Next Steps"
+              echo "Run **Prepare Pre-release** targeting \`$DEST\`"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
