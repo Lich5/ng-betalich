@@ -321,11 +321,15 @@ handle_merge_conflict() {
     log_debug "Staging all modified files after conflict resolution"
     git add -u 2>&1 | tee -a /dev/stderr
 
+    # Check if files are actually staged
     log_debug "Staged files after git add -u:"
-    if git diff --cached --name-status | head -20 | while read -r f; do log_debug "  $f"; done; then
-      log_debug "Staging successful"
+    local staged_files
+    staged_files="$(git diff --cached --name-status)"
+    if [[ -n "$staged_files" ]]; then
+      echo "$staged_files" | head -20 | while read -r f; do log_debug "  $f"; done
+      log_debug "Staging successful - $(echo "$staged_files" | wc -l) file(s) staged"
     else
-      log_warn "No files in staging area!"
+      log_warn "No files in staging area after git add -u!"
     fi
 
     # Final status check
