@@ -171,7 +171,37 @@ resolve_conflicts_union() {
       } > "${file}.union-merge"
     fi
 
-    stage_file "$file"
+    # Stage the resolved file
+    # Note: git add should automatically resolve conflict state (removes stages 1/2/3)
+    log_debug "Staging resolved file: $file"
+
+    # Verify file exists and is readable
+    if [[ ! -f "$file" ]]; then
+      log_error "File $file does not exist after conflict resolution!"
+      continue
+    fi
+
+    if [[ ! -r "$file" ]]; then
+      log_error "File $file is not readable after conflict resolution!"
+      ls -la "$file" >&2
+      continue
+    fi
+
+    # Stage the file
+    if ! git add "$file" 2>&1 | tee -a "${GITHUB_STEP_SUMMARY:-/dev/stderr}"; then
+      log_error "git add failed for $file"
+    fi
+
+    # Verify staging succeeded
+    if git diff --cached --name-only | grep -qF "$file"; then
+      log_debug "Successfully staged $file"
+    else
+      log_error "File $file not in staging area after git add!"
+      log_debug "Git status for file:"
+      git status "$file" 2>&1 | tee -a "${GITHUB_STEP_SUMMARY:-/dev/stderr}"
+      log_debug "Git diff-index:"
+      git diff-index --cached HEAD "$file" 2>&1 | tee -a "${GITHUB_STEP_SUMMARY:-/dev/stderr}" || true
+    fi
 
     # Analyze and log conflict details
     log_conflict_summary "$file"
