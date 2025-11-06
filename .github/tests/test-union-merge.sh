@@ -69,8 +69,13 @@ parse_and_resolve_conflicts() {
     return 1
   fi
 
-  mv "$temp_resolved" "$file"
-  mv "$temp_audit" "${file}.union-merge"
+  # Use cat instead of mv to match actual implementation
+  cat "$temp_resolved" > "$file" || { rm -f "$temp_resolved" "$temp_audit"; return 1; }
+  rm -f "$temp_resolved"
+
+  cat "$temp_audit" > "${file}.union-merge" || { rm -f "$temp_audit"; return 1; }
+  rm -f "$temp_audit"
+
   return 0
 }
 
