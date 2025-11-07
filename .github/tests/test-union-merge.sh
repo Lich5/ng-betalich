@@ -36,14 +36,15 @@ parse_and_resolve_conflicts() {
     elif [[ "$line" =~ ^\>\>\>\>\>\>\>\  ]] && [[ "$in_conflict" == "true" ]]; then
       echo "$line" >> "$temp_audit"
 
-      local -A seen
+      local seen=""
       for ours_line in "${ours_lines[@]}"; do
         echo "$ours_line" >> "$temp_resolved"
-        seen["$ours_line"]=1
+        seen="${seen}${ours_line}
+"
       done
 
       for theirs_line in "${theirs_lines[@]}"; do
-        if [[ -z "${seen[$theirs_line]:-}" ]]; then
+        if ! echo "$seen" | grep -Fx "$theirs_line" >/dev/null 2>&1; then
           echo "$theirs_line" >> "$temp_resolved"
         fi
       done
