@@ -275,8 +275,11 @@ cherry_pick_open_pr() {
       [[ -z "$commit_sha" ]] && continue
 
       if ! cherry_pick "$commit_sha" $GIT_STRATEGY_FLAG; then
-        handle_cherry_pick_conflict "PR #${pr_num}"
-        cherry_pick_continue
+        if handle_cherry_pick_conflict "PR #${pr_num}"; then
+          cherry_pick_continue
+        else
+          log_warn "Skipping empty cherry-pick for PR #${pr_num}"
+        fi
       fi
     done <<< "$commits"
   fi
@@ -288,6 +291,16 @@ handle_cherry_pick_conflict() {
   if [[ "$USE_UNION" == "true" ]]; then
     log_warn "Resolving conflicts for $context"
     resolve_conflicts_union "$context"
+
+    # After union merge, check if there are actually changes to commit
+    # This can happen when the older PR is a subset of what was already merged
+    if git diff --cached --quiet; then
+      log_warn "No changes after union merge (older PR subset of newer PR)"
+      cherry_pick_abort
+      return 1  # Signal caller to skip cherry-pick continue
+    fi
+
+    return 0  # Continue with cherry-pick
   else
     cherry_pick_abort
     die "Cherry-pick conflicts for $context. Use conflict_strategy=union or fix manually."
