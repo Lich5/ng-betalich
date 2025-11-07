@@ -182,7 +182,7 @@ resolve_conflicts_union() {
     git add "$file" 2>&1 | head -3 || true
 
     status_after="$(git status --porcelain "$file" 2>&1 || echo '??')"
-    if git diff --cached --name-only | grep -qF "$file"; then
+    if git diff --cached --name-only | grep -Fxq "$file"; then
       log_warn "DEBUG: ✓ $file staged (status now='$status_after')"
     else
       log_warn "DEBUG: ✗ $file NOT staged (status still='$status_after')"
