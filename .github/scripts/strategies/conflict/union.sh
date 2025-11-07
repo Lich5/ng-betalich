@@ -175,8 +175,18 @@ resolve_conflicts_union() {
     fi
 
     # Stage the resolved file
-    log_debug "Staging resolved file: $file"
-    git add "$file"
+    local status_before status_after
+    status_before="$(git status --porcelain "$file" 2>&1 || echo '??')"
+    log_warn "DEBUG: Staging $file (status='$status_before' size=$(wc -c < "$file") bytes)"
+
+    git add "$file" 2>&1 | head -3 || true
+
+    status_after="$(git status --porcelain "$file" 2>&1 || echo '??')"
+    if git diff --cached --name-only | grep -Fxq "$file"; then
+      log_warn "DEBUG: ✓ $file staged (status now='$status_after')"
+    else
+      log_warn "DEBUG: ✗ $file NOT staged (status still='$status_after')"
+    fi
 
     # Analyze and log conflict details
     log_conflict_summary "$file"
