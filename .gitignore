@@ -19,5 +19,8 @@ R4LGTK3.iss
 # handle symlinks since these are files on *nix
 data
 .vscode
-.claude/
+# Ignore .claude directory except for settings and commands
+.claude/*
+!.claude/settings.json
+!.claude/commands/
 CLAUDE.md
