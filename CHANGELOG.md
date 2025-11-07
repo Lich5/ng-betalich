@@ -1,5 +1,21 @@
 # Changelog
 
+## [5.13.0-beta.0](https://github.com/Lich5/ng-betalich/compare/v5.12.11...v5.13.0-beta.0) (2025-11-07)
+
+
+### Features
+
+* **all:** add simplified DB maintenance ([#8](https://github.com/Lich5/ng-betalich/issues/8)) ([3961c55](https://github.com/Lich5/ng-betalich/commit/3961c55b0a3e8f05b4d7d11fa3fdea664eef1693))
+* **gs:** Add Armaments (Weapon, Armor, and Shield) Module ([#12](https://github.com/Lich5/ng-betalich/issues/12)) ([63ca7e6](https://github.com/Lich5/ng-betalich/commit/63ca7e61ca4cd2e05a2e3a4836a64d3564726e0f))
+* **gs:** add creature module, including Hinterwilds creatures ([#6](https://github.com/Lich5/ng-betalich/issues/6)) ([f8cd538](https://github.com/Lich5/ng-betalich/commit/f8cd5389cecd71684a6a225f865c5ef470d04db0))
+* **gs:** Creature module combat tracking ([#5](https://github.com/Lich5/ng-betalich/issues/5)) ([41fda74](https://github.com/Lich5/ng-betalich/commit/41fda7472bf46321c7a228ba997eb544b617ff51))
+* **gs:** track time of last total_experience record ([#2](https://github.com/Lich5/ng-betalich/issues/2)) ([c61b255](https://github.com/Lich5/ng-betalich/commit/c61b2551b2b2a8dda2e2d12845b4f9514097a6ca))
+
+
+### Miscellaneous Chores
+
+* seed prerelease 5.13.0-beta.0 ([0ec0397](https://github.com/Lich5/ng-betalich/commit/0ec039776c558dc51984b716a4fd90e933e03cc5))
+
 ## [5.12.11](https://github.com/Lich5/ng-betalich/compare/v5.12.10...v5.12.11) (2025-10-29)
 
 
