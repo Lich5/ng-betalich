@@ -31,7 +31,7 @@ validate_rubocop() {
 
   # Run Rubocop (respects .rubocop.yml)
   # Output goes to logs, warnings shown in GitHub UI
-  if ! rubocop $files 2>&1; then
+  if ! bundle exec rubocop $files 2>&1; then
     log_warn "Rubocop found style issues in union-merged files - review recommended"
   else
     log_info "Rubocop validation passed"
