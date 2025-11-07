@@ -263,7 +263,10 @@ cherry_pick_open_pr() {
   if [[ "$SQUASH_SAFE" == "true" ]]; then
     # Squash merge
     if ! squash_merge "$pr_branch" $GIT_STRATEGY_FLAG; then
-      handle_merge_conflict "PR #${pr_num}"
+      if ! handle_merge_conflict "PR #${pr_num}"; then
+        log_warn "Skipping empty squash merge for PR #${pr_num}"
+        return 0
+      fi
     fi
     create_commit "$title"
   else
@@ -285,22 +288,34 @@ cherry_pick_open_pr() {
   fi
 }
 
+# Check if union merge produced any changes to commit
+# Args: $1 = operation type ("cherry-pick" or "merge")
+# Returns: 0 if changes exist, 1 if empty (also aborts the operation)
+check_union_merge_has_changes() {
+  local operation="$1"
+
+  if git diff --cached --quiet; then
+    log_warn "No changes after union merge (resolved files identical to HEAD)"
+
+    if [[ "$operation" == "cherry-pick" ]]; then
+      cherry_pick_abort
+    else
+      merge_abort
+    fi
+
+    return 1
+  fi
+
+  return 0
+}
+
 handle_cherry_pick_conflict() {
   local context="$1"
 
   if [[ "$USE_UNION" == "true" ]]; then
     log_warn "Resolving conflicts for $context"
     resolve_conflicts_union "$context"
-
-    # After union merge, check if there are actually changes to commit
-    # This can happen when the older PR is a subset of what was already merged
-    if git diff --cached --quiet; then
-      log_warn "No changes after union merge (older PR subset of newer PR)"
-      cherry_pick_abort
-      return 1  # Signal caller to skip cherry-pick continue
-    fi
-
-    return 0  # Continue with cherry-pick
+    check_union_merge_has_changes "cherry-pick"
   else
     cherry_pick_abort
     die "Cherry-pick conflicts for $context. Use conflict_strategy=union or fix manually."
@@ -312,42 +327,13 @@ handle_merge_conflict() {
 
   if [[ "$USE_UNION" == "true" ]]; then
     log_warn "Resolving merge conflicts for $context"
-
-    # Show git status BEFORE resolution
-    log_debug "Git status before conflict resolution:"
-    git status --short 2>&1 | head -20 | while read -r line; do log_debug "  $line"; done
-
     resolve_conflicts_union "$context"
-
-    # Show git status AFTER resolution
-    log_debug "Git status after conflict resolution:"
-    git status --short 2>&1 | head -20 | while read -r line; do log_debug "  $line"; done
-
-    # Check if resolved files still have conflict markers
-    log_debug "Checking for remaining conflict markers:"
-    if git diff --check 2>&1 | grep -i conflict; then
-      log_warn "WARNING: Files still contain conflict markers!"
-    fi
 
     # After resolving conflicts in a squash merge, stage ALL modified files
     # git merge --squash doesn't stage anything when it fails with conflicts
-    log_debug "Staging all modified files after conflict resolution"
-    git add -u 2>&1 | tee -a /dev/stderr
+    git add -u
 
-    # Check if files are actually staged
-    log_debug "Staged files after git add -u:"
-    local staged_files
-    staged_files="$(git diff --cached --name-status)"
-    if [[ -n "$staged_files" ]]; then
-      echo "$staged_files" | head -20 | while read -r f; do log_debug "  $f"; done
-      log_debug "Staging successful - $(echo "$staged_files" | wc -l) file(s) staged"
-    else
-      log_warn "No files in staging area after git add -u!"
-    fi
-
-    # Final status check
-    log_debug "Final git status before commit:"
-    git status 2>&1 | head -30 | while read -r line; do log_debug "  $line"; done
+    check_union_merge_has_changes "merge"
   else
     merge_abort
     die "Merge conflicts for $context. Use conflict_strategy=union or fix manually."
