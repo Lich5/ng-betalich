@@ -23,4 +23,4 @@ data
 .claude/*
 !.claude/settings.json
 !.claude/commands/
-CLAUDE.md
+!.claude/docs
