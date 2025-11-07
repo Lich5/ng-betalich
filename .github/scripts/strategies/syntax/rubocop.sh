@@ -11,8 +11,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/../../lib/core.sh"
 
 validate_rubocop() {
   # Check if Rubocop is available
-  if ! command -v rubocop >/dev/null 2>&1; then
-    log_warn "Rubocop not installed, skipping linter check"
+  if ! bundle exec rubocop --version >/dev/null 2>&1; then
+    log_warn "Rubocop not available via bundler, skipping linter check"
     return 0
   fi
 
