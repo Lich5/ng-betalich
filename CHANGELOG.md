@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.13.0-beta.0](https://github.com/Lich5/ng-betalich/compare/v5.12.11...v5.13.0-beta.0) (2025-11-07)
+
+
+### Features
+
+* **all:** Refocus Frontend ([#11](https://github.com/Lich5/ng-betalich/issues/11)) ([8f1a9fa](https://github.com/Lich5/ng-betalich/commit/8f1a9fa6bd5d63166619fd569ad6049beebfb5aa))
+
+
+### Miscellaneous Chores
+
+* seed prerelease 5.13.0-beta.0 ([025b348](https://github.com/Lich5/ng-betalich/commit/025b3485df460f4fc4bc239717be3456aef9d49d))
+
 ## [5.12.11](https://github.com/Lich5/ng-betalich/compare/v5.12.10...v5.12.11) (2025-10-29)
 
 
