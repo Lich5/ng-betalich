@@ -9,7 +9,11 @@ end
 
 gem "ascii_charts", ">= 0.9.1"
 
+gem "base64", ">= 0.1"
+
 gem "concurrent-ruby", ">= 1.2"
+
+gem "json", ">= 2.6"
 
 gem "logger", ">= 1.6.4"
 
