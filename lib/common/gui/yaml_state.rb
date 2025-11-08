@@ -715,7 +715,7 @@ module Lich
         def self.ensure_master_password_exists
           # Check if master password already in Keychain
           existing = MasterPasswordManager.retrieve_master_password
-          return existing if existing.present?
+          return existing if !existing.nil? && !existing.empty?
 
           # Show UI prompt to CREATE master password
           master_password = MasterPasswordPrompt.show_create_master_password_dialog
@@ -744,8 +744,6 @@ module Lich
           Lich.log "info: Master password created and stored in Keychain"
           master_password
         end
-
-        private_class_method :ensure_master_password_exists
       end
     end
   end

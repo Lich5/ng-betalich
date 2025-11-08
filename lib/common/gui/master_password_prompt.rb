@@ -83,8 +83,6 @@ module Lich
 
           response == Gtk::ResponseType::YES
         end
-
-        private_class_method :show_warning_dialog
       end
     end
   end

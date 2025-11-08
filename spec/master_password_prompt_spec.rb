@@ -1,23 +1,43 @@
 # frozen_string_literal: true
 
 require 'rspec'
+require_relative 'login_spec_helper'
 require_relative '../lib/common/gui/master_password_prompt'
 require_relative '../lib/common/gui/master_password_manager'
 
 # Stub GTK components for CI/CD environments without GTK tools
 module Gtk
-  class MessageDialog; end
+  class MessageDialog
+    def initialize(*args, **kwargs); end
+    def secondary_text=(text); end
+    def run
+      ResponseType::YES
+    end
+    def destroy; end
+  end
 
   class ResponseType
     YES = 0
     NO = 1
   end
+
+  def self.queue
+    yield
+  end
+end
+
+# Stub Lich.log for tests
+module Lich
+  def self.log(message)
+    # Stub logger - no-op for tests
+  end
 end
 
 RSpec.describe Lich::Common::GUI::MasterPasswordPrompt do
   before do
-    # Stub show_warning_dialog for all tests since it requires GTK
-    allow(described_class).to receive(:show_warning_dialog).and_call_original
+    # Default stub: allow weak passwords (return true)
+    # Tests with .with() matchers will override with specific return values
+    allow(described_class).to receive(:show_warning_dialog).and_return(true)
   end
 
   describe '.show_create_master_password_dialog' do
@@ -46,7 +66,7 @@ RSpec.describe Lich::Common::GUI::MasterPasswordPrompt do
     context 'when password is less than 8 characters' do
       it 'shows weak password warning' do
         allow(Lich::Common::GUI::MasterPasswordPromptUI).to receive(:show_dialog)
-          .and_return('short')
+          .and_return('short', 'StrongPassword123!')
 
         allow(described_class).to receive(:show_warning_dialog)
           .with('Short Password', /shorter than 8 characters/)

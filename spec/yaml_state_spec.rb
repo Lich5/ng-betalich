@@ -2,10 +2,15 @@
 
 require 'rspec'
 require 'fileutils'
+require 'tmpdir'
 require_relative 'login_spec_helper'
+require_relative '../lib/common/gui/state'
 require_relative '../lib/common/gui/yaml_state'
 require_relative '../lib/common/gui/master_password_manager'
 require_relative '../lib/common/gui/master_password_prompt'
+
+# Alias for easier test access
+State = Lich::Common::GUI::State
 
 # Stub required dependencies at module/class level (no redefining)
 module Lich
