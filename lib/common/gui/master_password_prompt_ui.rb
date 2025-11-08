@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'gtk3'
-
 module Lich
   module Common
     module GUI

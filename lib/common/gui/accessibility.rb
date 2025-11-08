@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'os'
-
 module Lich
   module Common
     module GUI
