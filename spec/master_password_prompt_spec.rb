@@ -9,10 +9,13 @@ require_relative '../lib/common/gui/master_password_manager'
 module Gtk
   class MessageDialog
     def initialize(*args, **kwargs); end
+
     def secondary_text=(text); end
+
     def run
       ResponseType::YES
     end
+
     def destroy; end
   end
 
@@ -194,7 +197,6 @@ RSpec.describe Lich::Common::GUI::MasterPasswordPrompt do
 
         described_class.show_create_master_password_dialog
       end
-
     end
   end
 
