@@ -27,4 +27,5 @@ bin/
 !.claude/settings.json
 !.claude/commands/
 !.claude/docs
+!.claude/hooks/
 !.claude/work-units
