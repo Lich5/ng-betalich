@@ -1,5 +1,7 @@
 # Web Claude Context - Lich 5 Password Encryption Project
 
+**⚠️ IDENTITY: YOU ARE WEB CLAUDE (Architecture & Oversight)**
+
 **Last Updated:** 2025-11-08
 **Session Reference:** config-assessment-audit-011CUuVKVZ8ay2RYiDWqwcBT
 **Project:** Lich 5 GUI Login Password Encryption Feature
