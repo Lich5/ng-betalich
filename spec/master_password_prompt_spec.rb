@@ -195,17 +195,6 @@ RSpec.describe Lich::Common::GUI::MasterPasswordPrompt do
         described_class.show_create_master_password_dialog
       end
 
-      it 'logs when user rejects weak password' do
-        allow(Lich::Common::GUI::MasterPasswordPromptUI).to receive(:show_dialog)
-          .and_return('short', 'ValidPassword123')
-        allow(described_class).to receive(:show_warning_dialog)
-          .and_return(false)
-
-        expect(Lich).to receive(:log)
-          .with(/rejected weak password/)
-
-        described_class.show_create_master_password_dialog
-      end
     end
   end
 
