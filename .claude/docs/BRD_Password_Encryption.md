@@ -153,12 +153,12 @@ Lich 5 currently stores game account passwords in plaintext YAML files. This fea
 
 **Requirement:** System shall support four encryption modes selectable by user.
 
-| Mode ID | Mode Name | Encryption Method | Key Storage | Cross-Device |
-|---------|-----------|-------------------|-------------|--------------|
-| ENC-1 | Plaintext | None | N/A | ✅ Yes |
-| ENC-2 | Standard | AES-256-CBC with account name as key | Deterministic | ✅ Yes |
-| ENC-3 | Enhanced | AES-256-CBC with master password | OS Keychain | ⚠️ One-time prompt per device |
-| ENC-4 | SSH Key | AES-256-CBC with SSH key signature | SSH key file | ⚠️ SSH key must be present |
+| Mode ID | Mode Name  | Encryption Method                      | Key Storage      | Cross-Device                | Platform Requirements                                    |
+|---------|------------|----------------------------------------|------------------|-----------------------------|----------------------------------------------------------|
+| ENC-1   | Plaintext  | None                                   | N/A              | ✅ Yes                      | All platforms                                            |
+| ENC-2   | Standard   | AES-256-CBC with account name as key   | Deterministic    | ✅ Yes                      | All platforms                                            |
+| ENC-3   | Enhanced   | AES-256-CBC with master password       | OS Keychain      | ⚠️ One-time prompt per device | macOS (`security`) OR Linux (`secret-tool`) OR Windows (future) |
+| ENC-4   | SSH Key    | AES-256-CBC with SSH key signature     | SSH key file     | ⚠️ SSH key must be present  | All platforms (future implementation)                    |
 
 **Business Rule:** User chooses mode once during initial conversion from `entry.dat` to `entry.yaml`
 
@@ -175,11 +175,41 @@ Lich 5 currently stores game account passwords in plaintext YAML files. This fea
 1. **Modal dialog** - User cannot proceed without choice
 2. **Four radio button options** - One for each encryption mode
 3. **Mode descriptions** - Brief explanation of each mode
-4. **Plaintext warning** - Special confirmation for plaintext mode (accessibility justification required)
-5. **Enhanced mode prompt** - If chosen, prompt for master password (enter twice for confirmation)
-6. **SSH Key mode prompt** - If chosen, file picker to select SSH private key
-7. **Convert button** - Executes conversion with chosen mode
-8. **Cancel button** - Exits application (no partial conversion)
+4. **Platform-aware mode availability** - Modes unavailable on current platform shall be disabled (greyed out) and unselectable
+5. **Plaintext warning** - Special confirmation for plaintext mode (accessibility justification required)
+6. **Enhanced mode prompt** - If chosen, prompt for master password (enter twice for confirmation)
+7. **SSH Key mode prompt** - If chosen, file picker to select SSH private key
+8. **Convert button** - Executes conversion with chosen mode
+9. **Cancel button** - Exits application (no partial conversion)
+
+**Platform Availability Rules:**
+
+System shall check platform-specific requirements and disable modes that are unavailable:
+
+| Mode           | Availability Check                           | Disabled When                                  |
+|----------------|----------------------------------------------|------------------------------------------------|
+| Plaintext      | Always available                             | Never                                          |
+| Standard       | Always available                             | Never                                          |
+| Enhanced       | `MasterPasswordManager.keychain_available?`  | Keychain tools not detected on system          |
+| SSH Key        | Future implementation                        | Always (not yet implemented)                   |
+
+**Keychain Detection by Platform:**
+
+| Platform | Command Check   | Tool                          | Status                 |
+|----------|-----------------|-------------------------------|------------------------|
+| macOS    | `security`      | Keychain.app                  | ✅ Supported           |
+| Linux    | `secret-tool`   | libsecret/GNOME Keyring       | ✅ Supported           |
+| Windows  | `cmdkey`        | Windows Credential Manager    | ⚠️ Future (stub only)  |
+
+**UI Behavior:**
+- Unavailable modes: Radio button disabled (`sensitive = false`), greyed out appearance
+- Tooltip/accessibility description indicates why mode is unavailable
+- System logs reason for mode being disabled (troubleshooting)
+
+**Examples:**
+- Windows system → Enhanced mode disabled (no keychain support)
+- Linux without `secret-tool` → Enhanced mode disabled
+- macOS or Linux with keychain → All modes available except SSH Key
 
 **Conversion Process:**
 

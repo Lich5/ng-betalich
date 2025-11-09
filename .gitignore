@@ -29,3 +29,5 @@ bin/
 !.claude/docs
 !.claude/hooks/
 !.claude/work-units
+# RSpec artifacts
+spec/.rspec_status
