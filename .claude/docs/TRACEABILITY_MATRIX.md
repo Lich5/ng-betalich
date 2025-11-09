@@ -81,7 +81,7 @@
 </details>
 
 <details>
-<summary><strong>⚠️ Master Password Mode - PARTIAL (macOS/Linux only)</strong></summary>
+<summary><strong>⚠️ Enhanced Mode - PARTIAL (macOS/Linux only)</strong></summary>
 
 **Implementation:** PasswordCipher with `:master_password` mode
 **Evidence:** `lib/common/gui/password_cipher.rb:106, 132`
@@ -92,7 +92,7 @@
 - Algorithm: AES-256-CBC ✅
 - Key Derivation: PBKDF2-HMAC-SHA256, 10K iterations (runtime)
 - Validation: PBKDF2 100K iterations (one-time security check)
-- Salt: `"lich5-password-encryption-master_password"`
+- Salt: `"lich5-password-encryption-enhanced"`
 - Key Source: Master password from OS keychain
 - Keychain: macOS (security), Linux (secret-tool), Windows (stub)
 
