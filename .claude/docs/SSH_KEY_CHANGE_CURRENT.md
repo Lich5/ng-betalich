@@ -1,4 +1,4 @@
-# Work Unit: SSH Key Change Workflow (Fix #2)
+# Work Unit: SSH Key Change Workflow (Fix-SSHKey)
 
 **Created:** 2025-11-09
 **Estimated Effort:** 2-3 hours
@@ -9,7 +9,7 @@
 
 ## Starting Point
 
-**Branch from:** `feat/password-encryption-ssh-key` (PR #3 - completed)
+**Branch from:** `feat/password-encryption-ssh-key` (PR-SSH - completed)
 **Source material:** SSH Key Manager, existing password change workflows
 **What exists in base:** All 4 encryption modes working, SSH key selection UI
 **What you're adding:** UI and workflow to change the SSH key used for encryption
@@ -19,7 +19,7 @@
 
 ## Prerequisites
 
-- [ ] PR #3 complete: `feat/password-encryption-ssh-key` merged or ready
+- [ ] PR-SSH complete: `feat/password-encryption-ssh-key` merged or ready
 - [ ] Branch created: `fix/change-ssh-key` (you'll do this)
 - [ ] Context read: `.claude/docs/BRD_Password_Encryption.md` (FR-7: Change SSH Key)
 - [ ] SSH Key Manager understood (`ssh_key_manager.rb`)
@@ -171,7 +171,7 @@ end
 
 ## Implementation Steps
 
-### Step 1: Create Branch from PR #3
+### Step 1: Create Branch from PR-SSH
 ```bash
 cd /home/user/ng-betalich
 git fetch origin
@@ -368,7 +368,7 @@ git push -u origin fix/change-ssh-key
 - [ ] Conventional commit: `fix(all): add SSH key change workflow`
 - [ ] Branch pushed: `git push -u origin fix/change-ssh-key`
 - [ ] Clean diff
-- [ ] No merge conflicts with PR #3 base
+- [ ] No merge conflicts with PR-SSH base
 
 ### Verification Commands
 ```bash
@@ -415,11 +415,11 @@ git log --oneline -1                                            # Expected: fix(
 - Product Owner orchestrates beta train
 
 **All PRs ready for beta:**
-1. PR #1: Standard encryption
-2. PR #2: Enhanced encryption (with Windows)
-3. PR #3: SSH Key + CLI
-4. Fix #1: Master password change
-5. Fix #2: SSH key change
+1. PR-Standard: Standard encryption
+2. PR-Enhanced: Enhanced encryption (with Windows)
+3. PR-SSH: SSH Key + CLI
+4. Fix-MasterPassword: Master password change
+5. Fix-SSHKey: SSH key change
 
 ---
 

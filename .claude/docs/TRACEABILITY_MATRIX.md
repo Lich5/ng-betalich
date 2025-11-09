@@ -17,17 +17,17 @@ PR #38 has been decomposed into 5 sequential PRs for beta testing:
 | **#1** | `feat/password-encryption-standard` | Standard Encryption Mode | Plaintext + Standard modes | Phase 2 |
 | **#2** | `feat/password-encryption-enhanced` | Enhanced Encryption | Enhanced mode (Windows keychain complete) | Phase 3 |
 | **#3** | `feat/password-encryption-ssh-key` | SSH Key + CLI | SSH Key mode + CLI support | Phase 4 |
-| **Fix #1** | `fix/change-enhanced-password` | Master Password Change | Change master password UI | FR-6 |
-| **Fix #2** | `fix/change-ssh-key` | SSH Key Change | Change SSH key UI | FR-7 |
+| **Fix-MasterPassword** | `fix/change-enhanced-password` | Master Password Change | Change master password UI | FR-6 |
+| **Fix-SSHKey** | `fix/change-ssh-key` | SSH Key Change | Change SSH key UI | FR-7 |
 
 **Terminology Update:** All code uses `:enhanced` symbol (was `:master_password` in PR #38)
 
 **Work Units Available:**
-- `STANDARD_EXTRACTION_CURRENT.md` - Extract PR #1 from PR #38
-- `ENHANCED_CURRENT.md` - Build PR #2 with Windows keychain
-- `SSH_KEY_CURRENT.md` - Build PR #3
-- `MASTER_PASSWORD_CHANGE_CURRENT.md` - Build Fix #1
-- `SSH_KEY_CHANGE_CURRENT.md` - Build Fix #2
+- `STANDARD_EXTRACTION_CURRENT.md` - Extract PR-Standard from PR #38
+- `ENHANCED_CURRENT.md` - Build PR-Enhanced with Windows keychain
+- `SSH_KEY_CURRENT.md` - Build PR-SSH
+- `MASTER_PASSWORD_CHANGE_CURRENT.md` - Build Fix-MasterPassword
+- `SSH_KEY_CHANGE_CURRENT.md` - Build Fix-SSHKey
 
 ---
 
@@ -110,7 +110,7 @@ PR #38 has been decomposed into 5 sequential PRs for beta testing:
 **Implementation:** PasswordCipher with `:enhanced` mode (was `:master_password` in PR #38)
 **Evidence:** `lib/common/gui/password_cipher.rb:106, 132`
 **Platforms (PR #38):** ✅ macOS, ✅ Linux, ❌ Windows (stub only)
-**Platforms (PR #2):** ✅ macOS, ✅ Linux, ✅ Windows 10+ (PowerShell PasswordVault)
+**Platforms (PR-Enhanced):** ✅ macOS, ✅ Linux, ✅ Windows 10+ (PowerShell PasswordVault)
 **Tests:** ✅ Comprehensive coverage
 
 **Technical Specs:**
@@ -127,13 +127,13 @@ PR #38 has been decomposed into 5 sequential PRs for beta testing:
 - High-security validation test (100K iterations)
 - Password change support
 
-**Gap - Windows (~80% of users) - RESOLVED in PR #2:**
+**Gap - Windows (~80% of users) - RESOLVED in PR-Enhanced:**
 - ~~`store_windows_keychain()` returns `false` (stub)~~ ✅ Implemented with PowerShell PasswordVault
 - ~~`retrieve_windows_keychain()` returns `nil` (stub)~~ ✅ Implemented with PowerShell PasswordVault
 - ~~Conversion dialog disables Master Password option on Windows~~ ✅ Enabled on Windows 10+
-- **Status:** PR #2 includes complete Windows keychain support
+- **Status:** PR-Enhanced includes complete Windows keychain support
 
-**Windows Implementation (PR #2):**
+**Windows Implementation (PR-Enhanced):**
 - Windows 10+ detection via PowerShell
 - PasswordVault API for credential storage
 - stdin piping for password security
@@ -142,9 +142,9 @@ PR #38 has been decomposed into 5 sequential PRs for beta testing:
 </details>
 
 <details>
-<summary><strong>⏭️ SSH Key Mode - PLANNED (PR #3)</strong></summary>
+<summary><strong>⏭️ SSH Key Mode - PLANNED (PR-SSH)</strong></summary>
 
-**Status:** Will be implemented in PR #3
+**Status:** Will be implemented in PR-SSH
 **BRD Requirement:** AES-256-CBC with SSH key signature as encryption key
 
 **Planned Implementation:**
@@ -154,7 +154,7 @@ PR #38 has been decomposed into 5 sequential PRs for beta testing:
 - SSH key validation and fingerprint display
 - Cross-platform SSH key handling
 
-**Additional in PR #3:**
+**Additional in PR-SSH:**
 - CLI password encryption support
 - Terminal-based mode selection
 - Non-GTK password prompts

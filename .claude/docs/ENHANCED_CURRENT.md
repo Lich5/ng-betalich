@@ -1,4 +1,4 @@
-# Work Unit: Enhanced Encryption Mode with Cross-Platform Keychain (PR #2)
+# Work Unit: Enhanced Encryption Mode with Cross-Platform Keychain (PR-Enhanced)
 
 **Created:** 2025-11-09
 **Estimated Effort:** 6-8 hours
@@ -9,17 +9,17 @@
 
 ## Starting Point
 
-**Branch from:** `feat/password-encryption-standard` (PR #1 - completed)
+**Branch from:** `feat/password-encryption-standard` (PR-Standard - completed)
 **Source material:** PR #38 branch `feat/password_encrypts` + Windows keychain implementation
 **What exists in base:** Plaintext + Standard encryption modes working
 **What you're adding:** Enhanced mode with OS keychain support (macOS/Linux/Windows 10+)
-**What you're excluding:** SSH Key mode, CLI support (those go in PR #3)
+**What you're excluding:** SSH Key mode, CLI support (those go in PR-SSH)
 
 ---
 
 ## Prerequisites
 
-- [ ] PR #1 complete: `feat/password-encryption-standard` merged or ready
+- [ ] PR-Standard complete: `feat/password-encryption-standard` merged or ready
 - [ ] Branch created: `feat/password-encryption-enhanced` (you'll do this)
 - [ ] Context read: `.claude/docs/AUDIT_PR38_CORRECTED.md` (Windows gap analysis)
 - [ ] Context read: `.claude/work-units/CURRENT.md` (Windows keychain work unit)
@@ -62,7 +62,7 @@ spec/master_password_prompt_spec.rb        → Update test descriptions
 
 ### Category 2: Files to Modify (Add Enhanced Mode)
 
-| File | Current State (PR #1) | What to Add | Source |
+| File | Current State (PR-Standard) | What to Add | Source |
 |------|-----------------------|-------------|--------|
 | `lib/common/gui/password_cipher.rb` | Has `:plaintext`, `:standard` | Add `:enhanced` mode case | PR #38 lines 132-135 |
 | `lib/common/gui/conversion_ui.rb` | Shows 2 options | Add Enhanced radio button | PR #38 lines 103-106 |
@@ -190,7 +190,7 @@ end
 
 ## Implementation Steps
 
-### Step 1: Create Branch from PR #1
+### Step 1: Create Branch from PR-Standard
 ```bash
 cd /home/user/ng-betalich
 git fetch origin
@@ -442,7 +442,7 @@ git push -u origin feat/password-encryption-enhanced
 - [ ] Conventional commit: `feat(all): add enhanced encryption with master password`
 - [ ] Branch pushed: `git push -u origin feat/password-encryption-enhanced`
 - [ ] Clean diff (only adds Enhanced mode)
-- [ ] No merge conflicts with PR #1 base
+- [ ] No merge conflicts with PR-Standard base
 
 ### Verification Commands
 ```bash
@@ -483,13 +483,13 @@ git log --oneline -1                                                            
 ## What Comes Next
 
 **After this PR is complete:**
-- ✅ PR #2 ready for beta testing (Enhanced mode all platforms)
+- ✅ PR-Enhanced ready for beta testing (Enhanced mode all platforms)
 - ⏭️ **Next work unit:** SSH_KEY_CURRENT.md (branches from this PR)
-- 🚫 **Do not start SSH Key work** until PR #2 tests pass
+- 🚫 **Do not start SSH Key work** until PR-Enhanced tests pass
 
 **Dependencies:**
-- PR #3 (SSH Key mode) will branch from this PR's branch
-- Fix #1 (Master Password change UI) can branch from this PR
+- PR-SSH (SSH Key mode) will branch from this PR's branch
+- Fix-MasterPassword (Master Password change UI) can branch from this PR
 - This PR must be stable first
 
 ---
@@ -510,7 +510,7 @@ git log --oneline -1                                                            
 - Check conversion_ui.rb, password_cipher.rb carefully
 
 ### "Tests pass individually but fail in suite"
-- Verify infomon pollution not affecting (should be fixed in PR #1)
+- Verify infomon pollution not affecting (should be fixed in PR-Standard)
 - Check for test ordering issues
 
 ---

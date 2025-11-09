@@ -1,4 +1,4 @@
-# Work Unit: Extract Standard Encryption Mode (PR #1)
+# Work Unit: Extract Standard Encryption Mode (PR-Standard)
 
 **Created:** 2025-11-09
 **Estimated Effort:** 4-6 hours
@@ -73,7 +73,7 @@ spec/password_cipher_spec.rb
 
 ### Category 3: DO NOT COPY (Enhanced Mode Files)
 
-**These files must NOT appear in PR #1:**
+**These files must NOT appear in PR-Standard:**
 - ❌ `lib/common/gui/master_password_manager.rb`
 - ❌ `lib/common/gui/master_password_prompt.rb`
 - ❌ `lib/common/gui/master_password_prompt_ui.rb`
@@ -377,13 +377,13 @@ git log --oneline -1                            # Expected: feat(all): ...
 ## What Comes Next
 
 **After this PR is complete and reviewed:**
-- ✅ PR #1 ready for beta testing (Plaintext + Standard modes)
+- ✅ PR-Standard ready for beta testing (Plaintext + Standard modes)
 - ⏭️ **Next work unit:** ENHANCED_CURRENT.md (builds on this branch)
-- 🚫 **Do not start next work unit** until PR #1 tests pass and is pushed
+- 🚫 **Do not start next work unit** until PR-Standard tests pass and is pushed
 
 **Dependencies:**
-- PR #2 (Enhanced mode) will branch from this PR's branch
-- Windows keychain work (existing CURRENT.md) goes into PR #2
+- PR-Enhanced (Enhanced mode) will branch from this PR's branch
+- Windows keychain work (existing CURRENT.md) goes into PR-Enhanced
 - This PR must be complete and stable first
 
 ---

@@ -31,7 +31,7 @@ PR #38 (`feat/password_encrypts`) is a monolithic implementation of password enc
 
 **Decompose PR #38 into 5 sequential PRs following BRD phases:**
 
-### PR #1: Standard Encryption Mode
+### PR-Standard: Standard Encryption Mode
 - **Branch:** `feat/password-encryption-standard` (from PR #7 base)
 - **Title:** `feat(all): add standard password encryption mode`
 - **Scope:**
@@ -43,8 +43,8 @@ PR #38 (`feat/password_encrypts`) is a monolithic implementation of password enc
   - **Bonus:** Infomon test pollution fix
 - **Excludes:** Enhanced mode, keychain integration, master password prompts
 
-### PR #2: Enhanced Encryption Mode
-- **Branch:** `feat/password-encryption-enhanced` (from PR #1)
+### PR-Enhanced: Enhanced Encryption Mode
+- **Branch:** `feat/password-encryption-enhanced` (from PR-Standard)
 - **Title:** `feat(all): add enhanced encryption with master password`
 - **Scope:**
   - PasswordCipher `:enhanced` mode
@@ -55,8 +55,8 @@ PR #38 (`feat/password_encrypts`) is a monolithic implementation of password enc
   - Platform-aware tests
 - **Includes:** Complete Windows keychain (not stubbed)
 
-### PR #3: SSH Key Mode + CLI Support
-- **Branch:** `feat/password-encryption-ssh-key` (from PR #2)
+### PR-SSH: SSH Key Mode + CLI Support
+- **Branch:** `feat/password-encryption-ssh-key` (from PR-Enhanced)
 - **Title:** `feat(all): add SSH key encryption and CLI support`
 - **Scope:**
   - PasswordCipher `:ssh_key` mode
@@ -66,8 +66,8 @@ PR #38 (`feat/password_encrypts`) is a monolithic implementation of password enc
   - CLI password encryption support (non-GTK mode)
   - Tests for SSH Key mode and CLI
 
-### Fix #1: Master Password Change UI
-- **Branch:** `fix/change-enhanced-password` (from PR #2)
+### Fix-MasterPassword: Master Password Change UI
+- **Branch:** `fix/change-enhanced-password` (from PR-Enhanced)
 - **Title:** `fix(all): add master password change workflow`
 - **Scope:**
   - "Change Master Password" button in Account Manager
@@ -76,8 +76,8 @@ PR #38 (`feat/password_encrypts`) is a monolithic implementation of password enc
   - Keychain update workflow
   - Tests
 
-### Fix #2: SSH Key Change UI
-- **Branch:** `fix/change-ssh-key` (from PR #3)
+### Fix-SSHKey: SSH Key Change UI
+- **Branch:** `fix/change-ssh-key` (from PR-SSH)
 - **Title:** `fix(all): add SSH key change workflow`
 - **Scope:**
   - "Change SSH Key" button in Account Manager
@@ -92,15 +92,15 @@ PR #38 (`feat/password_encrypts`) is a monolithic implementation of password enc
 ```
 PR #7 (eo-996) - YAML Foundation
     ↓
-PR #1 (feat/password-encryption-standard)
+PR-Standard (feat/password-encryption-standard)
     ↓
-PR #2 (feat/password-encryption-enhanced)
+PR-Enhanced (feat/password-encryption-enhanced)
     ↓
-PR #3 (feat/password-encryption-ssh-key)
+PR-SSH (feat/password-encryption-ssh-key)
     ↓
-Fix #1 (fix/change-enhanced-password) [branches from PR #2]
+Fix-MasterPassword (fix/change-enhanced-password) [branches from PR-Enhanced]
     ↓
-Fix #2 (fix/change-ssh-key) [branches from PR #3]
+Fix-SSHKey (fix/change-ssh-key) [branches from PR-SSH]
 ```
 
 **Each PR diff shows only its additions** - making review clean and focused.
@@ -111,29 +111,29 @@ Fix #2 (fix/change-ssh-key) [branches from PR #3]
 
 **Critical:** Each PR must have **standalone passing test suite**
 
-### PR #1: Standard Mode Tests
+### PR-Standard: Standard Mode Tests
 - Extract `password_cipher_spec.rb` from PR #38, **remove Enhanced mode tests**
 - `yaml_state_spec.rb` - Standard encryption integration
 - `password_change_spec.rb` - Standard mode password changes
 - `conversion_ui_spec.rb` - Plaintext + Standard options only
 - **Result:** 380/380 tests pass
 
-### PR #2: Enhanced Mode Tests
+### PR-Enhanced: Enhanced Mode Tests
 - **Add back** Enhanced mode tests to `password_cipher_spec.rb`
 - New: `master_password_manager_spec.rb` (keychain integration)
 - New: `master_password_prompt_spec.rb` (password UI)
 - Update: `conversion_ui_spec.rb` - add Enhanced option tests
 - Platform-aware tests (Windows 10+ detection, keychain availability)
-- **Result:** All PR #1 tests + new Enhanced tests pass
+- **Result:** All PR-Standard tests + new Enhanced tests pass
 
-### PR #3: SSH Key + CLI Tests
+### PR-SSH: SSH Key + CLI Tests
 - Add SSH Key mode tests to `password_cipher_spec.rb`
 - New: `ssh_key_manager_spec.rb`
 - New: CLI-specific password handling tests
 - Update: `conversion_ui_spec.rb` - add SSH Key option tests
 - **Result:** All prior tests + SSH/CLI tests pass
 
-### Fix #1 & #2: Change Workflow Tests
+### Fix-MasterPassword & #2: Change Workflow Tests
 - Separate test files for change workflows
 - Integration tests for UI buttons
 - Re-encryption verification tests
@@ -143,15 +143,15 @@ Fix #2 (fix/change-ssh-key) [branches from PR #3]
 ## Beta Testing Workflow
 
 **Week 1:**
-- Curate: PR #7 + PR #1 → `5.13.0-beta.0`
+- Curate: PR #7 + PR-Standard → `5.13.0-beta.0`
 - Test: Plaintext + Standard encryption (all platforms)
 
 **Week 2:**
-- Add: PR #2 → `5.13.0-beta.1`
+- Add: PR-Enhanced → `5.13.0-beta.1`
 - Test: Enhanced mode (macOS/Linux/Windows 10+)
 
 **Week 3:**
-- Add: PR #3 + Fix #1 + Fix #2 → `5.13.0-beta.2`
+- Add: PR-SSH + Fix-MasterPassword + Fix-SSHKey → `5.13.0-beta.2`
 - Test: All 4 modes + CLI + management UI
 
 **Week 4+:**
@@ -203,7 +203,7 @@ Fix #2 (fix/change-ssh-key) [branches from PR #3]
 ### Negative
 - More PRs to manage (5 instead of 1)
 - Requires discipline to maintain branch chain
-- Code extraction requires surgical edits (remove Enhanced from PR #1)
+- Code extraction requires surgical edits (remove Enhanced from PR-Standard)
 - Product Owner orchestrates beta train manually
 
 ### Mitigation

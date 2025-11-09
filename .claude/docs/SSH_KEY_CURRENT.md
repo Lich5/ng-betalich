@@ -1,4 +1,4 @@
-# Work Unit: SSH Key Encryption Mode + CLI Support (PR #3)
+# Work Unit: SSH Key Encryption Mode + CLI Support (PR-SSH)
 
 **Created:** 2025-11-09
 **Estimated Effort:** 8-12 hours
@@ -9,7 +9,7 @@
 
 ## Starting Point
 
-**Branch from:** `feat/password-encryption-enhanced` (PR #2 - completed)
+**Branch from:** `feat/password-encryption-enhanced` (PR-Enhanced - completed)
 **Source material:** BRD Password Encryption (ENC-4: SSH Key Mode), CLI requirements
 **What exists in base:** Plaintext + Standard + Enhanced modes working
 **What you're adding:** SSH Key mode (signature-based encryption) + CLI password encryption support
@@ -19,7 +19,7 @@
 
 ## Prerequisites
 
-- [ ] PR #2 complete: `feat/password-encryption-enhanced` merged or ready
+- [ ] PR-Enhanced complete: `feat/password-encryption-enhanced` merged or ready
 - [ ] Branch created: `feat/password-encryption-ssh-key` (you'll do this)
 - [ ] Context read: `.claude/docs/BRD_Password_Encryption.md` (ENC-4 requirements)
 - [ ] SSH key infrastructure understood (signature generation, key formats)
@@ -248,7 +248,7 @@ end
 
 ## Implementation Steps
 
-### Step 1: Create Branch from PR #2
+### Step 1: Create Branch from PR-Enhanced
 ```bash
 cd /home/user/ng-betalich
 git fetch origin
@@ -446,7 +446,7 @@ git push -u origin feat/password-encryption-ssh-key
 - [ ] Conventional commit: `feat(all): add SSH key encryption and CLI support`
 - [ ] Branch pushed: `git push -u origin feat/password-encryption-ssh-key`
 - [ ] Clean diff (only adds SSH Key + CLI features)
-- [ ] No merge conflicts with PR #2 base
+- [ ] No merge conflicts with PR-Enhanced base
 
 ### Verification Commands
 ```bash
@@ -488,13 +488,13 @@ git log --oneline -1                                                 # Expected:
 ## What Comes Next
 
 **After this PR is complete:**
-- ✅ PR #3 ready for beta testing (all 4 modes + CLI support)
+- ✅ PR-SSH ready for beta testing (all 4 modes + CLI support)
 - ⏭️ **Next work units:** Fix PRs (Master Password change, SSH Key change)
-- 🚫 **Do not start Fix PRs** until PR #3 tests pass
+- 🚫 **Do not start Fix PRs** until PR-SSH tests pass
 
 **Dependencies:**
-- Fix #1 (Master Password change) branches from PR #2
-- Fix #2 (SSH Key change) branches from PR #3
+- Fix-MasterPassword (Master Password change) branches from PR-Enhanced
+- Fix-SSHKey (SSH Key change) branches from PR-SSH
 - Both Fix PRs can be developed in parallel
 
 ---

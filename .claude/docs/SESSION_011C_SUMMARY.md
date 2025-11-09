@@ -41,11 +41,11 @@ This session addressed the **monolithic PR #38 review problem** by decomposing i
 2. `ADR_SESSION_011C_PR_DECOMPOSITION.md` - PR structure and sequencing
 
 **Work Units (for CLI Claude):**
-3. `STANDARD_EXTRACTION_CURRENT.md` - PR #1 (Standard mode extraction)
-4. `ENHANCED_CURRENT.md` - PR #2 (Enhanced mode + Windows keychain)
-5. `SSH_KEY_CURRENT.md` - PR #3 (SSH Key mode + CLI support)
-6. `MASTER_PASSWORD_CHANGE_CURRENT.md` - Fix #1 (Master password change UI)
-7. `SSH_KEY_CHANGE_CURRENT.md` - Fix #2 (SSH key change UI)
+3. `STANDARD_EXTRACTION_CURRENT.md` - PR-Standard (Standard mode extraction)
+4. `ENHANCED_CURRENT.md` - PR-Enhanced (Enhanced mode + Windows keychain)
+5. `SSH_KEY_CURRENT.md` - PR-SSH (SSH Key mode + CLI support)
+6. `MASTER_PASSWORD_CHANGE_CURRENT.md` - Fix-MasterPassword (Master password change UI)
+7. `SSH_KEY_CHANGE_CURRENT.md` - Fix-SSHKey (SSH key change UI)
 
 **Other:**
 8. `INFOMON_FIX_PROPOSAL.md` - Test pollution fix proposal (for review)
@@ -58,22 +58,22 @@ This session addressed the **monolithic PR #38 review problem** by decomposing i
 
 ### Feature PRs (Sequential Chain)
 
-**PR #1: Standard Encryption Mode**
+**PR-Standard: Standard Encryption Mode**
 - **Branch:** `feat/password-encryption-standard` (from `eo-996`)
 - **Scope:** Plaintext + Standard modes only
 - **Work Unit:** `STANDARD_EXTRACTION_CURRENT.md`
 - **Estimated Effort:** 4-6 hours
 - **Beta:** 5.13.0-beta.0 (with PR #7)
 
-**PR #2: Enhanced Encryption + Windows Keychain**
-- **Branch:** `feat/password-encryption-enhanced` (from PR #1)
+**PR-Enhanced: Enhanced Encryption + Windows Keychain**
+- **Branch:** `feat/password-encryption-enhanced` (from PR-Standard)
 - **Scope:** Enhanced mode, full Windows 10+ support (PowerShell PasswordVault)
 - **Work Unit:** `ENHANCED_CURRENT.md`
 - **Estimated Effort:** 6-8 hours
 - **Beta:** 5.13.0-beta.1
 
-**PR #3: SSH Key Mode + CLI Support**
-- **Branch:** `feat/password-encryption-ssh-key` (from PR #2)
+**PR-SSH: SSH Key Mode + CLI Support**
+- **Branch:** `feat/password-encryption-ssh-key` (from PR-Enhanced)
 - **Scope:** SSH Key mode, CLI password encryption
 - **Work Unit:** `SSH_KEY_CURRENT.md`
 - **Estimated Effort:** 8-12 hours
@@ -81,19 +81,19 @@ This session addressed the **monolithic PR #38 review problem** by decomposing i
 
 ### Fix PRs (Parallel Development)
 
-**Fix #1: Master Password Change UI**
-- **Branch:** `fix/change-enhanced-password` (from PR #2)
+**Fix-MasterPassword: Master Password Change UI**
+- **Branch:** `fix/change-enhanced-password` (from PR-Enhanced)
 - **Scope:** Change master password workflow + re-encryption
 - **Work Unit:** `MASTER_PASSWORD_CHANGE_CURRENT.md`
 - **Estimated Effort:** 3-4 hours
-- **Beta:** 5.13.0-beta.2 (with PR #3)
+- **Beta:** 5.13.0-beta.2 (with PR-SSH)
 
-**Fix #2: SSH Key Change UI**
-- **Branch:** `fix/change-ssh-key` (from PR #3)
+**Fix-SSHKey: SSH Key Change UI**
+- **Branch:** `fix/change-ssh-key` (from PR-SSH)
 - **Scope:** Change SSH key workflow + re-encryption
 - **Work Unit:** `SSH_KEY_CHANGE_CURRENT.md`
 - **Estimated Effort:** 2-3 hours
-- **Beta:** 5.13.0-beta.2 (with PR #3)
+- **Beta:** 5.13.0-beta.2 (with PR-SSH)
 
 ---
 
@@ -102,15 +102,15 @@ This session addressed the **monolithic PR #38 review problem** by decomposing i
 ```
 PR #7 (eo-996) - YAML Foundation [EXISTING]
     ↓
-PR #1 (feat/password-encryption-standard) - Standard Mode
+PR-Standard (feat/password-encryption-standard) - Standard Mode
     ↓
-PR #2 (feat/password-encryption-enhanced) - Enhanced Mode + Windows
+PR-Enhanced (feat/password-encryption-enhanced) - Enhanced Mode + Windows
     ↓
-PR #3 (feat/password-encryption-ssh-key) - SSH Key + CLI
+PR-SSH (feat/password-encryption-ssh-key) - SSH Key + CLI
     ↓
-Fix #1 (fix/change-enhanced-password) [branches from PR #2]
+Fix-MasterPassword (fix/change-enhanced-password) [branches from PR-Enhanced]
     ↓
-Fix #2 (fix/change-ssh-key) [branches from PR #3]
+Fix-SSHKey (fix/change-ssh-key) [branches from PR-SSH]
 ```
 
 **Result:** Each PR diff shows only its additions, making reviews clean and focused.
@@ -120,19 +120,19 @@ Fix #2 (fix/change-ssh-key) [branches from PR #3]
 ## Beta Testing Timeline (Estimated)
 
 **Week 1:**
-- Execute: STANDARD_EXTRACTION_CURRENT.md → PR #1 created
-- Curate: PR #7 + PR #1 → `5.13.0-beta.0`
+- Execute: STANDARD_EXTRACTION_CURRENT.md → PR-Standard created
+- Curate: PR #7 + PR-Standard → `5.13.0-beta.0`
 - Test: Plaintext + Standard modes (all platforms)
 
 **Week 2:**
-- Execute: ENHANCED_CURRENT.md → PR #2 created
-- Add: PR #2 → `5.13.0-beta.1`
+- Execute: ENHANCED_CURRENT.md → PR-Enhanced created
+- Add: PR-Enhanced → `5.13.0-beta.1`
 - Test: Enhanced mode (Windows 10+ keychain)
 
 **Week 3:**
-- Execute: SSH_KEY_CURRENT.md → PR #3 created
-- Execute: Fix work units → Fix #1, Fix #2 created
-- Add: PR #3 + Fix #1 + Fix #2 → `5.13.0-beta.2`
+- Execute: SSH_KEY_CURRENT.md → PR-SSH created
+- Execute: Fix work units → Fix-MasterPassword, Fix-SSHKey created
+- Add: PR-SSH + Fix-MasterPassword + Fix-SSHKey → `5.13.0-beta.2`
 - Test: All 4 modes + CLI + management UI
 
 **Week 4+:**
@@ -159,19 +159,19 @@ Fix #2 (fix/change-ssh-key) [branches from PR #3]
 - **Alternative Rejected:** Split by file type (not independently testable)
 
 ### 3. Windows Keychain
-- **Decision:** Must be complete in PR #2 (not deferred)
+- **Decision:** Must be complete in PR-Enhanced (not deferred)
 - **Rationale:** 80% of users on Windows, Enhanced mode incomplete without it
 - **Implementation:** PowerShell PasswordVault API (Windows 10+ only)
 
 ### 4. SSH Key + CLI Together
-- **Decision:** Bundle SSH Key mode with CLI support in PR #3
+- **Decision:** Bundle SSH Key mode with CLI support in PR-SSH
 - **Rationale:** Both are developer-focused features, synergistic
 - **Alternative Rejected:** Separate PRs (more overhead, less value)
 
 ### 5. Master Password Change Workflow
-- **Decision:** Separate fix PR from PR #2
+- **Decision:** Separate fix PR from PR-Enhanced
 - **Rationale:** Product Owner wants to orchestrate beta train
-- **Branch:** From PR #2 (doesn't need PR #3 to exist)
+- **Branch:** From PR-Enhanced (doesn't need PR-SSH to exist)
 
 ### 6. Infomon Test Pollution
 - **Decision:** Product Owner will handle with original developer
@@ -209,15 +209,15 @@ Each work unit includes:
 - **Verification:** `grep -r ":master_password" lib/` should return 0 results
 
 ### Test Suite Strategy
-- **PR #1:** Extract tests, remove Enhanced mode tests
-- **PR #2:** Add back Enhanced mode tests
-- **PR #3:** Add SSH Key + CLI tests
+- **PR-Standard:** Extract tests, remove Enhanced mode tests
+- **PR-Enhanced:** Add back Enhanced mode tests
+- **PR-SSH:** Add SSH Key + CLI tests
 - **Each PR:** Must have passing test suite (380+ examples)
 
 ### Platform Support
-- **PR #1:** All platforms (no keychain dependency)
-- **PR #2:** All platforms (Windows 10+ required for Enhanced mode)
-- **PR #3:** All platforms (if ssh-keygen available)
+- **PR-Standard:** All platforms (no keychain dependency)
+- **PR-Enhanced:** All platforms (Windows 10+ required for Enhanced mode)
+- **PR-SSH:** All platforms (if ssh-keygen available)
 
 ---
 
@@ -231,11 +231,11 @@ Each work unit includes:
 5. **Release:** ONE RP PR merge → 5.13.0
 
 ### For CLI Claude (Next Session)
-1. **Execute:** `STANDARD_EXTRACTION_CURRENT.md` (PR #1)
-2. **Execute:** `ENHANCED_CURRENT.md` (PR #2)
-3. **Execute:** `SSH_KEY_CURRENT.md` (PR #3)
-4. **Execute:** `MASTER_PASSWORD_CHANGE_CURRENT.md` (Fix #1)
-5. **Execute:** `SSH_KEY_CHANGE_CURRENT.md` (Fix #2)
+1. **Execute:** `STANDARD_EXTRACTION_CURRENT.md` (PR-Standard)
+2. **Execute:** `ENHANCED_CURRENT.md` (PR-Enhanced)
+3. **Execute:** `SSH_KEY_CURRENT.md` (PR-SSH)
+4. **Execute:** `MASTER_PASSWORD_CHANGE_CURRENT.md` (Fix-MasterPassword)
+5. **Execute:** `SSH_KEY_CHANGE_CURRENT.md` (Fix-SSHKey)
 
 **Note:** Work units should be executed sequentially, not in parallel.
 
@@ -262,7 +262,7 @@ Each work unit includes:
 ### Next Session (CLI Claude)
 - Read: `CLI_PRIMER.md` for ground rules
 - Read: Work unit `STANDARD_EXTRACTION_CURRENT.md`
-- Execute: PR #1 extraction from PR #38
+- Execute: PR-Standard extraction from PR #38
 - Verify: All tests pass, push to branch
 - Report: Complete or blockers
 

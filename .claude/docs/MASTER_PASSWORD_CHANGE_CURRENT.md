@@ -1,4 +1,4 @@
-# Work Unit: Master Password Change Workflow (Fix #1)
+# Work Unit: Master Password Change Workflow (Fix-MasterPassword)
 
 **Created:** 2025-11-09
 **Estimated Effort:** 3-4 hours
@@ -9,17 +9,17 @@
 
 ## Starting Point
 
-**Branch from:** `feat/password-encryption-enhanced` (PR #2 - completed)
+**Branch from:** `feat/password-encryption-enhanced` (PR-Enhanced - completed)
 **Source material:** Account Manager UI patterns, existing password change workflow
 **What exists in base:** Enhanced mode with master password, account password change UI
 **What you're adding:** UI and workflow to change the master password itself
-**What you're excluding:** SSH key change (that's Fix #2)
+**What you're excluding:** SSH key change (that's Fix-SSHKey)
 
 ---
 
 ## Prerequisites
 
-- [ ] PR #2 complete: `feat/password-encryption-enhanced` merged or ready
+- [ ] PR-Enhanced complete: `feat/password-encryption-enhanced` merged or ready
 - [ ] Branch created: `fix/change-enhanced-password` (you'll do this)
 - [ ] Context read: `.claude/docs/BRD_Password_Encryption.md` (FR-6: Change Master Password)
 - [ ] Existing password change UI understood (`password_change.rb`)
@@ -175,7 +175,7 @@ end
 
 ## Implementation Steps
 
-### Step 1: Create Branch from PR #2
+### Step 1: Create Branch from PR-Enhanced
 ```bash
 cd /home/user/ng-betalich
 git fetch origin
@@ -389,7 +389,7 @@ git push -u origin fix/change-enhanced-password
 - [ ] Conventional commit: `fix(all): add master password change workflow`
 - [ ] Branch pushed: `git push -u origin fix/change-enhanced-password`
 - [ ] Clean diff
-- [ ] No merge conflicts with PR #2 base
+- [ ] No merge conflicts with PR-Enhanced base
 
 ### Verification Commands
 ```bash
@@ -431,12 +431,12 @@ git log --oneline -1                                            # Expected: fix(
 ## What Comes Next
 
 **After this Fix PR is complete:**
-- ✅ Fix #1 ready for beta testing
-- ⏭️ **Next work unit:** SSH_KEY_CHANGE_CURRENT.md (Fix #2)
-- Can be developed in parallel with Fix #2
+- ✅ Fix-MasterPassword ready for beta testing
+- ⏭️ **Next work unit:** SSH_KEY_CHANGE_CURRENT.md (Fix-SSHKey)
+- Can be developed in parallel with Fix-SSHKey
 
 **Dependencies:**
-- Can branch from PR #2 (doesn't need PR #3)
+- Can branch from PR-Enhanced (doesn't need PR-SSH)
 - Independent of SSH Key change workflow
 
 ---
