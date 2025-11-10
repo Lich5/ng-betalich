@@ -16,7 +16,8 @@ module Lich
           dat_file = File.join(data_dir, "entry.dat")
           yml_file = Lich::Common::GUI::YamlState.yaml_file_path(data_dir)
 
-          # TODO: need a guard for new installs with no dat_file
+          # Returns false for new installs (neither file exists) - no conversion possible
+          # Returns true only when legacy dat_file exists but yaml doesn't - conversion required
           File.exist?(dat_file) && !File.exist?(yml_file)
         end
 
