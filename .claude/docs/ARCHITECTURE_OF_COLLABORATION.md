@@ -9,10 +9,10 @@
 ## Two Separate Entities, One GitHub Interface
 
 ### Web Claude (Architecture & Oversight)
-- **Environment:** Restricted sandbox with browser/web session interface
+- **Environment:** Sandbox with browser/web session interface
 - **GitHub Access:** ✅ Full (via git CLI in sandbox)
-- **Filesystem Access:** ❌ Restricted to sandbox only (`/tmp/` or similar, not `/home/user/`)
-- **Direct Execution:** ❌ Cannot execute code on Doug's machine
+- **Filesystem Access:** ✅ Full access to `/home/user/ng-betalich/` IN SANDBOX (not Doug's machine)
+- **Direct Execution:** ❌ Cannot execute code on Doug's actual machine; can test in sandbox
 - **Primary Work:**
   - Read and interpret requirements
   - Audit code submissions
@@ -93,23 +93,22 @@ bundle exec rspec spec/password_cipher_spec.rb
 # (via Read/Write tools that access sandbox)
 ```
 
-### What Web Claude CANNOT Do
+### What Web Claude CANNOT Do (Direct Execution on Doug's Machine)
 ```bash
-# ❌ Access Doug's actual /home/user/ environment
-ls /home/user/ng-betalich/lib/
-
-# ❌ Modify files on Doug's machine directly
-# (Write tool would fail with permission/path error)
-
-# ❌ Execute arbitrary commands on Doug's system
-# (Sandbox prevents this)
-
-# ❌ Run the actual Lich application
+# ❌ Run the actual Lich application on Doug's machine
 ruby /home/user/ng-betalich/lich.rbw
 
-# ❌ Directly push code to GitHub
-# (That's CLI Claude's job—it has credentials)
+# ❌ Execute rspec tests on Doug's actual machine environment
+# (You can test in sandbox, but not on Doug's real system)
+
+# ❌ Directly push code to GitHub with Doug's credentials
+# (That's CLI Claude's job)
+
+# ❌ Make changes that affect Doug's working directory state
+# (Your changes are in sandbox; only GitHub commits are shared)
 ```
+
+**Key point:** You CAN read/write `/home/user/ng-betalich/` in your sandbox, but you're NOT modifying Doug's actual machine. Coordination happens through GitHub commits.
 
 ### What CLI Claude Does (What Web Claude Doesn't See Until PR Review)
 ```bash

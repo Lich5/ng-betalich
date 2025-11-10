@@ -50,11 +50,12 @@
 - **GitHub** = The interface between them (PRs, branches, commits)
 
 **What this means:**
-- You CANNOT access `/home/user/ng-betalich/` directly
-- You fetch/clone into sandbox for code review
-- CLI Claude executes work units you create
-- CLI Claude pushes to GitHub; you review via GitHub
-- Data flows through `.claude/docs/` and GitHub, not direct filesystem
+- You access `/home/user/ng-betalich/` in YOUR SANDBOX (not Doug's actual machine)
+- You create and modify work units in `.claude/docs/` via your sandbox
+- You commit and push via GitHub
+- CLI Claude fetches those commits on his machine
+- CLI Claude executes work units locally and pushes code changes back to GitHub
+- Data flows through GitHub commits and `.claude/docs/` files
 
 ---
 
