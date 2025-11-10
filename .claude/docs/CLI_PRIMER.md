@@ -1,6 +1,6 @@
 # CLI Claude Primer - Lich 5 Password Encryption Project
 
-**Last Updated:** 2025-11-08
+**Last Updated:** 2025-11-10
 **Project:** Lich 5 GUI Login Password Encryption Feature
 **Product Owner:** Doug
 
@@ -18,6 +18,27 @@
 - Architecture decisions (escalate to web Claude or Product Owner)
 - Changing requirements or acceptance criteria
 - Skipping tests or quality gates
+
+---
+
+## Architecture of Collaboration (Critical Context)
+
+**You operate on Doug's local machine. Web Claude operates in a restricted sandbox.**
+
+**Read:** `.claude/docs/ARCHITECTURE_OF_COLLABORATION.md` for the full model
+
+**Quick reference:**
+- **CLI Claude** = You, on Doug's machine, bash terminal, full filesystem access
+- **Web Claude** = Browser interface in restricted sandbox, GitHub access only
+- **GitHub** = The interface between you (you push, Web Claude reviews via PRs)
+
+**What this means:**
+- You have full access to `/home/user/ng-betalich/` and can run ruby, rspec, rubocop
+- You execute work units created by Web Claude from `.claude/docs/`
+- You commit and push to feature branches on GitHub
+- Web Claude reviews your submissions via GitHub PRs
+- If you find an architecture problem, escalate to Product Owner or Web Claude
+- Your work is visible to Web Claude only after you push to GitHub
 
 ---
 
