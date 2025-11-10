@@ -31,3 +31,5 @@ bin/
 !.claude/work-units
 # RSpec artifacts
 spec/.rspec_status
+# Debug logs
+debug-*.log
