@@ -1,10 +1,13 @@
 # frozen_string_literal: true
 
+require_relative 'password_cipher'
+
 module Lich
   module Common
     module GUI
       # Handles YAML-based state management for the Lich GUI login system
       # Provides a more maintainable alternative to the Marshal-based state system
+      # Enhanced with password encryption support
       module YamlState
         # Generates the full path to the entry.yaml file.
         #
@@ -90,10 +93,12 @@ module Lich
 
         # Migrates from legacy Marshal format to YAML format
         # Converts entry.dat to entry.yaml format for improved maintainability
+        # with optional encryption support
         #
         # @param data_dir [String] Directory containing entry data
+        # @param encryption_mode [Symbol] Encryption mode (:plaintext, :standard)
         # @return [Boolean] True if migration was successful
-        def self.migrate_from_legacy(data_dir)
+        def self.migrate_from_legacy(data_dir, encryption_mode: :plaintext)
           dat_file = File.join(data_dir, "entry.dat")
           yaml_file = Lich::Common::GUI::YamlState.yaml_file_path(data_dir)
 
@@ -104,8 +109,56 @@ module Lich
           # Load legacy data
           legacy_entries = State.load_saved_entries(data_dir, false)
 
-          # Save as YAML
+          # Add encryption_mode to entries
+          legacy_entries.each do |entry|
+            entry[:encryption_mode] = encryption_mode
+          end
+
+          # Encrypt passwords if not plaintext mode
+          if encryption_mode != :plaintext
+            legacy_entries.each do |entry|
+              entry[:password] = encrypt_password(
+                entry[:password],
+                mode: encryption_mode,
+                account_name: entry[:user_id]
+              )
+            end
+          end
+
+          # Use save_entries to maintain test compatibility
           save_entries(data_dir, legacy_entries)
+        end
+
+        # Encrypts a password based on the current encryption mode
+        #
+        # @param password [String] Plaintext password
+        # @param mode [Symbol] Encryption mode (:plaintext, :standard)
+        # @param account_name [String, nil] Account name for :standard mode
+        # @return [String] Encrypted password or plaintext if mode is :plaintext
+        def self.encrypt_password(password, mode:, account_name: nil)
+          Lich.log "debug: encrypt_password called - mode: #{mode}, account_name: #{account_name}"
+          return password if mode == :plaintext || mode.to_sym == :plaintext
+
+          PasswordCipher.encrypt(password, mode: mode.to_sym, account_name: account_name)
+        rescue StandardError => e
+          Lich.log "error: encrypt_password failed - #{e.class}: #{e.message}"
+          raise
+        end
+
+        # Decrypts a password based on the current encryption mode
+        #
+        # @param encrypted_password [String] Encrypted password
+        # @param mode [Symbol] Encryption mode (:plaintext, :standard)
+        # @param account_name [String, nil] Account name for :standard mode
+        # @return [String] Decrypted plaintext password
+        def self.decrypt_password(encrypted_password, mode:, account_name: nil)
+          Lich.log "debug: decrypt_password called - mode: #{mode}, account_name: #{account_name}"
+          return encrypted_password if mode == :plaintext || mode.to_sym == :plaintext
+
+          PasswordCipher.decrypt(encrypted_password, mode: mode.to_sym, account_name: account_name)
+        rescue StandardError => e
+          Lich.log "error: decrypt_password failed - #{e.class}: #{e.message}"
+          raise
         end
 
         # Adds a character to the favorites list

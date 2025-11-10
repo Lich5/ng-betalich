@@ -194,6 +194,7 @@ module Lich
           # Verifies the current password for an account
           # Checks if the provided password matches the stored password
           # Uses normalized account name for consistent lookup
+          # Handles plaintext and standard encryption modes
           #
           # @param data_dir [String] Directory containing account data
           # @param username [String] Username of the account
@@ -215,8 +216,21 @@ module Lich
               # Check if account exists
               return false unless yaml_data['accounts'] && yaml_data['accounts'][normalized_username]
 
-              # Verify password
-              yaml_data['accounts'][normalized_username]['password'] == password
+              # Get encryption mode
+              encryption_mode = (yaml_data['encryption_mode'] || 'plaintext').to_sym
+              stored_password = yaml_data['accounts'][normalized_username]['password']
+
+              # Decrypt stored password if encrypted
+              if encryption_mode == :plaintext
+                stored_password == password
+              else
+                decrypted = YamlState.decrypt_password(
+                  stored_password,
+                  mode: encryption_mode,
+                  account_name: normalized_username
+                )
+                decrypted == password
+              end
             rescue StandardError => e
               Lich.log "error: Error verifying password: #{e.message}"
               false
@@ -224,7 +238,8 @@ module Lich
           end
 
           # Changes the password for an account
-          # Updates the password in the YAML file
+          # Updates the password in the YAML file with encryption if needed
+          # Handles plaintext and standard encryption modes
           # Uses normalized account name for consistent operation
           #
           # @param data_dir [String] Directory containing account data
@@ -232,10 +247,24 @@ module Lich
           # @param new_password [String] New password
           # @return [Boolean] True if password was changed successfully
           def change_password(data_dir, username, new_password)
+            yaml_file = Lich::Common::GUI::YamlState.yaml_file_path(data_dir)
+            yaml_data = YAML.load_file(yaml_file)
+            encryption_mode = (yaml_data['encryption_mode'] || 'plaintext').to_sym
             # Normalize username before passing to AccountManager
             normalized_username = username.to_s.upcase
+
+            # Encrypt password if needed
+            encrypted_password = if encryption_mode == :plaintext
+                                   new_password
+                                 else
+                                   YamlState.encrypt_password(
+                                     new_password,
+                                     mode: encryption_mode,
+                                     account_name: normalized_username
+                                   )
+                                 end
             # Use the existing AccountManager method to change password
-            AccountManager.change_password(data_dir, normalized_username, new_password)
+            AccountManager.change_password(data_dir, normalized_username, encrypted_password)
           end
         end
       end
