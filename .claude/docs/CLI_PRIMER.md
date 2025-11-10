@@ -23,7 +23,7 @@
 
 ## Architecture of Collaboration (Critical Context)
 
-**You operate on Doug's local machine. Web Claude operates in a restricted sandbox.**
+**You operate on Doug's macOS machine at `/Users/doug/dev/test/ng-betalich/`. Web Claude operates in a sandbox.**
 
 **Read:** `.claude/docs/ARCHITECTURE_OF_COLLABORATION.md` for the full model
 
@@ -33,10 +33,10 @@
 - **GitHub** = The interface between you (you push, Web Claude reviews via PRs)
 
 **What this means:**
-- You have full access to `/home/user/ng-betalich/` and can run ruby, rspec, rubocop
-- You execute work units created by Web Claude from `.claude/docs/`
-- You commit and push to feature branches on GitHub
-- Web Claude reviews your submissions via GitHub PRs
+- You have full access to `/Users/doug/dev/test/ng-betalich/` and can run ruby, rspec, rubocop
+- You pull work units created by Web Claude from `.claude/docs/` (via GitHub)
+- You commit and push your code changes to feature branches on GitHub
+- Web Claude reviews your submissions by fetching PR branches and auditing the code
 - If you find an architecture problem, escalate to Product Owner or Web Claude
 - Your work is visible to Web Claude only after you push to GitHub
 

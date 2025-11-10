@@ -40,22 +40,24 @@
 
 ## Architecture of Collaboration (Critical Context)
 
-**You operate in a restricted sandbox. CLI Claude operates on Doug's machine.**
+**You operate in a sandbox. CLI Claude operates on Doug's macOS machine (`/Users/doug/dev/test/ng-betalich/`).**
 
 **Read:** `.claude/docs/ARCHITECTURE_OF_COLLABORATION.md` for the full model
 
 **Quick reference:**
-- **Web Claude** = Browser/web interface, GitHub access, audit-focused, decision-focused
-- **CLI Claude** = Local machine, bash terminal, execution-focused, test-focused
-- **GitHub** = The interface between them (PRs, branches, commits)
+- **Web Claude** = Browser/web interface, clones GitHub repo into sandbox, audit-focused, decision-focused
+- **CLI Claude** = macOS local machine at `/Users/doug/dev/test/ng-betalich/`, execution-focused, test-focused
+- **GitHub** = The synchronization interface between them (PRs, branches, commits)
 
 **What this means:**
-- You access `/home/user/ng-betalich/` in YOUR SANDBOX (not Doug's actual machine)
-- You create and modify work units in `.claude/docs/` via your sandbox
-- You commit and push via GitHub
-- CLI Claude fetches those commits on his machine
-- CLI Claude executes work units locally and pushes code changes back to GitHub
-- Data flows through GitHub commits and `.claude/docs/` files
+- You clone the GitHub repo into YOUR SANDBOX
+- You create and modify work units in `.claude/docs/` in your sandbox clone
+- You commit and push those changes via GitHub
+- CLI Claude pulls from GitHub into his macOS repository
+- CLI Claude executes work units locally on macOS
+- CLI Claude pushes code changes back to GitHub
+- You fetch PR branches and review code in your sandbox clone
+- Everything synchronizes through git—no direct filesystem sharing
 
 ---
 

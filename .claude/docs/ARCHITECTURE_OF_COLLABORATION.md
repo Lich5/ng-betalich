@@ -6,336 +6,347 @@
 
 ---
 
-## Two Separate Entities, One GitHub Interface
+## Two Separate Environments, One GitHub Interface
 
 ### Web Claude (Architecture & Oversight)
-- **Environment:** Sandbox with browser/web session interface
-- **GitHub Access:** ✅ Full (via git CLI in sandbox)
-- **Filesystem Access:** ✅ Full access to `/home/user/ng-betalich/` IN SANDBOX (not Doug's machine)
-- **Direct Execution:** ❌ Cannot execute code on Doug's actual machine; can test in sandbox
-- **Primary Work:**
-  - Read and interpret requirements
-  - Audit code submissions
-  - Create architecture decisions and work units
-  - Review PRs and provide feedback
-  - Document guidance for CLI Claude
+- **Environment:** Browser/web interface, restricted sandbox
+- **Repository Access:** Clones GitHub repo into sandbox (`git clone https://github.com/Lich5/ng-betalich.git`)
+- **Local Work:** Creates work units, commits to `.claude/docs/`, pushes to GitHub
+- **Code Review:** Fetches PR branches into sandbox, audits code changes locally
+- **Direct Machine Access:** ❌ Cannot access Doug's macOS environment
 
 ### CLI Claude (Execution & Testing)
-- **Environment:** Doug's local machine (unrestricted)
-- **GitHub Access:** ✅ Full (native git on local machine)
-- **Filesystem Access:** ✅ Full (Doug's `/home/user/ng-betalich/` and all system files)
-- **Direct Execution:** ✅ Can run `bash`, `ruby`, `rspec`, `rubocop` directly
-- **Primary Work:**
-  - Execute work units created by Web Claude
-  - Make code changes, run tests locally
-  - Commit to git branches on Doug's machine
-  - Push to GitHub for review
-  - Report blockers or questions
+- **Environment:** Doug's macOS machine (`/Users/doug/dev/test/ng-betalich/`)
+- **Repository Access:** Local git repository on macOS, pulls from GitHub
+- **Local Work:** Executes work units, makes code changes, runs tests locally, commits, pushes
+- **Direct Machine Access:** ✅ Full access to macOS filesystem and local development tools
+
+### GitHub (The Interface)
+- Central repository: `https://github.com/Lich5/ng-betalich.git`
+- Pull requests, branches, commits, tags
+- Single source of truth for all code and documentation changes
 
 ---
 
-## Communication Flow
+## How It Works: The Synchronization Loop
 
 ```
-┌──────────────────┐
-│  Web Claude      │
-│  (Browser)       │
-└────────┬─────────┘
-         │
-         │ (1) Reads PRs, creates work units
-         │     via .claude/docs/ files
-         │
-         ↓
-    ┌─────────────┐
-    │   GitHub    │  ← Communication Interface
-    │   (Remote)  │
-    └─────────────┘
-         ↑
-         │ (2) Fetches branch locally,
-         │     reviews code changes
-         │
-         ↓
-┌──────────────────┐
-│  CLI Claude      │
-│  (Bash/Local)    │
-└────────┬─────────┘
-         │
-         │ (3) Reads work units from .claude/docs/
-         │     Executes on local machine
-         │     Commits & pushes to GitHub
-         │
-         ↓
-  ┌─────────────┐
-  │   feature   │  ← PR submitted to GitHub
-  │   branch    │
-  └─────────────┘
-```
+Web Claude (Sandbox)           GitHub                    CLI Claude (macOS)
+─────────────────────────────────────────────────────────────────────────
 
----
+1. Clone repo
+   git clone https://...  ──→  (GitHub remote)
+   (sandbox copy)
 
-## The Critical Difference: Access Boundaries
+2. Work on .claude/docs/
+   - Create work units
+   - Document decisions
+   - Commit locally
+   git commit
+   git push  ─────────────────→ (feat/something branch)
 
-### What Web Claude Can Do
-```bash
-# ✅ Clone the repo into sandbox
-git clone https://github.com/user/ng-betalich.git
+3. (Wait for CLI Claude)
 
-# ✅ Fetch a PR branch for review
-git fetch origin feat/password-encryption-standard
+                         ←────── git pull
+                                 (CLI Claude fetches)
+                                 Reads work unit from .claude/docs/
+                                 Executes on macOS
+                                 Runs tests locally
+                                 Commits to feature branch
+                                 git push ──→ (Creates PR)
 
-# ✅ Read code files in sandbox copy
-cat lib/common/gui/password_cipher.rb
+4. Fetch PR branch
+   git fetch origin
+   git checkout feat/something
+   Review code in sandbox
+   Audit against spec
 
-# ✅ Run rspec on sandbox copy (if tools installed)
-bundle exec rspec spec/password_cipher_spec.rb
+5. Post feedback
+   (if issues found, create new work unit)
+   Commit & push ───────────────→ (new work unit in .claude/docs/)
 
-# ✅ Write documentation to .claude/docs/
-# (via Read/Write tools that access sandbox)
-```
+                         ←────── git pull
+                                 (CLI Claude gets feedback)
+                                 Makes corrections
+                                 Commits & pushes
 
-### What Web Claude CANNOT Do (Direct Execution on Doug's Machine)
-```bash
-# ❌ Run the actual Lich application on Doug's machine
-ruby /home/user/ng-betalich/lich.rbw
+6. (Repeat until approved)
 
-# ❌ Execute rspec tests on Doug's actual machine environment
-# (You can test in sandbox, but not on Doug's real system)
-
-# ❌ Directly push code to GitHub with Doug's credentials
-# (That's CLI Claude's job)
-
-# ❌ Make changes that affect Doug's working directory state
-# (Your changes are in sandbox; only GitHub commits are shared)
-```
-
-**Key point:** You CAN read/write `/home/user/ng-betalich/` in your sandbox, but you're NOT modifying Doug's actual machine. Coordination happens through GitHub commits.
-
-### What CLI Claude Does (What Web Claude Doesn't See Until PR Review)
-```bash
-# CLI Claude on Doug's machine:
-
-# ✅ Make actual code changes
-vim lib/common/gui/password_cipher.rb
-
-# ✅ Run tests locally (instant feedback)
-bundle exec rspec
-
-# ✅ Run rubocop
-bundle exec rubocop
-
-# ✅ Commit to local git
-git commit -m "feat(all): add standard encryption"
-
-# ✅ Push to GitHub
-git push -u origin feat/password-encryption-standard
-
-# ✅ Create PR on GitHub
+7. Merge to main (Product Owner)
+   PR approved ──────────────────→ Merge via GitHub
+                                   git pull origin main
+                                   Local repo updated
 ```
 
 ---
 
-## Why This Architecture?
+## Web Claude's Workflow
 
-### Security
-- Web Claude cannot access Doug's private data
-- CLI Claude has unrestricted access but is in a controlled context (Product Owner's machine)
-- Separation of concerns: architecture review is independent of code execution
-
-### Efficiency
-- CLI Claude gets instant feedback (tests, linting) on Doug's machine
-- Web Claude reviews via GitHub (no direct filesystem needed)
-- Work units flow through `.claude/docs/` (documented, auditable)
-
-### Clarity
-- No ambiguity about who runs what
-- Code review happens through standard GitHub process
-- Collaboration is asynchronous and traceable
-
----
-
-## Data Flow for Code Changes
-
-### Phase 1: Web Claude Creates Work Unit
+### Phase 1: Setup & Planning
 ```
-Web Claude reads requirements
-         ↓
-Web Claude writes work unit to .claude/docs/
-         ↓
-(Commit to github if needed)
-         ↓
-Work unit exists in GitHub repo
+Web Claude (Sandbox):
+  git clone https://github.com/Lich5/ng-betalich.git
+  cd ng-betalich
+
+  # Read existing documentation
+  cat .claude/docs/SESSION_011C_SUMMARY.md
+  cat .claude/docs/BRD_Password_Encryption.md
+
+  # Understand current state
+  git log --oneline | head -20
+  git branch -r
 ```
 
-### Phase 2: CLI Claude Executes
+### Phase 2: Create Work Unit
 ```
-CLI Claude reads work unit from local .claude/docs/
-         ↓
-CLI Claude makes code changes locally
-         ↓
-CLI Claude runs tests locally (instant feedback)
-         ↓
-CLI Claude commits with conventional format
-         ↓
-CLI Claude pushes to feature branch on GitHub
-         ↓
-PR created on GitHub
+Web Claude (Sandbox):
+  # Create new work unit
+  vim .claude/docs/ENHANCED_CURRENT.md
+
+  # Document architectural decisions
+  vim .claude/docs/ADR_SESSION_011C_*.md
+
+  # Commit and push
+  git add .claude/docs/
+  git commit -m "chore(all): create work unit for PR-Enhanced"
+  git push origin claude/web-context-pr-51-setup-[sessionid]
 ```
 
-### Phase 3: Web Claude Audits
+### Phase 3: Code Review & Audit
 ```
-Web Claude is notified of PR on GitHub
-         ↓
-Web Claude fetches branch locally (into sandbox)
-         ↓
-Web Claude reviews code in sandbox copy
-         ↓
-Web Claude may create new work unit if changes needed
-         ↓
-Web Claude or Product Owner posts feedback to PR
-         ↓
-(Repeat Phase 2 if needed)
+Web Claude (Sandbox):
+  # Fetch PR branch from CLI Claude
+  git fetch origin feat/password-encryption-standard
+
+  # Check out PR branch locally
+  git checkout feat/password-encryption-standard
+
+  # Review code files
+  cat lib/common/gui/password_cipher.rb
+  cat spec/password_cipher_spec.rb
+
+  # Run tests in sandbox to verify
+  bundle exec rspec spec/password_cipher_spec.rb
+
+  # If issues found, create new work unit
+  vim .claude/docs/FEEDBACK_PASSWORD_CIPHER.md
+  git add .claude/docs/
+  git commit -m "chore(all): add audit feedback for password cipher"
+  git push origin claude/web-context-pr-51-setup-[sessionid]
 ```
 
-### Phase 4: Merge & Release
+### Phase 4: Post Review
 ```
-PR approved by Product Owner
-         ↓
-Product Owner merges to main (via GitHub)
-         ↓
-Release Please workflow processes merge
-         ↓
-Version bumped, release created
+Web Claude (via GitHub UI or comment):
+  Link to feedback in .claude/docs/
+  Tag CLI Claude and Product Owner
+  Await corrections
 ```
 
 ---
 
-## The Sanity Check: How Web Claude Knows Its Role
+## CLI Claude's Workflow
 
-**At the start of every Web Claude session, ask these questions:**
+### Phase 1: Setup
+```
+CLI Claude (macOS):
+  cd /Users/doug/dev/test/ng-betalich/
 
-1. **What medium are we using?**
-   - If: Multi-turn text conversation → I am Web Claude
-   - If: Bash terminal with prompts → I am CLI Claude
+  # Pull latest from GitHub
+  git pull origin main
 
-2. **Can I access `/home/user/ng-betalich/` directly?**
-   - Try: `ls /home/user/ng-betalich/lib/`
-   - If: Permission denied or path not found → I am Web Claude
-   - If: Lists files → I am CLI Claude
+  # Create feature branch
+  git checkout -b feat/password-encryption-standard
+```
 
-3. **Where do work units come from?**
-   - If: Product Owner describes requirements in conversation → I create work units and write them to docs
-   - If: Work unit file exists in my cwd → I execute it
+### Phase 2: Read Work Unit
+```
+CLI Claude (macOS):
+  # Pull work unit from GitHub
+  git pull origin claude/web-context-pr-51-setup-[sessionid]
 
-4. **What happens when I want to review code?**
-   - If: I must `git clone` or `git fetch` into sandbox → I am Web Claude
-   - If: Code is already in my cwd ready to modify → I am CLI Claude
+  # Read the work unit
+  cat .claude/docs/STANDARD_EXTRACTION_CURRENT.md
+```
 
-5. **What is my next action?**
-   - Web Claude: Read docs, understand context, make architectural decisions, create/review work units
-   - CLI Claude: Read work unit, execute it, test, commit, push
+### Phase 3: Execute
+```
+CLI Claude (macOS):
+  # Make code changes
+  vim lib/common/gui/password_cipher.rb
+  vim lib/common/gui/conversion_ui.rb
 
----
+  # Run tests locally (instant feedback)
+  bundle exec rspec spec/password_cipher_spec.rb
 
-## Session Initialization Protocol
+  # Run linting
+  bundle exec rubocop lib/common/gui/password_cipher.rb
 
-### For Web Claude Sessions
+  # Commit
+  git add lib/common/gui/
+  git commit -m "feat(all): add standard encryption mode"
 
-**BEFORE DOING ANYTHING:**
+  # Push to GitHub (creates PR)
+  git push -u origin feat/password-encryption-standard
+```
 
-1. **Confirm environment:**
-   ```
-   This is a browser/web conversation interface.
-   I can clone/fetch git repos but cannot access /home/user/ directly.
-   Therefore: I am Web Claude.
-   ```
+### Phase 4: Wait for Review & Fix
+```
+CLI Claude (macOS):
+  # Wait for Web Claude's audit feedback
 
-2. **Confirm role:**
-   - Architecture and oversight
-   - GitHub review interface
-   - Work unit creation for CLI Claude
-   - NO direct execution of code
+  # If corrections needed, pull feedback
+  git pull origin claude/web-context-pr-51-setup-[sessionid]
 
-3. **Read context hierarchy:**
-   - WEB_CONTEXT.md (role definition)
-   - SESSION_SUMMARY.md (what happened before)
-   - Relevant work units or PRs (current state)
+  # Read feedback
+  cat .claude/docs/FEEDBACK_PASSWORD_CIPHER.md
 
-4. **Ask clarifying questions:**
-   - What is the current state (PRs in beta, code review, waiting for feedback)?
-   - What is expected of Web Claude in THIS session?
-   - Are there any blockers from prior sessions?
+  # Make corrections
+  vim lib/common/gui/password_cipher.rb
 
-### For CLI Claude Sessions
+  # Test corrections
+  bundle exec rspec
 
-**BEFORE DOING ANYTHING:**
-
-1. **Confirm environment:**
-   ```
-   This is a bash terminal on local machine.
-   I have full filesystem and git access.
-   I can run ruby, rspec, rubocop directly.
-   Therefore: I am CLI Claude.
-   ```
-
-2. **Confirm role:**
-   - Execute work units precisely as specified
-   - Run tests and verify quality gates
-   - Commit with conventional format
-   - Push to designated branch
-   - Report when complete or blocked
-
-3. **Read work unit:**
-   - What is the specific task?
-   - What are acceptance criteria?
-   - What are the test expectations?
-
-4. **Execute:**
-   - Make changes
-   - Run tests
-   - Verify acceptance criteria
-   - Commit and push
+  # Commit & push
+  git add lib/common/gui/
+  git commit -m "fix(all): address audit feedback on password cipher"
+  git push origin feat/password-encryption-standard
+```
 
 ---
 
-## Troubleshooting Session Startup Confusion
+## Key Points for Web Claude
 
-### Symptom: "I'm not sure if I'm Web Claude or CLI Claude"
+### What You Have
+- ✅ GitHub repository cloned into sandbox
+- ✅ Ability to create/edit `.claude/docs/` files locally
+- ✅ Ability to commit and push to GitHub
+- ✅ Ability to fetch PR branches and review code locally
+- ✅ Ability to run tests in sandbox for verification
 
-**Diagnostic:**
-1. What interface am I using? (browser text vs. bash prompt)
-2. Can I directly access `/home/user/`? (Try `ls /home/user/ng-betalich/`)
-3. Is there a work unit file waiting? (Check for CURRENT.md)
+### What You Don't Have
+- ❌ Direct access to `/Users/doug/dev/test/ng-betalich/` on macOS
+- ❌ Ability to execute code on Doug's actual machine
+- ❌ Ability to push code to feature branches (CLI Claude does that)
+- ❌ Credentials to merge PRs to main (Product Owner does that)
 
-**If browser + no `/home/user/` access:** You are Web Claude
-- Your job: Read context, make decisions, create/review work units
-- Your interface: GitHub and .claude/docs/ files
-- Your next step: What is the current status? What decision is needed?
+### Your Responsibilities
+- Read and understand requirements (BRD)
+- Create architectural decisions (ADRs)
+- Create and update work units (`.claude/docs/`)
+- Commit work units to GitHub
+- Fetch PR branches and review code for audit
+- Post feedback and guidance for CLI Claude
+- Verify quality gates are met
 
-**If bash terminal + `/home/user/` accessible:** You are CLI Claude
-- Your job: Execute work unit, test, commit, push
-- Your interface: Local filesystem
-- Your next step: Read CURRENT.md work unit and execute it
+### Boundary
+**You work in sandbox. CLI Claude works on macOS. GitHub synchronizes between you.**
+
+---
+
+## Key Points for CLI Claude
+
+### What You Have
+- ✅ Full access to `/Users/doug/dev/test/ng-betalich/`
+- ✅ Ruby, RSpec, RuboCop, all development tools
+- ✅ Ability to run actual Lich application
+- ✅ Ability to commit and push to GitHub
+- ✅ Instant feedback from local testing
+
+### What You Don't Have
+- ❌ Ability to make architectural decisions (that's Web Claude)
+- ❌ Ability to change work unit scope without escalation
+- ❌ Direct access to Web Claude's sandbox
+
+### Your Responsibilities
+- Read work units from `.claude/docs/` (via git pull)
+- Execute work units precisely as specified
+- Run tests locally and verify all pass
+- Commit with conventional format
+- Push to feature branches on GitHub
+- Report blockers to Product Owner
+- Wait for Web Claude's code review
+
+### Boundary
+**You execute on your machine. GitHub is the interface. Web Claude reviews via PR.**
+
+---
+
+## The Two-Environment Model
+
+**This is NOT:**
+- Filesystem synchronization
+- Remote code execution
+- Shared directory access
+- SSH tunneling
+
+**This IS:**
+- Two independent environments
+- Git as the synchronization mechanism
+- Work units as documentation flowing through GitHub
+- Code review through PR branches
+
+**Data flows through:**
+1. `.claude/docs/` files (work units, decisions, feedback)
+2. Git commits (all changes)
+3. GitHub PRs (review interface)
+
+**NOT through:**
+- Direct filesystem access
+- Command execution on other machine
+- Clipboard/file transfer
+
+---
+
+## Session Initialization Checklist for Web Claude
+
+Before starting work, confirm:
+
+- [ ] I am in a browser/web interface (not bash terminal)
+- [ ] I have cloned the GitHub repo into my sandbox
+- [ ] I can read/write `.claude/docs/` in my sandbox
+- [ ] I can fetch PR branches for code review
+- [ ] I understand I cannot access Doug's macOS environment directly
+- [ ] I know the current state (which PR is in progress, what's being worked on)
+- [ ] I understand what decision/review/guidance is being asked of me
+
+---
+
+## Session Initialization Checklist for CLI Claude
+
+Before starting work, confirm:
+
+- [ ] I am on Doug's macOS machine (bash terminal)
+- [ ] I have pulled the latest from GitHub
+- [ ] I can access `/Users/doug/dev/test/ng-betalich/`
+- [ ] I have read the work unit from `.claude/docs/`
+- [ ] I understand the acceptance criteria
+- [ ] I know what tests need to pass
+- [ ] I understand I cannot make architectural changes
 
 ---
 
 ## FAQ
 
-**Q: Can Web Claude directly modify code in `/home/user/`?**
-A: No. Web Claude's Write tool can only write to the sandbox. To modify production code, CLI Claude must execute the change on Doug's machine and push to GitHub.
+**Q: How does Web Claude know what CLI Claude did if they can't share files?**
+A: GitHub. CLI Claude pushes commits to a feature branch. Web Claude fetches that branch and reviews it.
 
-**Q: Can CLI Claude create architectural decisions?**
-A: No. CLI Claude executes architectural decisions made by Web Claude. If CLI Claude encounters an architectural question, it escalates to Product Owner or Web Claude.
+**Q: How does CLI Claude get work units if they're in Web Claude's sandbox?**
+A: Web Claude commits them to `.claude/docs/` and pushes to GitHub. CLI Claude pulls from GitHub.
 
-**Q: Why can't Web Claude just ssh into Doug's machine?**
-A: Security boundary. Web Claude operates in a restricted environment (Claude Code sandbox). Direct access to Doug's machine would require trust relationship and credentials that don't exist in this architecture.
+**Q: Why not just give Web Claude access to macOS?**
+A: Security boundary. Web Claude is in a restricted sandbox intentionally. GitHub is the safe interface.
 
-**Q: How does Web Claude review code if it's not on local disk?**
-A: Web Claude clones/fetches the GitHub repo into its sandbox when review is needed. This gives Web Claude a copy of all submitted code for audit.
+**Q: Can Web Claude run the actual Lich application?**
+A: Not on Doug's machine. In sandbox, only if tools are installed, and it would be a sandbox instance.
 
-**Q: What if Web Claude and CLI Claude are both active?**
-A: They are asynchronous. CLI Claude makes commits, pushes to GitHub. Web Claude fetches from GitHub, reviews, creates new work units. Product Owner coordinates timing.
+**Q: What if Web Claude and CLI Claude disagree on something?**
+A: Escalate to Product Owner. That's what the `claude-context` hook and this social contract are for.
+
+**Q: How are credentials managed?**
+A: CLI Claude has macOS git credentials. Web Claude uses sandbox git (no credentials needed for reading public repo, credentials for pushing if needed).
 
 ---
 
-**Principle:** GitHub is the interface. Data flows through it. Separation of concerns is clear. No confusion about who does what.
+**Principle:** GitHub is the interface. Work units flow through it. Code review happens through it. Separation is clean and secure.
 
