@@ -34,7 +34,7 @@
 
 **What this means:**
 - You have full access to `/Users/doug/dev/test/ng-betalich/` and can run ruby, rspec, rubocop
-- You pull work units created by Web Claude from `.claude/docs/` (via GitHub)
+- You read the work unit from `.claude/work-units/CURRENT.md` in your local repository
 - You commit and push your code changes to feature branches on GitHub
 - Web Claude reviews your submissions by fetching PR branches and auditing the code
 - If you find an architecture problem, escalate to Product Owner or Web Claude
