@@ -96,7 +96,7 @@ module Lich
         # with optional encryption support
         #
         # @param data_dir [String] Directory containing entry data
-        # @param encryption_mode [Symbol] Encryption mode (:plaintext, :standard)
+        # @param encryption_mode [Symbol] Encryption mode (:plaintext, :standard, :enhanced)
         # @return [Boolean] True if migration was successful
         def self.migrate_from_legacy(data_dir, encryption_mode: :plaintext)
           dat_file = File.join(data_dir, "entry.dat")
@@ -116,11 +116,28 @@ module Lich
 
           # Encrypt passwords if not plaintext mode
           if encryption_mode != :plaintext
+            # For enhanced mode, ensure master password exists first
+            if encryption_mode == :enhanced
+              MasterPasswordManager.store_master_password(
+                MasterPasswordManager.retrieve_master_password
+              )
+            end
+
             legacy_entries.each do |entry|
-              entry[:password] = encrypt_password(
-                entry[:password],
+              encrypt_args = {
                 mode: encryption_mode,
                 account_name: entry[:user_id]
+              }
+
+              # For enhanced mode, add master password parameter
+              if encryption_mode == :enhanced
+                master_password = MasterPasswordManager.retrieve_master_password
+                encrypt_args[:master_password] = master_password
+              end
+
+              entry[:password] = encrypt_password(
+                entry[:password],
+                **encrypt_args
               )
             end
           end
@@ -132,14 +149,20 @@ module Lich
         # Encrypts a password based on the current encryption mode
         #
         # @param password [String] Plaintext password
-        # @param mode [Symbol] Encryption mode (:plaintext, :standard)
+        # @param mode [Symbol] Encryption mode (:plaintext, :standard, :enhanced)
         # @param account_name [String, nil] Account name for :standard mode
+        # @param master_password [String, nil] Master password for :enhanced mode
         # @return [String] Encrypted password or plaintext if mode is :plaintext
-        def self.encrypt_password(password, mode:, account_name: nil)
+        def self.encrypt_password(password, mode:, account_name: nil, master_password: nil)
           Lich.log "debug: encrypt_password called - mode: #{mode}, account_name: #{account_name}"
           return password if mode == :plaintext || mode.to_sym == :plaintext
 
-          PasswordCipher.encrypt(password, mode: mode.to_sym, account_name: account_name)
+          PasswordCipher.encrypt(
+            password,
+            mode: mode.to_sym,
+            account_name: account_name,
+            master_password: master_password
+          )
         rescue StandardError => e
           Lich.log "error: encrypt_password failed - #{e.class}: #{e.message}"
           raise
@@ -148,14 +171,20 @@ module Lich
         # Decrypts a password based on the current encryption mode
         #
         # @param encrypted_password [String] Encrypted password
-        # @param mode [Symbol] Encryption mode (:plaintext, :standard)
+        # @param mode [Symbol] Encryption mode (:plaintext, :standard, :enhanced)
         # @param account_name [String, nil] Account name for :standard mode
+        # @param master_password [String, nil] Master password for :enhanced mode
         # @return [String] Decrypted plaintext password
-        def self.decrypt_password(encrypted_password, mode:, account_name: nil)
+        def self.decrypt_password(encrypted_password, mode:, account_name: nil, master_password: nil)
           Lich.log "debug: decrypt_password called - mode: #{mode}, account_name: #{account_name}"
           return encrypted_password if mode == :plaintext || mode.to_sym == :plaintext
 
-          PasswordCipher.decrypt(encrypted_password, mode: mode.to_sym, account_name: account_name)
+          PasswordCipher.decrypt(
+            encrypted_password,
+            mode: mode.to_sym,
+            account_name: account_name,
+            master_password: master_password
+          )
         rescue StandardError => e
           Lich.log "error: decrypt_password failed - #{e.class}: #{e.message}"
           raise

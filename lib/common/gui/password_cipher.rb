@@ -31,15 +31,16 @@ module Lich
         # Encrypts a password using the specified mode
         #
         # @param password [String] The plaintext password to encrypt
-        # @param mode [Symbol] Encryption mode (:standard)
+        # @param mode [Symbol] Encryption mode (:standard, :enhanced)
         # @param account_name [String, nil] Account name for :standard mode
+        # @param master_password [String, nil] Master password for :enhanced mode
         # @return [String] Base64-encoded encrypted password (IV + ciphertext)
         # @raise [ArgumentError] If required parameters are missing or mode is invalid
-        def self.encrypt(password, mode:, account_name: nil)
-          validate_encryption_params(mode, account_name)
+        def self.encrypt(password, mode:, account_name: nil, master_password: nil)
+          validate_encryption_params(mode, account_name, master_password)
 
           # Derive encryption key based on mode
-          key = derive_key(mode, account_name)
+          key = derive_key(mode, account_name, master_password)
 
           # Initialize cipher
           cipher = OpenSSL::Cipher.new(CIPHER_ALGORITHM)
@@ -59,16 +60,17 @@ module Lich
         # Decrypts a password using the specified mode
         #
         # @param encrypted_password [String] Base64-encoded encrypted password
-        # @param mode [Symbol] Encryption mode (:standard)
+        # @param mode [Symbol] Encryption mode (:standard, :enhanced)
         # @param account_name [String, nil] Account name for :standard mode
+        # @param master_password [String, nil] Master password for :enhanced mode
         # @return [String] Decrypted plaintext password
         # @raise [ArgumentError] If required parameters are missing or mode is invalid
         # @raise [DecryptionError] If decryption fails
-        def self.decrypt(encrypted_password, mode:, account_name: nil)
-          validate_encryption_params(mode, account_name)
+        def self.decrypt(encrypted_password, mode:, account_name: nil, master_password: nil)
+          validate_encryption_params(mode, account_name, master_password)
 
           # Derive decryption key based on mode
-          key = derive_key(mode, account_name)
+          key = derive_key(mode, account_name, master_password)
 
           # Decode from Base64
           encrypted_data = Base64.strict_decode64(encrypted_password)
@@ -95,14 +97,19 @@ module Lich
         #
         # @param mode [Symbol] Encryption mode
         # @param account_name [String, nil] Account name
+        # @param master_password [String, nil] Master password
         # @raise [ArgumentError] If parameters are invalid
-        def self.validate_encryption_params(mode, account_name)
-          unless %i[standard].include?(mode)
+        def self.validate_encryption_params(mode, account_name, master_password)
+          unless %i[standard enhanced].include?(mode)
             raise ArgumentError, "Unsupported encryption mode: #{mode}"
           end
 
           if mode == :standard && account_name.nil?
             raise ArgumentError, 'account_name required for :standard mode'
+          end
+
+          if mode == :enhanced && master_password.nil?
+            raise ArgumentError, 'master_password required for :enhanced mode'
           end
         end
         private_class_method :validate_encryption_params
@@ -111,12 +118,15 @@ module Lich
         #
         # @param mode [Symbol] Encryption mode
         # @param account_name [String, nil] Account name for :standard mode
+        # @param master_password [String, nil] Master password for :enhanced mode
         # @return [String] Derived encryption key
-        def self.derive_key(mode, account_name)
+        def self.derive_key(mode, account_name, master_password)
           # Select passphrase based on mode
           passphrase = case mode
                        when :standard
                          account_name
+                       when :enhanced
+                         master_password
                        end
 
           # Use a fixed salt for deterministic key derivation
