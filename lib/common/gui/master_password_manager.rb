@@ -123,7 +123,7 @@ module Lich
         end
 
         private_class_method def self.macos_keychain_available?
-          system('which security >/dev/null 2>&1')
+          !!system('which security >/dev/null 2>&1')
         end
 
         private_class_method def self.store_macos_keychain(password)
@@ -146,7 +146,7 @@ module Lich
         end
 
         private_class_method def self.linux_keychain_available?
-          system('which secret-tool >/dev/null 2>&1')
+          !!system('which secret-tool >/dev/null 2>&1')
         end
 
         private_class_method def self.store_linux_keychain(password)
