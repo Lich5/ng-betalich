@@ -270,6 +270,123 @@ All other conventional commit types (`docs`, `refactor`, `perf`, etc.) must use 
 
 ---
 
+## ADR-008: Boolean Return Guarantee for Keychain Availability Detection
+
+**Date:** 2025-11-11
+**Status:** Accepted
+**Session:** Web Claude PR #55 Audit
+**Decision Makers:** Web Claude (auditor), Doug (Product Owner)
+
+---
+
+## Context
+
+PR #55 (Enhanced encryption mode) includes keychain availability detection methods:
+- `macos_keychain_available?` - checks for macOS `security` command
+- `linux_keychain_available?` - checks for Linux `secret-tool` command
+- `windows_keychain_available?` - already properly returns boolean
+
+During code audit, Web Claude's sandbox environment (incomplete Linux tooling) revealed that Ruby's `system()` method can return `nil` in certain edge cases, not just `true`/`false`.
+
+**Current code example:**
+```ruby
+private_class_method def self.macos_keychain_available?
+  system('which security >/dev/null 2>&1')
+end
+Observed behavior: In broken/incomplete environments, system() can return nil, causing test failures.
+
+Decision
+Apply boolean coercion operator (!!) to guarantee boolean return from keychain availability detection methods.
+
+Methods Affected
+macos_keychain_available? - line 126
+linux_keychain_available? - line 149
+Implementation
+# Before
+private_class_method def self.macos_keychain_available?
+  system('which security >/dev/null 2>&1')
+end
+
+# After
+private_class_method def self.macos_keychain_available?
+  !!system('which security >/dev/null 2>&1')
+end
+Same change for linux_keychain_available?.
+
+Rationale
+Why Make This Change?
+Defensive Programming: Guarantees boolean return in all cases
+
+Normal: true if tool exists, false if not
+Edge case: If environment is broken, still returns false (graceful degradation)
+Consistency: Windows already does this correctly
+
+windows_keychain_available? explicitly returns boolean
+macOS and Linux should match for consistency
+Robustness: User environments are not always perfect
+
+Broken PATH, missing shells, restricted environments
+Code should handle gracefully, not crash
+No Downside: Coercion is safe and minimal
+
+Only 2 lines changed per method
+No performance impact
+No security impact
+Why Ruby's system() Can Return nil
+Ruby's system() method returns:
+
+true if command exits with code 0
+false if command exits with non-zero code
+nil if the command cannot be executed at all (shell unavailable, environment broken)
+The !! operator converts this:
+
+nil → false (gracefully treat as unavailable)
+true → true
+false → false
+Consequences
+Positive
+More robust to environmental edge cases
+Explicit boolean contract for all availability methods
+Consistent behavior across all platforms
+Minimal code change
+Negative
+Nil would normally indicate "something weird happened," but we hide it
+However, this is acceptable because:
+The code gracefully degrades anyway (treats as unavailable)
+User gets working functionality (falls back to password prompt)
+No data loss or security issue
+Implementation Notes
+Scope: lib/common/gui/master_password_manager.rb
+
+Line 126: macos_keychain_available?
+Line 149: linux_keychain_available?
+Testing:
+
+Re-run full test suite after changes
+Verify all 394 tests pass
+No new tests needed (behavior unchanged for normal cases)
+Documentation:
+
+Add inline comment explaining !!system() coercion if desired
+Already explained in AUDIT_PR55_ENHANCED_MODE.md
+Precedent
+windows_keychain_available? (line 186) already uses similar logic:
+
+private_class_method def self.windows_keychain_available?
+  return false unless windows_10_or_later?
+  # ... PowerShell test logic ...
+  result == "available"  # Returns explicit boolean
+end
+This ADR brings macOS and Linux into alignment with Windows.
+
+Related Documents
+AUDIT_PR55_ENHANCED_MODE.md - Full audit with rationale
+lib/common/gui/master_password_manager.rb - Implementation location
+BRD_Password_Encryption.md - Requirements (FR-2, keychain availability checking)
+Status: Accepted - Implement during PR #55 robustness enhancement pass
+
+-------
+
 ## Template for New ADRs
 
 ```markdown
