@@ -24,3 +24,5 @@ gem "sequel", ">= 5.66"
 gem "sqlite3", ">= 1.6"
 
 gem "terminal-table", ">= 3.0"
+
+gem "os", ">= 1.1"
