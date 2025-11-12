@@ -39,6 +39,9 @@ module Lich
               # Migrate data structure if needed to support favorites
               yaml_data = migrate_to_favorites_format(yaml_data)
 
+              # Migrate data structure if needed to support encryption
+              yaml_data = migrate_to_encryption_format(yaml_data)
+
               entries = convert_yaml_to_legacy_format(yaml_data)
 
               # Apply sorting with favorites priority if enabled
@@ -637,6 +640,20 @@ module Lich
         def self.normalize_character_name(name)
           return '' if name.nil?
           name.to_s.strip.capitalize
+        end
+
+        # Migrates YAML data to support encryption format
+        # Adds encryption_mode field if not present
+        #
+        # @param yaml_data [Hash] YAML data structure
+        # @return [Hash] YAML data structure with encryption support
+        def self.migrate_to_encryption_format(yaml_data)
+          return yaml_data unless yaml_data.is_a?(Hash)
+
+          # Add encryption_mode if not present (defaults to plaintext for backward compatibility)
+          yaml_data['encryption_mode'] ||= 'plaintext'
+
+          yaml_data
         end
       end
     end

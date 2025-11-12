@@ -423,6 +423,26 @@ module Lich
             []
           end
         end
+
+        # Writes YAML data to file with descriptive headers
+        # Adds generation timestamp and format information
+        #
+        # @param file_path [String] Path to the YAML file
+        # @param yaml_data [Hash] YAML data structure to write
+        # @return [Boolean] True if write was successful
+        def self.write_yaml_with_headers(file_path, yaml_data)
+          File.open(file_path, 'w', 0600) do |file|
+            file.puts "# Lich 5 Login Entries - YAML Format"
+            file.puts "# Generated: #{Time.now}"
+            file.write(YAML.dump(yaml_data))
+          end
+          true
+        rescue StandardError => e
+          Lich.log "error: Error writing YAML with headers: #{e.message}"
+          false
+        end
+
+        private_class_method :write_yaml_with_headers
       end
     end
   end
