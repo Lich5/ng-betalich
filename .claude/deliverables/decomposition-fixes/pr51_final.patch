@@ -1,31 +1,71 @@
+diff --git a/lib/common/gui/account_manager.rb b/lib/common/gui/account_manager.rb
+index a1d6fe2..6dac38e 100644
+--- a/lib/common/gui/account_manager.rb
++++ b/lib/common/gui/account_manager.rb
+@@ -423,6 +423,26 @@ module Lich
+             []
+           end
+         end
++
++        # Writes YAML data to file with descriptive headers
++        # Adds generation timestamp and format information
++        #
++        # @param file_path [String] Path to the YAML file
++        # @param yaml_data [Hash] YAML data structure to write
++        # @return [Boolean] True if write was successful
++        def self.write_yaml_with_headers(file_path, yaml_data)
++          File.open(file_path, 'w', 0600) do |file|
++            file.puts "# Lich 5 Login Entries - YAML Format"
++            file.puts "# Generated: #{Time.now}"
++            file.write(YAML.dump(yaml_data))
++          end
++          true
++        rescue StandardError => e
++          Lich.log "error: Error writing YAML with headers: #{e.message}"
++          false
++        end
++
++        private_class_method :write_yaml_with_headers
+       end
+     end
+   end
+diff --git a/lib/common/gui/utilities.rb b/lib/common/gui/utilities.rb
+index eb4486f..aba9c8d 100644
+--- a/lib/common/gui/utilities.rb
++++ b/lib/common/gui/utilities.rb
+@@ -117,7 +117,7 @@ module Lich
+             safe_file_operation(file_path, :backup) if File.exist?(file_path)
+ 
+             # Write content to file
+-            File.write(file_path, content)
++            File.write(file_path, content, mode: 0600)
+             true
+           when :backup
+             return false unless File.exist?(file_path)
+@@ -148,7 +148,7 @@ module Lich
+             safe_file_operation(file_path, :backup) if File.exist?(file_path)
+ 
+             # Write content with forced synchronization
+-            File.open(file_path, 'w') do |file|
++            File.open(file_path, 'w', 0600) do |file|
+               file.write(content)
+               file.flush    # Force write to OS buffer
+               file.fsync    # Force OS to write to disk
+diff --git a/lib/common/gui/yaml_state.rb b/lib/common/gui/yaml_state.rb
+index 92f8f24..c75e558 100644
 --- a/lib/common/gui/yaml_state.rb
 +++ b/lib/common/gui/yaml_state.rb
-@@ -36,6 +36,7 @@ module Lich
-             begin
-               yaml_data = YAML.load_file(yaml_file)
- 
-+              # Migrate data structure if needed to support encryption format
+@@ -39,6 +39,9 @@ module Lich
+               # Migrate data structure if needed to support favorites
                yaml_data = migrate_to_favorites_format(yaml_data)
+ 
++              # Migrate data structure if needed to support encryption
 +              yaml_data = migrate_to_encryption_format(yaml_data)
- 
-               entries = convert_yaml_to_legacy_format(yaml_data)
-@@ -70,10 +71,12 @@ module Lich
-             FileUtils.cp(yaml_file, backup_file)
-           end
- 
--          # Write YAML data to file
-+          # Write YAML data to file with headers
-           begin
--            File.open(yaml_file, 'w') do |file|
-+            File.open(yaml_file, 'w', 0600) do |file|
-               file.puts "# Lich 5 Login Entries - YAML Format"
-               file.puts "# Generated: #{Time.now}"
--              file.puts "# WARNING: Passwords are stored in plain text"
 +
-               file.write(YAML.dump(yaml_data))
-             end
+               entries = convert_yaml_to_legacy_format(yaml_data)
  
-@@ -628,6 +631,23 @@ module Lich
+               # Apply sorting with favorites priority if enabled
+@@ -609,6 +612,20 @@ module Lich
            return '' if name.nil?
            name.to_s.strip.capitalize
          end
@@ -40,106 +80,9 @@
 +
 +          # Add encryption_mode if not present (defaults to plaintext for backward compatibility)
 +          yaml_data['encryption_mode'] ||= 'plaintext'
-+          # Add validation test field for future enhanced mode
-+          yaml_data['master_password_validation_test'] ||= nil
 +
 +          yaml_data
 +        end
-       end
-     end
-   end
---- a/lib/common/gui/utilities.rb
-+++ b/lib/common/gui/utilities.rb
-@@ -116,8 +116,10 @@ module Lich
-             # Create backup if file exists
-             safe_file_operation(file_path, :backup) if File.exist?(file_path)
- 
--            # Write content to file
--            File.write(file_path, content)
-+            # Write content to file with secure permissions
-+            File.open(file_path, 'w', 0600) do |file|
-+              file.write(content)
-+            end
-             true
-           when :backup
-             return false unless File.exist?(file_path)
-@@ -147,8 +149,8 @@ module Lich
-             # Create backup if file exists
-             safe_file_operation(file_path, :backup) if File.exist?(file_path)
- 
--            # Write content with forced synchronization
--            File.open(file_path, 'w') do |file|
-+            # Write content with forced synchronization and secure permissions
-+            File.open(file_path, 'w', 0600) do |file|
-               file.write(content)
-               file.flush    # Force write to OS buffer
-               file.fsync    # Force OS to write to disk
---- a/lib/common/gui/account_manager.rb
-+++ b/lib/common/gui/account_manager.rb
-@@ -103,7 +103,7 @@ module Lich
-           end
- 
-           # Save updated data with verification
--          Utilities.verified_file_operation(yaml_file, :write, YAML.dump(yaml_data))
-+          write_yaml_with_headers(yaml_file, yaml_data)
-         end
- 
-         # Removes an account and all associated characters
-@@ -131,7 +131,7 @@ module Lich
-             yaml_data['accounts'].delete(normalized_username)
- 
-             # Save updated data with verification
--            Utilities.verified_file_operation(yaml_file, :write, YAML.dump(yaml_data))
-+            write_yaml_with_headers(yaml_file, yaml_data)
-           rescue StandardError => e
-             Lich.log "error: Error removing account: #{e.message}"
-             false
-@@ -211,7 +211,7 @@ module Lich
-             }
- 
-             # Save updated data with verification
--            if Utilities.verified_file_operation(yaml_file, :write, YAML.dump(yaml_data))
-+            if write_yaml_with_headers(yaml_file, yaml_data)
-               return { success: true, message: "Character '#{normalized_char_name}' added successfully." }
-             else
-               return { success: false, message: "Failed to save character data. Please check file permissions." }
-@@ -269,7 +269,7 @@ module Lich
-             return false if characters.size == initial_count
- 
-             # Save updated data with verification
--            Utilities.verified_file_operation(yaml_file, :write, YAML.dump(yaml_data))
-+            write_yaml_with_headers(yaml_file, yaml_data)
-           rescue StandardError => e
-             Lich.log "error: Error removing character: #{e.message}"
-             false
-@@ -310,7 +310,7 @@ module Lich
-             end
- 
-             # Save updated data with verification
--            Utilities.verified_file_operation(yaml_file, :write, YAML.dump(yaml_data))
-+            write_yaml_with_headers(yaml_file, yaml_data)
-           rescue StandardError => e
-             Lich.log "error: Error updating character: #{e.message}"
-             false
-@@ -423,6 +423,21 @@ module Lich
-             []
-           end
-         end
-+
-+        # Writes YAML data with proper headers
-+        # Private helper method to maintain consistent file format
-+        #
-+        # @param yaml_file [String] Path to YAML file
-+        # @param yaml_data [Hash] YAML data structure
-+        # @return [Boolean] True if write succeeded
-+        def self.write_yaml_with_headers(yaml_file, yaml_data)
-+          content = "# Lich 5 Login Entries - YAML Format\n"
-+          content += "# Generated: #{Time.now}\n"
-+          content += YAML.dump(yaml_data)
-+
-+          Utilities.verified_file_operation(yaml_file, :write, content)
-+        end
-+        private_class_method :write_yaml_with_headers
        end
      end
    end
