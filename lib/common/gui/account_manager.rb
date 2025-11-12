@@ -103,7 +103,7 @@ module Lich
           end
 
           # Save updated data with verification
-          Utilities.verified_file_operation(yaml_file, :write, YAML.dump(yaml_data))
+          write_yaml_with_headers(yaml_file, yaml_data)
         end
 
         # Removes an account and all associated characters
@@ -131,7 +131,7 @@ module Lich
             yaml_data['accounts'].delete(normalized_username)
 
             # Save updated data with verification
-            Utilities.verified_file_operation(yaml_file, :write, YAML.dump(yaml_data))
+            write_yaml_with_headers(yaml_file, yaml_data)
           rescue StandardError => e
             Lich.log "error: Error removing account: #{e.message}"
             false
@@ -211,7 +211,7 @@ module Lich
             }
 
             # Save updated data with verification
-            if Utilities.verified_file_operation(yaml_file, :write, YAML.dump(yaml_data))
+            if write_yaml_with_headers(yaml_file, yaml_data)
               return { success: true, message: "Character '#{normalized_char_name}' added successfully." }
             else
               return { success: false, message: "Failed to save character data. Please check file permissions." }
@@ -269,7 +269,7 @@ module Lich
             return false if characters.size == initial_count
 
             # Save updated data with verification
-            Utilities.verified_file_operation(yaml_file, :write, YAML.dump(yaml_data))
+            write_yaml_with_headers(yaml_file, yaml_data)
           rescue StandardError => e
             Lich.log "error: Error removing character: #{e.message}"
             false
@@ -310,7 +310,7 @@ module Lich
             end
 
             # Save updated data with verification
-            Utilities.verified_file_operation(yaml_file, :write, YAML.dump(yaml_data))
+            write_yaml_with_headers(yaml_file, yaml_data)
           rescue StandardError => e
             Lich.log "error: Error updating character: #{e.message}"
             false
@@ -423,6 +423,21 @@ module Lich
             []
           end
         end
+
+        # Writes YAML data with proper headers
+        # Private helper method to maintain consistent file format
+        #
+        # @param yaml_file [String] Path to YAML file
+        # @param yaml_data [Hash] YAML data structure
+        # @return [Boolean] True if write succeeded
+        def self.write_yaml_with_headers(yaml_file, yaml_data)
+          content = "# Lich 5 Login Entries - YAML Format\n"
+          content += "# Generated: #{Time.now}\n"
+          content += YAML.dump(yaml_data)
+
+          Utilities.verified_file_operation(yaml_file, :write, content)
+        end
+        private_class_method :write_yaml_with_headers
       end
     end
   end

@@ -116,8 +116,10 @@ module Lich
             # Create backup if file exists
             safe_file_operation(file_path, :backup) if File.exist?(file_path)
 
-            # Write content to file
-            File.write(file_path, content)
+            # Write content to file with secure permissions
+            File.open(file_path, 'w', 0600) do |file|
+              file.write(content)
+            end
             true
           when :backup
             return false unless File.exist?(file_path)
@@ -147,8 +149,8 @@ module Lich
             # Create backup if file exists
             safe_file_operation(file_path, :backup) if File.exist?(file_path)
 
-            # Write content with forced synchronization
-            File.open(file_path, 'w') do |file|
+            # Write content with forced synchronization and secure permissions
+            File.open(file_path, 'w', 0600) do |file|
               file.write(content)
               file.flush    # Force write to OS buffer
               file.fsync    # Force OS to write to disk
