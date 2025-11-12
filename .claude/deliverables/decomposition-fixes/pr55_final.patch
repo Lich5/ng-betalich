@@ -1,3 +1,166 @@
+diff --git a/lib/common/gui/account_manager.rb b/lib/common/gui/account_manager.rb
+index a1d6fe2..6dac38e 100644
+--- a/lib/common/gui/account_manager.rb
++++ b/lib/common/gui/account_manager.rb
+@@ -423,6 +423,26 @@ module Lich
+             []
+           end
+         end
++
++        # Writes YAML data to file with descriptive headers
++        # Adds generation timestamp and format information
++        #
++        # @param file_path [String] Path to the YAML file
++        # @param yaml_data [Hash] YAML data structure to write
++        # @return [Boolean] True if write was successful
++        def self.write_yaml_with_headers(file_path, yaml_data)
++          File.open(file_path, 'w', 0600) do |file|
++            file.puts "# Lich 5 Login Entries - YAML Format"
++            file.puts "# Generated: #{Time.now}"
++            file.write(YAML.dump(yaml_data))
++          end
++          true
++        rescue StandardError => e
++          Lich.log "error: Error writing YAML with headers: #{e.message}"
++          false
++        end
++
++        private_class_method :write_yaml_with_headers
+       end
+     end
+   end
+diff --git a/lib/common/gui/conversion_ui.rb b/lib/common/gui/conversion_ui.rb
+index 26455c6..e0d6bd7 100644
+--- a/lib/common/gui/conversion_ui.rb
++++ b/lib/common/gui/conversion_ui.rb
+@@ -1,5 +1,7 @@
+ # frozen_string_literal: true
+ 
++require_relative 'master_password_manager'
++
+ module Lich
+   module Common
+     module GUI
+diff --git a/lib/common/gui/password_change.rb b/lib/common/gui/password_change.rb
+index 562cadb..2b0f1d5 100644
+--- a/lib/common/gui/password_change.rb
++++ b/lib/common/gui/password_change.rb
+@@ -1,5 +1,7 @@
+ # frozen_string_literal: true
+ 
++require_relative 'master_password_manager'
++
+ module Lich
+   module Common
+     module GUI
+@@ -194,7 +196,7 @@ module Lich
+           # Verifies the current password for an account
+           # Checks if the provided password matches the stored password
+           # Uses normalized account name for consistent lookup
+-          # Handles plaintext and standard encryption modes
++          # Handles plaintext, standard, and enhanced encryption modes
+           #
+           # @param data_dir [String] Directory containing account data
+           # @param username [String] Username of the account
+@@ -224,10 +226,22 @@ module Lich
+               if encryption_mode == :plaintext
+                 stored_password == password
+               else
+-                decrypted = YamlState.decrypt_password(
+-                  stored_password,
++                decrypt_args = {
+                   mode: encryption_mode,
+                   account_name: normalized_username
++                }
++
++                # For enhanced mode, add master password parameter
++                if encryption_mode == :enhanced
++                  master_password = get_master_password_for_mode(encryption_mode)
++                  return false if master_password.nil?
++
++                  decrypt_args[:master_password] = master_password
++                end
++
++                decrypted = YamlState.decrypt_password(
++                  stored_password,
++                  **decrypt_args
+                 )
+                 decrypted == password
+               end
+@@ -239,7 +253,7 @@ module Lich
+ 
+           # Changes the password for an account
+           # Updates the password in the YAML file with encryption if needed
+-          # Handles plaintext and standard encryption modes
++          # Handles plaintext, standard, and enhanced encryption modes
+           # Uses normalized account name for consistent operation
+           #
+           # @param data_dir [String] Directory containing account data
+@@ -257,15 +271,38 @@ module Lich
+             encrypted_password = if encryption_mode == :plaintext
+                                    new_password
+                                  else
+-                                   YamlState.encrypt_password(
+-                                     new_password,
++                                   encrypt_args = {
+                                      mode: encryption_mode,
+                                      account_name: normalized_username
++                                   }
++
++                                   # For enhanced mode, add master password parameter
++                                   if encryption_mode == :enhanced
++                                     master_password = get_master_password_for_mode(encryption_mode)
++                                     return false if master_password.nil?
++
++                                     encrypt_args[:master_password] = master_password
++                                   end
++
++                                   YamlState.encrypt_password(
++                                     new_password,
++                                     **encrypt_args
+                                    )
+                                  end
+             # Use the existing AccountManager method to change password
+             AccountManager.change_password(data_dir, normalized_username, encrypted_password)
+           end
++
++          # Gets the master password for the specified encryption mode
++          # Returns nil for non-enhanced modes
++          #
++          # @param mode [Symbol] Encryption mode
++          # @return [String, nil] Master password or nil
++          def get_master_password_for_mode(mode)
++            return nil unless mode == :enhanced
++
++            MasterPasswordManager.retrieve_master_password
++          end
+         end
+       end
+     end
+diff --git a/lib/common/gui/utilities.rb b/lib/common/gui/utilities.rb
+index eb4486f..aba9c8d 100644
+--- a/lib/common/gui/utilities.rb
++++ b/lib/common/gui/utilities.rb
+@@ -117,7 +117,7 @@ module Lich
+             safe_file_operation(file_path, :backup) if File.exist?(file_path)
+ 
+             # Write content to file
+-            File.write(file_path, content)
++            File.write(file_path, content, mode: 0600)
+             true
+           when :backup
+             return false unless File.exist?(file_path)
+@@ -148,7 +148,7 @@ module Lich
+             safe_file_operation(file_path, :backup) if File.exist?(file_path)
+ 
+             # Write content with forced synchronization
+-            File.open(file_path, 'w') do |file|
++            File.open(file_path, 'w', 0600) do |file|
+               file.write(content)
+               file.flush    # Force write to OS buffer
+               file.fsync    # Force OS to write to disk
+diff --git a/lib/common/gui/yaml_state.rb b/lib/common/gui/yaml_state.rb
+index a17dd23..908595d 100644
 --- a/lib/common/gui/yaml_state.rb
 +++ b/lib/common/gui/yaml_state.rb
 @@ -1,6 +1,8 @@
@@ -9,8 +172,17 @@
  
  module Lich
    module Common
-@@ -117,10 +119,14 @@ module Lich
-           # Encrypt passwords if not plaintext mode
+@@ -39,6 +41,9 @@ module Lich
+               # Migrate data structure if needed to support favorites
+               yaml_data = migrate_to_favorites_format(yaml_data)
+ 
++              # Migrate data structure if needed to support encryption
++              yaml_data = migrate_to_encryption_format(yaml_data)
++
+               entries = convert_yaml_to_legacy_format(yaml_data)
+ 
+               # Apply sorting with favorites priority if enabled
+@@ -118,9 +123,12 @@ module Lich
            if encryption_mode != :plaintext
              # For enhanced mode, ensure master password exists first
              if encryption_mode == :enhanced
@@ -18,7 +190,7 @@
 -                MasterPasswordManager.retrieve_master_password
 -              )
 +              master_password = ensure_master_password_exists
-+              
++
 +              if master_password.nil?
 +                Lich.log "error: Master password creation failed or cancelled"
 +                return false
@@ -26,7 +198,8 @@
              end
  
              legacy_entries.each do |entry|
-@@ -132,7 +138,7 @@ module Lich
+@@ -131,7 +139,7 @@ module Lich
+ 
                # For enhanced mode, add master password parameter
                if encryption_mode == :enhanced
 -                master_password = MasterPasswordManager.retrieve_master_password
@@ -34,10 +207,24 @@
                  encrypt_args[:master_password] = master_password
                end
  
-@@ -638,6 +644,64 @@ module Lich
+@@ -638,6 +646,83 @@ module Lich
            return '' if name.nil?
            name.to_s.strip.capitalize
          end
++
++        # Migrates YAML data to support encryption format
++        # Adds encryption_mode field if not present
++        #
++        # @param yaml_data [Hash] YAML data structure
++        # @return [Hash] YAML data structure with encryption support
++        def self.migrate_to_encryption_format(yaml_data)
++          return yaml_data unless yaml_data.is_a?(Hash)
++
++          # Add encryption_mode if not present (defaults to plaintext for backward compatibility)
++          yaml_data['encryption_mode'] ||= 'plaintext'
++
++          yaml_data
++        end
 +
 +        # Encrypts all passwords in YAML data structure
 +        # Used during batch encryption operations
@@ -104,115 +291,3 @@
        end
      end
    end
---- a/lib/common/gui/conversion_ui.rb
-+++ b/lib/common/gui/conversion_ui.rb
-@@ -1,5 +1,7 @@
- # frozen_string_literal: true
- 
-+require_relative 'master_password_manager'
-+
- module Lich
-   module Common
-     module GUI
---- a/lib/common/gui/password_change.rb
-+++ b/lib/common/gui/password_change.rb
-@@ -1,5 +1,7 @@
- # frozen_string_literal: true
- 
-+require_relative 'master_password_manager'
-+
- module Lich
-   module Common
-     module GUI
-@@ -191,10 +193,21 @@ module Lich
-         class << self
-           private
- 
-+          # Retrieves the master password from Keychain if needed
-+          # Returns nil for plaintext and standard encryption modes
-+          # For enhanced mode, retrieves from Keychain (required)
-+          #
-+          # @param encryption_mode [Symbol] Encryption mode
-+          # @return [String, nil] Master password if :enhanced mode, nil otherwise
-+          def get_master_password_for_mode(encryption_mode)
-+            return nil unless encryption_mode == :enhanced
-+            MasterPasswordManager.retrieve_master_password
-+          end
-+
-           # Verifies the current password for an account
-           # Checks if the provided password matches the stored password
-           # Uses normalized account name for consistent lookup
--          # Handles plaintext and standard encryption modes
-+          # Handles plaintext, standard, and enhanced encryption modes
-           #
-           # @param data_dir [String] Directory containing account data
-           # @param username [String] Username of the account
-@@ -220,6 +233,9 @@ module Lich
-               encryption_mode = (yaml_data['encryption_mode'] || 'plaintext').to_sym
-               stored_password = yaml_data['accounts'][normalized_username]['password']
- 
-+              # Get master password if needed (nil for plaintext/standard)
-+              master_password = get_master_password_for_mode(encryption_mode)
-+
-               # Decrypt stored password if encrypted
-               if encryption_mode == :plaintext
-                 stored_password == password
-@@ -227,7 +243,8 @@ module Lich
-                 decrypted = YamlState.decrypt_password(
-                   stored_password,
-                   mode: encryption_mode,
--                  account_name: normalized_username
-+                  account_name: normalized_username,
-+                  master_password: master_password
-                 )
-                 decrypted == password
-               end
-@@ -239,7 +256,7 @@ module Lich
- 
-           # Changes the password for an account
-           # Updates the password in the YAML file with encryption if needed
--          # Handles plaintext and standard encryption modes
-+          # Handles plaintext, standard, and enhanced encryption modes
-           # Uses normalized account name for consistent operation
-           #
-           # @param data_dir [String] Directory containing account data
-@@ -253,6 +270,9 @@ module Lich
-             # Normalize username before passing to AccountManager
-             normalized_username = username.to_s.upcase
- 
-+            # Get master password if needed (nil for plaintext/standard)
-+            master_password = get_master_password_for_mode(encryption_mode)
-+
-             # Encrypt password if needed
-             encrypted_password = if encryption_mode == :plaintext
-                                    new_password
-@@ -260,7 +280,8 @@ module Lich
-                                    YamlState.encrypt_password(
-                                      new_password,
-                                      mode: encryption_mode,
--                                     account_name: normalized_username
-+                                     account_name: normalized_username,
-+                                     master_password: master_password
-                                    )
-                                  end
-             # Use the existing AccountManager method to change password
---- a/lib/common/gui/master_password_manager.rb
-+++ b/lib/common/gui/master_password_manager.rb
-@@ -123,7 +123,7 @@ module Lich
-         # @return [Boolean] True if macOS security command is available
-         # @api private
-         private_class_method def self.macos_keychain_available?
--          system('which security >/dev/null 2>&1')
-+          !!system('which security >/dev/null 2>&1')
-         end
- 
-         # Checks if Linux keychain tools are available
-@@ -146,7 +146,7 @@ module Lich
-         # @return [Boolean] True if secret-tool command is available
-         # @api private
-         private_class_method def self.linux_keychain_available?
--          system('which secret-tool >/dev/null 2>&1')
-+          !!system('which secret-tool >/dev/null 2>&1')
-         end
- 
-         # Checks if Windows keychain (PasswordVault) is available
