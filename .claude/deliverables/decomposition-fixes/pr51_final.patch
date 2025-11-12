@@ -30,19 +30,19 @@ index a1d6fe2..6dac38e 100644
      end
    end
 diff --git a/lib/common/gui/utilities.rb b/lib/common/gui/utilities.rb
-index eb4486f..aba9c8d 100644
+index eb4486f..addfdc8 100644
 --- a/lib/common/gui/utilities.rb
 +++ b/lib/common/gui/utilities.rb
-@@ -117,7 +117,7 @@ module Lich
-             safe_file_operation(file_path, :backup) if File.exist?(file_path)
+@@ -118,6 +118,8 @@ module Lich
  
              # Write content to file
--            File.write(file_path, content)
-+            File.write(file_path, content, mode: 0600)
+             File.write(file_path, content)
++            # Set secure permissions (owner-only read/write)
++            File.chmod(0600, file_path)
              true
            when :backup
              return false unless File.exist?(file_path)
-@@ -148,7 +148,7 @@ module Lich
+@@ -148,7 +150,7 @@ module Lich
              safe_file_operation(file_path, :backup) if File.exist?(file_path)
  
              # Write content with forced synchronization
