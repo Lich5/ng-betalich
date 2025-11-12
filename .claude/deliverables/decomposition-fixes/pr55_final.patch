@@ -1,0 +1,218 @@
+--- a/lib/common/gui/yaml_state.rb
++++ b/lib/common/gui/yaml_state.rb
+@@ -1,6 +1,8 @@
+ # frozen_string_literal: true
+ 
+ require_relative 'password_cipher'
++require_relative 'master_password_manager'
++require_relative 'master_password_prompt'
+ 
+ module Lich
+   module Common
+@@ -117,10 +119,14 @@ module Lich
+           # Encrypt passwords if not plaintext mode
+           if encryption_mode != :plaintext
+             # For enhanced mode, ensure master password exists first
+             if encryption_mode == :enhanced
+-              MasterPasswordManager.store_master_password(
+-                MasterPasswordManager.retrieve_master_password
+-              )
++              master_password = ensure_master_password_exists
++              
++              if master_password.nil?
++                Lich.log "error: Master password creation failed or cancelled"
++                return false
++              end
+             end
+ 
+             legacy_entries.each do |entry|
+@@ -132,7 +138,7 @@ module Lich
+               # For enhanced mode, add master password parameter
+               if encryption_mode == :enhanced
+-                master_password = MasterPasswordManager.retrieve_master_password
++                master_password ||= MasterPasswordManager.retrieve_master_password
+                 encrypt_args[:master_password] = master_password
+               end
+ 
+@@ -638,6 +644,64 @@ module Lich
+           return '' if name.nil?
+           name.to_s.strip.capitalize
+         end
++
++        # Encrypts all passwords in YAML data structure
++        # Used during batch encryption operations
++        #
++        # @param yaml_data [Hash] YAML data structure
++        # @param mode [Symbol] Encryption mode (:plaintext, :standard, :enhanced)
++        # @param master_password [String, nil] Master password for :enhanced mode
++        # @return [Hash] YAML data with encrypted passwords
++        def self.encrypt_all_passwords(yaml_data, mode, master_password: nil)
++          return yaml_data if mode == :plaintext
++
++          yaml_data['accounts'].each do |account_name, account_data|
++            next unless account_data['password']
++
++            # Encrypt password based on mode
++            account_data['password'] = encrypt_password(
++              account_data['password'],
++              mode: mode,
++              account_name: account_name,
++              master_password: master_password
++            )
++          end
++
++          yaml_data
++        end
++
++        # Ensures master password exists for enhanced mode conversions
++        # Shows UI prompt to user if not found in Keychain
++        # Creates validation test and stores in Keychain
++        #
++        # @return [String, nil] Master password if created/found, nil if user cancelled
++        def self.ensure_master_password_exists
++          # Check if master password already in Keychain
++          existing = MasterPasswordManager.retrieve_master_password
++          return existing if !existing.nil? && !existing.empty?
++
++          # Show UI prompt to CREATE master password
++          master_password = MasterPasswordPrompt.show_create_master_password_dialog
++
++          if master_password.nil?
++            Lich.log "info: User declined to create master password"
++            return nil
++          end
++
++          # Create validation test (expensive 100k iterations, one-time)
++          validation_test = MasterPasswordManager.create_validation_test(master_password)
++
++          if validation_test.nil?
++            Lich.log "error: Failed to create validation test"
++            return nil
++          end
++
++          # Store in Keychain
++          stored = MasterPasswordManager.store_master_password(master_password)
++
++          unless stored
++            Lich.log "error: Failed to store master password in Keychain"
++            return nil
++          end
++
++          Lich.log "info: Master password created and stored in Keychain"
++          master_password
++        end
+       end
+     end
+   end
+--- a/lib/common/gui/conversion_ui.rb
++++ b/lib/common/gui/conversion_ui.rb
+@@ -1,5 +1,7 @@
+ # frozen_string_literal: true
+ 
++require_relative 'master_password_manager'
++
+ module Lich
+   module Common
+     module GUI
+--- a/lib/common/gui/password_change.rb
++++ b/lib/common/gui/password_change.rb
+@@ -1,5 +1,7 @@
+ # frozen_string_literal: true
+ 
++require_relative 'master_password_manager'
++
+ module Lich
+   module Common
+     module GUI
+@@ -191,10 +193,21 @@ module Lich
+         class << self
+           private
+ 
++          # Retrieves the master password from Keychain if needed
++          # Returns nil for plaintext and standard encryption modes
++          # For enhanced mode, retrieves from Keychain (required)
++          #
++          # @param encryption_mode [Symbol] Encryption mode
++          # @return [String, nil] Master password if :enhanced mode, nil otherwise
++          def get_master_password_for_mode(encryption_mode)
++            return nil unless encryption_mode == :enhanced
++            MasterPasswordManager.retrieve_master_password
++          end
++
+           # Verifies the current password for an account
+           # Checks if the provided password matches the stored password
+           # Uses normalized account name for consistent lookup
+-          # Handles plaintext and standard encryption modes
++          # Handles plaintext, standard, and enhanced encryption modes
+           #
+           # @param data_dir [String] Directory containing account data
+           # @param username [String] Username of the account
+@@ -220,6 +233,9 @@ module Lich
+               encryption_mode = (yaml_data['encryption_mode'] || 'plaintext').to_sym
+               stored_password = yaml_data['accounts'][normalized_username]['password']
+ 
++              # Get master password if needed (nil for plaintext/standard)
++              master_password = get_master_password_for_mode(encryption_mode)
++
+               # Decrypt stored password if encrypted
+               if encryption_mode == :plaintext
+                 stored_password == password
+@@ -227,7 +243,8 @@ module Lich
+                 decrypted = YamlState.decrypt_password(
+                   stored_password,
+                   mode: encryption_mode,
+-                  account_name: normalized_username
++                  account_name: normalized_username,
++                  master_password: master_password
+                 )
+                 decrypted == password
+               end
+@@ -239,7 +256,7 @@ module Lich
+ 
+           # Changes the password for an account
+           # Updates the password in the YAML file with encryption if needed
+-          # Handles plaintext and standard encryption modes
++          # Handles plaintext, standard, and enhanced encryption modes
+           # Uses normalized account name for consistent operation
+           #
+           # @param data_dir [String] Directory containing account data
+@@ -253,6 +270,9 @@ module Lich
+             # Normalize username before passing to AccountManager
+             normalized_username = username.to_s.upcase
+ 
++            # Get master password if needed (nil for plaintext/standard)
++            master_password = get_master_password_for_mode(encryption_mode)
++
+             # Encrypt password if needed
+             encrypted_password = if encryption_mode == :plaintext
+                                    new_password
+@@ -260,7 +280,8 @@ module Lich
+                                    YamlState.encrypt_password(
+                                      new_password,
+                                      mode: encryption_mode,
+-                                     account_name: normalized_username
++                                     account_name: normalized_username,
++                                     master_password: master_password
+                                    )
+                                  end
+             # Use the existing AccountManager method to change password
+--- a/lib/common/gui/master_password_manager.rb
++++ b/lib/common/gui/master_password_manager.rb
+@@ -123,7 +123,7 @@ module Lich
+         # @return [Boolean] True if macOS security command is available
+         # @api private
+         private_class_method def self.macos_keychain_available?
+-          system('which security >/dev/null 2>&1')
++          !!system('which security >/dev/null 2>&1')
+         end
+ 
+         # Checks if Linux keychain tools are available
+@@ -146,7 +146,7 @@ module Lich
+         # @return [Boolean] True if secret-tool command is available
+         # @api private
+         private_class_method def self.linux_keychain_available?
+-          system('which secret-tool >/dev/null 2>&1')
++          !!system('which secret-tool >/dev/null 2>&1')
+         end
+ 
+         # Checks if Windows keychain (PasswordVault) is available
