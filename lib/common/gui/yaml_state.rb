@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require_relative 'password_cipher'
+require_relative 'master_password_manager'
+require_relative 'master_password_prompt'
 
 module Lich
   module Common
@@ -121,9 +123,12 @@ module Lich
           if encryption_mode != :plaintext
             # For enhanced mode, ensure master password exists first
             if encryption_mode == :enhanced
-              MasterPasswordManager.store_master_password(
-                MasterPasswordManager.retrieve_master_password
-              )
+              master_password = ensure_master_password_exists
+
+              if master_password.nil?
+                Lich.log "error: Master password creation failed or cancelled"
+                return false
+              end
             end
 
             legacy_entries.each do |entry|
@@ -134,7 +139,7 @@ module Lich
 
               # For enhanced mode, add master password parameter
               if encryption_mode == :enhanced
-                master_password = MasterPasswordManager.retrieve_master_password
+                master_password ||= MasterPasswordManager.retrieve_master_password
                 encrypt_args[:master_password] = master_password
               end
 
@@ -654,6 +659,69 @@ module Lich
           yaml_data['encryption_mode'] ||= 'plaintext'
 
           yaml_data
+        end
+
+        # Encrypts all passwords in YAML data structure
+        # Used during batch encryption operations
+        #
+        # @param yaml_data [Hash] YAML data structure
+        # @param mode [Symbol] Encryption mode (:plaintext, :standard, :enhanced)
+        # @param master_password [String, nil] Master password for :enhanced mode
+        # @return [Hash] YAML data with encrypted passwords
+        def self.encrypt_all_passwords(yaml_data, mode, master_password: nil)
+          return yaml_data if mode == :plaintext
+
+          yaml_data['accounts'].each do |account_name, account_data|
+            next unless account_data['password']
+
+            # Encrypt password based on mode
+            account_data['password'] = encrypt_password(
+              account_data['password'],
+              mode: mode,
+              account_name: account_name,
+              master_password: master_password
+            )
+          end
+
+          yaml_data
+        end
+
+        # Ensures master password exists for enhanced mode conversions
+        # Shows UI prompt to user if not found in Keychain
+        # Creates validation test and stores in Keychain
+        #
+        # @return [String, nil] Master password if created/found, nil if user cancelled
+        def self.ensure_master_password_exists
+          # Check if master password already in Keychain
+          existing = MasterPasswordManager.retrieve_master_password
+          return existing if !existing.nil? && !existing.empty?
+
+          # Show UI prompt to CREATE master password
+          master_password = MasterPasswordPrompt.show_create_master_password_dialog
+
+          if master_password.nil?
+            Lich.log "info: User declined to create master password"
+            return nil
+          end
+
+          # Create validation test (expensive 100k iterations, one-time)
+          validation_test = MasterPasswordManager.create_validation_test(master_password)
+
+          if validation_test.nil?
+            Lich.log "error: Failed to create validation test"
+            return nil
+          end
+
+          # Store in Keychain
+          stored = MasterPasswordManager.store_master_password(master_password)
+
+          unless stored
+            Lich.log "error: Failed to store master password in Keychain"
+            return nil
+          end
+
+          Lich.log "info: Master password created and stored in Keychain"
+          master_password
         end
       end
     end

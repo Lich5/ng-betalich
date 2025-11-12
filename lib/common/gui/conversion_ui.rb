@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative 'master_password_manager'
+
 module Lich
   module Common
     module GUI
