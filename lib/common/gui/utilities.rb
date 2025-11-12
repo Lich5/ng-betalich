@@ -118,6 +118,8 @@ module Lich
 
             # Write content to file
             File.write(file_path, content)
+            # Set secure permissions (owner-only read/write)
+            File.chmod(0600, file_path)
             true
           when :backup
             return false unless File.exist?(file_path)
@@ -148,7 +150,7 @@ module Lich
             safe_file_operation(file_path, :backup) if File.exist?(file_path)
 
             # Write content with forced synchronization
-            File.open(file_path, 'w') do |file|
+            File.open(file_path, 'w', 0600) do |file|
               file.write(content)
               file.flush    # Force write to OS buffer
               file.fsync    # Force OS to write to disk
