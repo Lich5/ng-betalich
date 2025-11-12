@@ -1,0 +1,88 @@
+diff --git a/lib/common/gui/account_manager.rb b/lib/common/gui/account_manager.rb
+index a1d6fe2..6dac38e 100644
+--- a/lib/common/gui/account_manager.rb
++++ b/lib/common/gui/account_manager.rb
+@@ -423,6 +423,26 @@ module Lich
+             []
+           end
+         end
++
++        # Writes YAML data to file with descriptive headers
++        # Adds generation timestamp and format information
++        #
++        # @param file_path [String] Path to the YAML file
++        # @param yaml_data [Hash] YAML data structure to write
++        # @return [Boolean] True if write was successful
++        def self.write_yaml_with_headers(file_path, yaml_data)
++          File.open(file_path, 'w', 0600) do |file|
++            file.puts "# Lich 5 Login Entries - YAML Format"
++            file.puts "# Generated: #{Time.now}"
++            file.write(YAML.dump(yaml_data))
++          end
++          true
++        rescue StandardError => e
++          Lich.log "error: Error writing YAML with headers: #{e.message}"
++          false
++        end
++
++        private_class_method :write_yaml_with_headers
+       end
+     end
+   end
+diff --git a/lib/common/gui/utilities.rb b/lib/common/gui/utilities.rb
+index eb4486f..aba9c8d 100644
+--- a/lib/common/gui/utilities.rb
++++ b/lib/common/gui/utilities.rb
+@@ -117,7 +117,7 @@ module Lich
+             safe_file_operation(file_path, :backup) if File.exist?(file_path)
+ 
+             # Write content to file
+-            File.write(file_path, content)
++            File.write(file_path, content, mode: 0600)
+             true
+           when :backup
+             return false unless File.exist?(file_path)
+@@ -148,7 +148,7 @@ module Lich
+             safe_file_operation(file_path, :backup) if File.exist?(file_path)
+ 
+             # Write content with forced synchronization
+-            File.open(file_path, 'w') do |file|
++            File.open(file_path, 'w', 0600) do |file|
+               file.write(content)
+               file.flush    # Force write to OS buffer
+               file.fsync    # Force OS to write to disk
+diff --git a/lib/common/gui/yaml_state.rb b/lib/common/gui/yaml_state.rb
+index 92f8f24..c75e558 100644
+--- a/lib/common/gui/yaml_state.rb
++++ b/lib/common/gui/yaml_state.rb
+@@ -39,6 +39,9 @@ module Lich
+               # Migrate data structure if needed to support favorites
+               yaml_data = migrate_to_favorites_format(yaml_data)
+ 
++              # Migrate data structure if needed to support encryption
++              yaml_data = migrate_to_encryption_format(yaml_data)
++
+               entries = convert_yaml_to_legacy_format(yaml_data)
+ 
+               # Apply sorting with favorites priority if enabled
+@@ -609,6 +612,20 @@ module Lich
+           return '' if name.nil?
+           name.to_s.strip.capitalize
+         end
++
++        # Migrates YAML data to support encryption format
++        # Adds encryption_mode field if not present
++        #
++        # @param yaml_data [Hash] YAML data structure
++        # @return [Hash] YAML data structure with encryption support
++        def self.migrate_to_encryption_format(yaml_data)
++          return yaml_data unless yaml_data.is_a?(Hash)
++
++          # Add encryption_mode if not present (defaults to plaintext for backward compatibility)
++          yaml_data['encryption_mode'] ||= 'plaintext'
++
++          yaml_data
++        end
+       end
+     end
+   end
