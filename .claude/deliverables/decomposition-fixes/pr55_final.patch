@@ -1,34 +1,3 @@
-diff --git a/lib/common/gui/account_manager.rb b/lib/common/gui/account_manager.rb
-index a1d6fe2..6dac38e 100644
---- a/lib/common/gui/account_manager.rb
-+++ b/lib/common/gui/account_manager.rb
-@@ -423,6 +423,26 @@ module Lich
-             []
-           end
-         end
-+
-+        # Writes YAML data to file with descriptive headers
-+        # Adds generation timestamp and format information
-+        #
-+        # @param file_path [String] Path to the YAML file
-+        # @param yaml_data [Hash] YAML data structure to write
-+        # @return [Boolean] True if write was successful
-+        def self.write_yaml_with_headers(file_path, yaml_data)
-+          File.open(file_path, 'w', 0600) do |file|
-+            file.puts "# Lich 5 Login Entries - YAML Format"
-+            file.puts "# Generated: #{Time.now}"
-+            file.write(YAML.dump(yaml_data))
-+          end
-+          true
-+        rescue StandardError => e
-+          Lich.log "error: Error writing YAML with headers: #{e.message}"
-+          false
-+        end
-+
-+        private_class_method :write_yaml_with_headers
-       end
-     end
-   end
 diff --git a/lib/common/gui/conversion_ui.rb b/lib/common/gui/conversion_ui.rb
 index 26455c6..e0d6bd7 100644
 --- a/lib/common/gui/conversion_ui.rb
@@ -137,30 +106,8 @@ index 562cadb..2b0f1d5 100644
          end
        end
      end
-diff --git a/lib/common/gui/utilities.rb b/lib/common/gui/utilities.rb
-index eb4486f..addfdc8 100644
---- a/lib/common/gui/utilities.rb
-+++ b/lib/common/gui/utilities.rb
-@@ -118,6 +118,8 @@ module Lich
- 
-             # Write content to file
-             File.write(file_path, content)
-+            # Set secure permissions (owner-only read/write)
-+            File.chmod(0600, file_path)
-             true
-           when :backup
-             return false unless File.exist?(file_path)
-@@ -148,7 +150,7 @@ module Lich
-             safe_file_operation(file_path, :backup) if File.exist?(file_path)
- 
-             # Write content with forced synchronization
--            File.open(file_path, 'w') do |file|
-+            File.open(file_path, 'w', 0600) do |file|
-               file.write(content)
-               file.flush    # Force write to OS buffer
-               file.fsync    # Force OS to write to disk
 diff --git a/lib/common/gui/yaml_state.rb b/lib/common/gui/yaml_state.rb
-index a17dd23..908595d 100644
+index 0e029c5..908595d 100644
 --- a/lib/common/gui/yaml_state.rb
 +++ b/lib/common/gui/yaml_state.rb
 @@ -1,6 +1,8 @@
@@ -172,17 +119,7 @@ index a17dd23..908595d 100644
  
  module Lich
    module Common
-@@ -39,6 +41,9 @@ module Lich
-               # Migrate data structure if needed to support favorites
-               yaml_data = migrate_to_favorites_format(yaml_data)
- 
-+              # Migrate data structure if needed to support encryption
-+              yaml_data = migrate_to_encryption_format(yaml_data)
-+
-               entries = convert_yaml_to_legacy_format(yaml_data)
- 
-               # Apply sorting with favorites priority if enabled
-@@ -118,9 +123,12 @@ module Lich
+@@ -121,9 +123,12 @@ module Lich
            if encryption_mode != :plaintext
              # For enhanced mode, ensure master password exists first
              if encryption_mode == :enhanced
@@ -198,7 +135,7 @@ index a17dd23..908595d 100644
              end
  
              legacy_entries.each do |entry|
-@@ -131,7 +139,7 @@ module Lich
+@@ -134,7 +139,7 @@ module Lich
  
                # For enhanced mode, add master password parameter
                if encryption_mode == :enhanced
@@ -207,24 +144,10 @@ index a17dd23..908595d 100644
                  encrypt_args[:master_password] = master_password
                end
  
-@@ -638,6 +646,83 @@ module Lich
-           return '' if name.nil?
-           name.to_s.strip.capitalize
+@@ -655,6 +660,69 @@ module Lich
+ 
+           yaml_data
          end
-+
-+        # Migrates YAML data to support encryption format
-+        # Adds encryption_mode field if not present
-+        #
-+        # @param yaml_data [Hash] YAML data structure
-+        # @return [Hash] YAML data structure with encryption support
-+        def self.migrate_to_encryption_format(yaml_data)
-+          return yaml_data unless yaml_data.is_a?(Hash)
-+
-+          # Add encryption_mode if not present (defaults to plaintext for backward compatibility)
-+          yaml_data['encryption_mode'] ||= 'plaintext'
-+
-+          yaml_data
-+        end
 +
 +        # Encrypts all passwords in YAML data structure
 +        # Used during batch encryption operations
