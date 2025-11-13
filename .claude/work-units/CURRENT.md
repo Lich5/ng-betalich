@@ -14,18 +14,28 @@ Implement Windows keychain support for Master Password mode using PowerShell Pas
 
 ## Prerequisites
 
-- [ ] Branch created: `feat/windows-keychain-passwordvault`
-- [ ] Context read: `.claude/docs/AUDIT_PR38_CORRECTED.md` (Windows gap analysis)
+- [ ] `feat/password-encryption-core` PR merged to main
+- [ ] New branch created based on `feat/password-encryption-core` state
+- [ ] Context read: `.claude/docs/BRD_Password_Encryption.md` (Windows platform requirements)
 - [ ] Dependencies available: Windows 10+ with PowerShell (built-in)
+
+---
+
+## Setup
+
+```bash
+git fetch origin feat/password-encryption-core
+git checkout feat/password-encryption-core
+git checkout -b feat/windows-keychain-passwordvault
+```
 
 ---
 
 ## Files
 
-**Modify:**
-- `lib/common/gui/master_password_manager.rb` - Implement Windows keychain methods (lines 171-188)
-- `lib/common/gui/conversion_ui.rb` - Add Windows version check for Enhanced mode availability
-- `spec/master_password_manager_spec.rb` - Add Windows-specific tests (platform-aware)
+**Modify (Code Only - No Tests):**
+- `lib/common/gui/master_password_manager.rb` - Replace Windows keychain stubs with actual PowerShell PasswordVault implementation (lines ~171-188)
+- `lib/common/gui/conversion_ui.rb` - Ensure keychain availability check works correctly for Windows
 
 ---
 
@@ -148,57 +158,32 @@ end
 
 ## Acceptance Criteria
 
+- [ ] `windows_10_or_later?` detects Windows version correctly
 - [ ] `windows_keychain_available?` returns true on Windows 10+ with PasswordVault
 - [ ] `windows_keychain_available?` returns false on Windows < 10
 - [ ] `store_windows_keychain` stores password successfully
 - [ ] `retrieve_windows_keychain` retrieves stored password correctly
 - [ ] `delete_windows_keychain` removes stored password
-- [ ] Passwords with special characters handled correctly (shell escaping)
-- [ ] Enhanced mode hidden in conversion dialog on Windows < 10
-- [ ] Enhanced mode available in conversion dialog on Windows 10+
-- [ ] All 380 tests pass (including new Windows tests)
-- [ ] RuboCop passes (0 offenses)
+- [ ] Passwords with special characters handled correctly (stdin piping)
+- [ ] No syntax errors: `ruby -c lib/common/gui/master_password_manager.rb`
+- [ ] RuboCop passes: `bundle exec rubocop lib/common/gui/master_password_manager.rb`
 - [ ] Code follows SOLID + DRY principles
-- [ ] YARD documentation complete
-- [ ] Zero regression verified
-- [ ] Committed to branch with conventional commit
+- [ ] YARD documentation complete for new methods
+- [ ] Committed to branch with conventional commit: `feat(all): add Windows keychain support via PowerShell PasswordVault`
 
 ---
 
-## Testing Strategy
+## Testing
 
-**Platform-Aware Tests:**
+**Tests deferred to follow-up PR** (will include all Windows keychain platform-aware tests)
 
-```ruby
-# In spec/master_password_manager_spec.rb
-
-describe 'Windows keychain (Windows 10+ only)' do
-  it 'detects Windows 10+ availability' do
-    skip 'Not Windows' unless OS.windows?
-
-    # Test should pass on Win10+, or skip gracefully
-    result = described_class.send(:windows_10_or_later?)
-    expect([true, false]).to include(result)
-  end
-
-  it 'stores and retrieves password on Windows 10+' do
-    skip 'Not Windows 10+' unless OS.windows? && described_class.send(:windows_10_or_later?)
-
-    test_password = 'TestPassword123!@#'
-
-    expect(described_class.store_master_password(test_password)).to be true
-    expect(described_class.retrieve_master_password).to eq(test_password)
-
-    # Cleanup
-    described_class.delete_master_password
-  end
-end
+**This PR:** Code only, no test files. Verification:
+```bash
+ruby -c lib/common/gui/master_password_manager.rb
+bundle exec rubocop lib/common/gui/master_password_manager.rb
 ```
 
-**Cross-Platform CI:**
-- Tests skip on non-Windows platforms
-- Tests skip on Windows < 10
-- Tests run on Windows 10+ (if available in CI)
+Should return silently (no syntax errors, no RuboCop offenses)
 
 ---
 
@@ -233,13 +218,12 @@ feat(all): add Windows keychain support via PowerShell PasswordVault
 
 ## Rollback Plan
 
-**If this fails:**
+**If implementation fails:**
 
 1. **Revert changes:**
    ```bash
-   git checkout feat/password_encrypts -- lib/common/gui/master_password_manager.rb
-   git checkout feat/password_encrypts -- lib/common/gui/conversion_ui.rb
-   git checkout feat/password_encrypts -- spec/master_password_manager_spec.rb
+   git checkout feat/password-encryption-core -- lib/common/gui/master_password_manager.rb
+   git checkout feat/password-encryption-core -- lib/common/gui/conversion_ui.rb
    ```
 
 2. **Restore stub behavior:**
@@ -249,7 +233,7 @@ feat(all): add Windows keychain support via PowerShell PasswordVault
 
 3. **Verify restoration:**
    ```bash
-   bundle exec rspec spec/master_password_manager_spec.rb
+   ruby -c lib/common/gui/master_password_manager.rb
    bundle exec rubocop lib/common/gui/master_password_manager.rb
    ```
 
@@ -292,8 +276,10 @@ feat(all): add Windows keychain support via PowerShell PasswordVault
 ---
 
 **When complete:**
-1. Run full test suite: `bundle exec rspec`
-2. Run RuboCop: `bundle exec rubocop`
-3. Verify on Windows 10+ if possible
-4. Archive this file to `archive/002-windows-keychain-passwordvault.md`
-5. Await next work unit
+1. Run syntax check: `ruby -c lib/common/gui/master_password_manager.rb`
+2. Run RuboCop: `bundle exec rubocop lib/common/gui/master_password_manager.rb`
+3. Verify on Windows 10+ if possible (manual testing of store/retrieve)
+4. Verify no uncommitted changes: `git status` shows clean
+5. Push branch and create PR
+6. Archive this file to `archive/002-windows-keychain-passwordvault.md`
+7. Await test suite work unit
