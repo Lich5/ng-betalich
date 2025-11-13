@@ -257,9 +257,7 @@ module Lich
 
             # Save updated data directly without conversion round-trip
             # This preserves the original YAML structure and account ordering
-            content = "# Lich 5 Login Entries - YAML Format\n"
-            content += "# Generated: #{Time.now}\n"
-            content += YAML.dump(yaml_data)
+            content = generate_yaml_content(yaml_data)
             result = Utilities.safe_file_operation(yaml_file, :write, content)
 
             result ? true : false
@@ -302,9 +300,7 @@ module Lich
             reorder_all_favorites(yaml_data)
 
             # Save updated data
-            content = "# Lich 5 Login Entries - YAML Format\n"
-            content += "# Generated: #{Time.now}\n"
-            content += YAML.dump(yaml_data)
+            content = generate_yaml_content(yaml_data)
             result = Utilities.safe_file_operation(yaml_file, :write, content)
 
             result ? true : false
@@ -410,9 +406,7 @@ module Lich
             end
 
             # Save updated data
-            content = "# Lich 5 Login Entries - YAML Format\n"
-            content += "# Generated: #{Time.now}\n"
-            content += YAML.dump(yaml_data)
+            content = generate_yaml_content(yaml_data)
             result = Utilities.safe_file_operation(yaml_file, :write, content)
 
             result ? true : false
@@ -705,6 +699,17 @@ module Lich
         def self.normalize_character_name(name)
           return '' if name.nil?
           name.to_s.strip.capitalize
+        end
+
+        # Generates YAML file content with standard header and dumped data
+        # Reduces code duplication by providing a common method for formatting YAML output
+        #
+        # @param yaml_data [Hash] YAML data structure to dump
+        # @return [String] Complete YAML file content with header
+        def self.generate_yaml_content(yaml_data)
+          content = "# Lich 5 Login Entries - YAML Format\n"
+          content += "# Generated: #{Time.now}\n"
+          content += YAML.dump(yaml_data)
         end
 
         # Ensures master password exists for master_password mode conversions
