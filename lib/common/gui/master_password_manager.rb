@@ -190,7 +190,7 @@ module Lich
         private_class_method def self.secure_compare(a, b)
           return false if a.nil? || b.nil? || a.length != b.length
           result = 0
-          a.each_byte { |x| result |= x ^ b.getbyte(a.index(x.chr) || 0) }
+          a.each_byte.with_index { |x, i| result |= x ^ b.getbyte(i) }
           result.zero?
         end
       end
