@@ -120,7 +120,7 @@ module Lich
         # Derives encryption key using PBKDF2
         #
         # @param mode [Symbol] Encryption mode
-        # @param account_name [String, nil] Account name for :account_name mode
+        # @param account_name [String, nil] Account name for :standard mode
         # @param master_password [String, nil] Master password for :master_password mode
         # @return [String] Derived encryption key
         def self.derive_key(mode, account_name, master_password)
