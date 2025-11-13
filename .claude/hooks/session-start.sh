@@ -89,6 +89,28 @@ echo "✅ Bundle installed"
 echo "✅ RSpec available: $(bundle exec rspec --version | head -1)"
 echo "✅ RuboCop available: $(bundle exec rubocop --version)"
 echo ""
+
+# Check remote branch existence
+CURRENT_BRANCH=$(git branch --show-current)
+echo "Current branch: ${CURRENT_BRANCH}"
+
+if git ls-remote --heads origin "${CURRENT_BRANCH}" | grep -q "${CURRENT_BRANCH}"; then
+  echo "✅ Remote branch exists on GitHub"
+else
+  echo ""
+  echo "⚠️⚠️⚠️ WARNING: REMOTE BRANCH NOT FOUND ⚠️⚠️⚠️"
+  echo ""
+  echo "The branch '${CURRENT_BRANCH}' does NOT exist on GitHub."
+  echo ""
+  echo "🔴 MANDATORY ACTION REQUIRED BEFORE ANY COMMIT/PUSH:"
+  echo "   Create and push this branch:"
+  echo "   git push -u origin ${CURRENT_BRANCH}"
+  echo ""
+  echo "   DO NOT attempt to push without creating the branch first."
+  echo "   Read WEB_CLAUDE_ORIENTATION.md 'First Actions' section for details."
+  echo ""
+fi
+
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "🔴 MANDATORY INITIALIZATION - READ THESE FILES BEFORE PROCEEDING:"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

@@ -149,13 +149,20 @@ git push -u origin [branch-name]
 ## Workflow
 
 1. **Read work unit:** `.claude/work-units/CURRENT.md`
-2. **Verify prerequisites:** Branch created, context read, dependencies available
-3. **Implement:** Follow acceptance criteria exactly
-4. **Test:** Run all tests, verify zero regression
-5. **Document:** YARD comments, inline documentation
-6. **Commit:** Use conventional commit format
-7. **Push:** To designated branch
-8. **Report:** Complete or blockers
+2. **MANDATORY: Verify remote branch exists** - Before making ANY commits or pushes:
+   - Check session startup output for branch status
+   - If you see "⚠️ WARNING: REMOTE BRANCH NOT FOUND":
+     - The branch was merged/deleted on GitHub
+     - You MUST create the branch before committing: `git push -u origin <branch-name>`
+     - Never assume the branch exists
+     - Never attempt to push to a non-existent remote branch
+3. **Verify prerequisites:** Branch created, context read, dependencies available
+4. **Implement:** Follow acceptance criteria exactly
+5. **Test:** Run all tests, verify zero regression
+6. **Document:** YARD comments, inline documentation
+7. **Commit:** Use conventional commit format
+8. **Push:** To designated branch
+9. **Report:** Complete or blockers
 
 ---
 
