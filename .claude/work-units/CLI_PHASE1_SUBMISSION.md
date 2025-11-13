@@ -95,13 +95,17 @@ Execute `CORE_ENCRYPTION_LIB_ONLY.md` Step 1-7 and verify:
 ```
 Phase 1 (NOW)  → feat/password-encryption-core
                → Standard + Enhanced modes (complete encryption foundation)
+               → 11 files (5 new, 6 modified), ~1,200-1,400 lines
                ↓
-Phase 2 (NEXT) → feat/windows-keychain-passwordvault (from Phase 1)
-               → Windows-specific PasswordVault implementation
-               → Replace Windows stubs with real implementation
+Phase 2 (NEXT) → feat/windows-keychain-passwordvault (new branch based on Phase 1)
+               → Windows-specific PasswordVault implementation (CODE ONLY)
+               → 2 files: master_password_manager.rb, conversion_ui.rb
+               → Replace Windows stubs with real PowerShell implementation
+               → No tests (deferred to Phase 3)
                ↓
 Phase 3 (LATER) → Test suite + management UIs
                 → All spec files + password/SSH key change workflows
+                → Full test validation (380+ tests)
 ```
 
 ---
