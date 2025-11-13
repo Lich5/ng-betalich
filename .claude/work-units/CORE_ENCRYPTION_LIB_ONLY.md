@@ -5,7 +5,7 @@
 **Starting Point:** Branch from `eo-996` (PR 7, YAML foundation)
 **Source:** Copy files from `feat/password_encrypts` (PR 38) - encryption code only
 **Expected Output:** Feature branch with core encryption working, testable by Ellipsis linter
-**Target Size:** ~1,300-1,500 lines (vs. 3,500+ with tests)
+**Target Size:** ~1,200-1,400 lines (vs. 3,500+ with tests)
 
 ---
 
@@ -56,10 +56,8 @@ git show origin/feat/password_encrypts:lib/common/gui/utilities.rb > lib/common/
 git show origin/feat/password_encrypts:lib/common/gui/yaml_state.rb > lib/common/gui/yaml_state.rb
 ```
 
-**Root config files:**
+**Dependencies:**
 ```bash
-git show origin/feat/password_encrypts:lib/common/game-loader.rb > lib/common/game-loader.rb
-git show origin/feat/password_encrypts:lib/version.rb > lib/version.rb
 git show origin/feat/password_encrypts:Gemfile > Gemfile
 ```
 
@@ -82,7 +80,6 @@ ruby -c lib/common/gui/conversion_ui.rb
 ruby -c lib/common/gui/password_change.rb
 ruby -c lib/common/gui/utilities.rb
 ruby -c lib/common/gui/yaml_state.rb
-ruby -c lib/common/game-loader.rb
 ```
 
 All should return silently (no output = success).
@@ -134,14 +131,12 @@ Before pushing, verify:
 - lib/common/gui/master_password_prompt_ui.rb
 - lib/common/gui/password_manager.rb
 
-**Modified (8 files):**
+**Modified (6 files):**
 - lib/common/gui/account_manager.rb
 - lib/common/gui/conversion_ui.rb
 - lib/common/gui/password_change.rb
 - lib/common/gui/utilities.rb
 - lib/common/gui/yaml_state.rb
-- lib/common/game-loader.rb
-- lib/version.rb
 - Gemfile
 
 **Deferred (to follow-up PR):**
@@ -173,7 +168,8 @@ Report: Complete or Blocked (with error details)
 - This PR has NO test files—those are deferred
 - This PR includes ONLY password encryption code—no unrelated infrastructure
 - All core encryption logic is complete: Standard mode, Enhanced mode, keychain, UI
-- File size: ~1,300-1,500 lines (Ellipsis-processable)
+- 11 files total: 5 new + 6 modified
+- File size: ~1,200-1,400 lines (Ellipsis-processable)
 - BRD compliance: All 4 encryption modes conceptually covered (Plaintext in eo-996, Standard+Enhanced here, SSH Key in Phase 2)
 
 **Follow-up PR (after this merges):**
