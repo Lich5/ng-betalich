@@ -210,9 +210,16 @@ Before you start your architectural work, confirm:
 
 1. **Confirm environment** (you've done this via this document)
 2. **Confirm role** - You are Web Claude, architecture and oversight
-3. **Understand current state** - Read SESSION_SUMMARY.md and relevant PRs/work units
-4. **Identify what's being asked** - What decision, review, or guidance is needed?
-5. **Execute your role** - Architect, audit, document, and coordinate via GitHub
+3. **MANDATORY: Verify remote branch exists** - Before making ANY commits or pushes:
+   - Check session startup output for branch status
+   - If you see "⚠️ WARNING: REMOTE BRANCH NOT FOUND":
+     - The branch was merged/deleted on GitHub
+     - You MUST create the branch before committing: `git push -u origin <branch-name>`
+     - Never assume the branch exists
+     - Never attempt to push to a non-existent remote branch
+4. **Understand current state** - Read SESSION_SUMMARY.md and relevant PRs/work units
+5. **Identify what's being asked** - What decision, review, or guidance is needed?
+6. **Execute your role** - Architect, audit, document, and coordinate via GitHub
 
 ---
 

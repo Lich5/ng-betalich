@@ -14,9 +14,19 @@ Implement Windows keychain support for Master Password mode using PowerShell Pas
 
 ## Prerequisites
 
-- [ ] `feat/password-encryption-core` PR merged to main
-- [ ] New branch created based on `feat/password-encryption-core` state
-- [ ] Context read: `.claude/docs/BRD_Password_Encryption.md` (Windows platform requirements)
+**Base Branch:** `feat/password-encryption-core`
+
+**Branch Creation Instructions:**
+```bash
+git fetch origin feat/password-encryption-core
+git checkout feat/password-encryption-core
+git checkout -b feat/windows-keychain-passwordvault
+# Do NOT merge feat/password-encryption-core - branch from it only
+# Keep changes minimal - only Windows keychain implementation
+```
+
+- [ ] Branch created: `feat/windows-keychain-passwordvault` from `feat/password-encryption-core`
+- [ ] Context read: `.claude/docs/AUDIT_PR38_CORRECTED.md` (Windows gap analysis)
 - [ ] Dependencies available: Windows 10+ with PowerShell (built-in)
 
 ---
@@ -34,8 +44,8 @@ git checkout -b feat/windows-keychain-passwordvault
 ## Files
 
 **Modify:**
-- `lib/common/gui/master_password_manager.rb` - Replace Windows keychain stubs with actual PowerShell PasswordVault implementation (lines ~171-188)
-- `lib/common/gui/conversion_ui.rb` - Ensure keychain availability check works correctly for Windows
+- `lib/common/gui/master_password_manager.rb` - Implement Windows keychain methods (lines 171-188)
+- `lib/common/gui/conversion_ui.rb` - Add Windows version check for Enhanced mode availability
 
 ---
 
@@ -164,25 +174,13 @@ end
 - [ ] `store_windows_keychain` stores password successfully
 - [ ] `retrieve_windows_keychain` retrieves stored password correctly
 - [ ] `delete_windows_keychain` removes stored password
-- [ ] Passwords with special characters handled correctly (stdin piping)
-- [ ] No syntax errors: `ruby -c lib/common/gui/master_password_manager.rb`
-- [ ] RuboCop passes: `bundle exec rubocop lib/common/gui/master_password_manager.rb`
+- [ ] Passwords with special characters handled correctly (shell escaping)
+- [ ] Enhanced mode hidden in conversion dialog on Windows < 10
+- [ ] Enhanced mode available in conversion dialog on Windows 10+
+- [ ] RuboCop passes (0 offenses)
 - [ ] Code follows SOLID + DRY principles
 - [ ] YARD documentation complete for new methods
 - [ ] Committed to branch with conventional commit: `feat(all): add Windows keychain support via PowerShell PasswordVault`
-
----
-
-## Testing
-
-**Tests deferred to follow-up PR** (will include all Windows keychain platform-aware tests)
-
-**This PR:** Code only, no test files. Verification:
-```bash
-ruby -c lib/common/gui/master_password_manager.rb
-```
-
-Should return silently (no syntax errors)
 
 ---
 
@@ -222,6 +220,7 @@ feat(all): add Windows keychain support via PowerShell PasswordVault
 1. **Revert changes:**
    ```bash
    git checkout feat/password-encryption-core -- lib/common/gui/master_password_manager.rb
+   git checkout feat/password-encryption-core -- lib/common/gui/conversion_ui.rb
    ```
 
 2. **Restore stub behavior:**
@@ -231,8 +230,7 @@ feat(all): add Windows keychain support via PowerShell PasswordVault
 
 3. **Verify restoration:**
    ```bash
-   ruby -c lib/common/gui/master_password_manager.rb
-   bundle exec rubocop lib/common/gui/master_password_manager.rb
+   bundle exec rubocop lib/common/gui/master_password_manager.rb lib/common/gui/conversion_ui.rb
    ```
 
 ---
@@ -274,10 +272,7 @@ feat(all): add Windows keychain support via PowerShell PasswordVault
 ---
 
 **When complete:**
-1. Run syntax check: `ruby -c lib/common/gui/master_password_manager.rb`
-2. Run RuboCop: `bundle exec rubocop lib/common/gui/master_password_manager.rb`
-3. Verify on Windows 10+ if possible (manual testing of store/retrieve)
-4. Verify no uncommitted changes: `git status` shows clean
-5. Push branch and create PR
-6. Archive this file to `archive/002-windows-keychain-passwordvault.md`
-7. Await test suite work unit
+1. Run RuboCop: `bundle exec rubocop`
+2. Verify on Windows 10+ if possible
+3. Archive this file to `archive/002-windows-keychain-passwordvault.md`
+4. Await next work unit
