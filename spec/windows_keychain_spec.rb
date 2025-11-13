@@ -8,7 +8,7 @@ RSpec.describe Lich::Common::GUI::MasterPasswordManager do
   describe '.windows_keychain_available?' do
     context 'when cmdkey is available on Windows' do
       it 'returns true' do
-        allow_any_instance_of(Object).to receive(:system).with('where cmdkey >nul 2>&1').and_return(true)
+        allow_any_instance_of(Kernel).to receive(:system).with('where cmdkey >nul 2>&1').and_return(true)
         result = described_class.send(:windows_keychain_available?)
         expect(result).to be true
       end
@@ -16,7 +16,7 @@ RSpec.describe Lich::Common::GUI::MasterPasswordManager do
 
     context 'when cmdkey is not available' do
       it 'returns false' do
-        allow_any_instance_of(Object).to receive(:system).with('where cmdkey >nul 2>&1').and_return(false)
+        allow_any_instance_of(Kernel).to receive(:system).with('where cmdkey >nul 2>&1').and_return(false)
         result = described_class.send(:windows_keychain_available?)
         expect(result).to be false
       end
@@ -24,7 +24,7 @@ RSpec.describe Lich::Common::GUI::MasterPasswordManager do
 
     context 'on non-Windows systems' do
       it 'returns false' do
-        allow_any_instance_of(Object).to receive(:system).with('where cmdkey >nul 2>&1').and_return(nil)
+        allow_any_instance_of(Kernel).to receive(:system).with('where cmdkey >nul 2>&1').and_return(nil)
         result = described_class.send(:windows_keychain_available?)
         expect(result).to be_falsy
       end
@@ -95,21 +95,21 @@ RSpec.describe Lich::Common::GUI::MasterPasswordManager do
     context 'when deleting stored password' do
       it 'calls system command to delete credential' do
         service_name = described_class::KEYCHAIN_SERVICE
-        expect_any_instance_of(Object).to receive(:system).with("cmdkey /delete:#{service_name} >nul 2>&1")
+        expect_any_instance_of(Kernel).to receive(:system).with("cmdkey /delete:#{service_name} >nul 2>&1")
         described_class.send(:delete_windows_keychain)
       end
     end
 
     context 'when credential does not exist' do
       it 'handles gracefully' do
-        allow_any_instance_of(Object).to receive(:system).and_return(nil)
+        allow_any_instance_of(Kernel).to receive(:system).and_return(nil)
         expect { described_class.send(:delete_windows_keychain) }.not_to raise_error
       end
     end
 
     context 'when permission denied' do
       it 'handles system error gracefully' do
-        allow_any_instance_of(Object).to receive(:system).and_return(false)
+        allow_any_instance_of(Kernel).to receive(:system).and_return(false)
         result = described_class.send(:delete_windows_keychain)
         expect(result).to be_falsy
       end
@@ -118,7 +118,7 @@ RSpec.describe Lich::Common::GUI::MasterPasswordManager do
     context 'when vault is locked' do
       it 'handles locked vault gracefully' do
         # System call returns false when vault is locked
-        allow_any_instance_of(Object).to receive(:system).and_return(false)
+        allow_any_instance_of(Kernel).to receive(:system).and_return(false)
         result = described_class.send(:delete_windows_keychain)
         expect(result).to be_falsy
       end
@@ -128,7 +128,7 @@ RSpec.describe Lich::Common::GUI::MasterPasswordManager do
   describe 'Windows-specific integration' do
     context 'full lifecycle' do
       it 'checks availability, stores, and deletes' do
-        allow_any_instance_of(Object).to receive(:system).and_return(true)
+        allow_any_instance_of(Kernel).to receive(:system).and_return(true)
         allow(Lich).to receive(:log)
 
         # Check availability
@@ -148,7 +148,7 @@ RSpec.describe Lich::Common::GUI::MasterPasswordManager do
   describe 'Fallback behavior' do
     context 'when Windows keychain unavailable on Windows system' do
       it 'gracefully falls back' do
-        allow_any_instance_of(Object).to receive(:system).and_return(false)
+        allow_any_instance_of(Kernel).to receive(:system).and_return(false)
         result = described_class.send(:windows_keychain_available?)
         expect(result).to be false
       end
@@ -156,7 +156,7 @@ RSpec.describe Lich::Common::GUI::MasterPasswordManager do
 
     context 'on non-Windows platforms' do
       it 'correctly identifies unavailability' do
-        allow_any_instance_of(Object).to receive(:system).and_return(nil)
+        allow_any_instance_of(Kernel).to receive(:system).and_return(nil)
         result = described_class.send(:windows_keychain_available?)
         expect(result).to be_falsy
       end
