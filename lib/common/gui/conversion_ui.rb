@@ -99,14 +99,16 @@ module Lich
           # Set standard encryption as default
           standard_radio.active = true
 
-          # Disable master password mode if keychain not available
+          # Disable/hide modes if keychain not available
           unless MasterPasswordManager.keychain_available?
             master_radio.sensitive = false
+            enhanced_radio.sensitive = false
             master_radio.visible = false if OS.windows? # Hide on Windows if unavailable
+            enhanced_radio.visible = false if OS.windows? # Hide on Windows if unavailable
             Lich.log "info: Master password mode disabled - Keychain tools not available on this system"
           end
 
-          # Disable enhanced mode (future feature)
+          # Keep enhanced disabled (future feature - requires master password infrastructure)
           enhanced_radio.sensitive = false
 
           # Set accessible properties
