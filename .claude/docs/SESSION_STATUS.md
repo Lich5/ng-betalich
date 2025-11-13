@@ -56,22 +56,31 @@
 
 ## Next Action Expected
 
-**Most likely:**
-- CLI Claude executes Windows Keychain work unit
-- Product Owner may request PR review when work is complete
+**When CLI Claude completes Windows Keychain work unit:**
+1. Audit submitted PR/branch against work unit acceptance criteria
+2. Update traceability matrix with implementation status
+3. Provide feedback: approval or required changes
+4. Archive work unit if approved
 
-**Alternative scenarios:**
-- Product Owner requests new work unit creation
-- Product Owner asks architectural questions
-- Product Owner requests audit of submitted work
+**If Product Owner requests before CLI Claude completion:**
+- Answer architectural questions
+- Create additional work units
+- Provide guidance on blockers
 
 ---
 
 ## Open Questions/Blockers
 
-**None currently.**
+**No blockers for current Windows Keychain work unit** - specification complete and ready for CLI execution.
 
-All session infrastructure complete. Work unit specification validated and ready.
+**Overall Project Status:**
+- **BRD Implementation:** ~60% complete
+- **Traceability Matrix:** Exists, documents gaps, requires mandatory review and updating
+- **Pending Work Units:** Drafts exist in `.claude/docs/` for:
+  - SSH Key encryption implementation
+  - Change SSH Key functionality
+  - Change Master Password functionality
+- **Test Strategy:** Next work unit will restore specs (updated for code changes including Windows Keychain). After that, tests required for all submissions. Goal: test-first development.
 
 ---
 
@@ -79,4 +88,4 @@ All session infrastructure complete. Work unit specification validated and ready
 
 - Session initialization improvements are in place - test effectiveness
 - Remote branch verification should prevent 403 push errors
-- CURRENT.md follows new pattern: explicit base branch, no spec work, no test counts
+- **Windows Keychain work unit context:** This work unit bases off `feat/password-encryption-core` which has pruned/out-of-sync specs. This is a **temporary exception**, not a pattern. No spec modifications or test counts in acceptance criteria for this work unit only. Next work unit will restore and update specs. Thereafter, all work requires tests (test-first preferred).
