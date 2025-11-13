@@ -290,5 +290,15 @@ None anticipated. All tests pre-written and verified in source branch.
 **When complete:**
 1. Run final verification: `bundle exec rspec spec/ -v`
 2. Push branch: `git push -u origin feat/password-encryption-tests-phase1-2`
-3. Archive this file to `archive/003-test-extraction-phase1-2.md`
+3. Archive this work unit file:
+   ```bash
+   # Switch to documentation branch (where this work unit lives after PR merge)
+   git checkout main
+   # or if different: git checkout [docs-branch]
+
+   # Archive the file
+   git mv .claude/work-units/TEST_EXTRACTION_PHASE1-2.md .claude/work-units/archive/003-test-extraction-phase1-2.md
+   git commit -m "chore(all): archive test extraction work unit after completion"
+   git push origin main
+   ```
 4. Await next work unit
