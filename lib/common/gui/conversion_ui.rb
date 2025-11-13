@@ -102,6 +102,7 @@ module Lich
           # Disable master password mode if keychain not available
           unless MasterPasswordManager.keychain_available?
             master_radio.sensitive = false
+            master_radio.visible = false if OS.windows? # Hide on Windows if unavailable
             Lich.log "info: Master password mode disabled - Keychain tools not available on this system"
           end
 
