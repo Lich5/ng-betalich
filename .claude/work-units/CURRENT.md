@@ -35,6 +35,7 @@ git checkout -b feat/windows-keychain-passwordvault
 
 **Modify:**
 - `lib/common/gui/master_password_manager.rb` - Replace Windows keychain stubs with actual PowerShell PasswordVault implementation (lines ~171-188)
+- `lib/common/gui/conversion_ui.rb` - Ensure keychain availability check works correctly for Windows
 
 ---
 
