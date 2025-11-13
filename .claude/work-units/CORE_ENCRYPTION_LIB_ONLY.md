@@ -3,24 +3,24 @@
 **Objective:** Implement password encryption in production code only (no test files)
 
 **Starting Point:** Branch from `eo-996` (PR 7, YAML foundation)
-**Source:** Copy files from `feat/password_encrypts` (PR 38) - lib/ directory only
+**Source:** Copy files from `feat/password_encrypts` (PR 38) - encryption code only
 **Expected Output:** Feature branch with core encryption working, testable by Ellipsis linter
-**Target Size:** ~1,700-1,800 lines (vs. 3,500+ with tests)
+**Target Size:** ~1,300-1,500 lines (vs. 3,500+ with tests)
 
 ---
 
 ## Summary
 
-This work unit implements Standard + Enhanced password encryption modes in production code. Test files are deferred to a follow-up PR to keep this PR small enough for Ellipsis code linting.
+This work unit implements Standard + Enhanced password encryption modes in production code only. No test files, no unrelated infrastructure (like olib).
 
-Core features included:
-- AES-256-CBC encryption (Standard mode)
-- Master Password + keychain support (Enhanced mode)
-- Encryption integration into YAML save/load
-- Conversion UI with mode selection
+Features included:
+- AES-256-CBC encryption (Standard mode) - account-name based
+- Master Password + keychain support (Enhanced mode) - cross-platform secure storage
+- Encryption integration into YAML save/load workflow
+- Conversion UI with encryption mode selection
 - File permissions security (0600)
 
-Test files deferred (will be added in follow-up PR).
+Scope limited to encryption feature only. Test files and other changes deferred to follow-up PR.
 
 ---
 
@@ -43,16 +43,6 @@ git show origin/feat/password_encrypts:lib/common/gui/master_password_manager.rb
 git show origin/feat/password_encrypts:lib/common/gui/master_password_prompt.rb > lib/common/gui/master_password_prompt.rb
 git show origin/feat/password_encrypts:lib/common/gui/master_password_prompt_ui.rb > lib/common/gui/master_password_prompt_ui.rb
 git show origin/feat/password_encrypts:lib/common/gui/password_manager.rb > lib/common/gui/password_manager.rb
-```
-
-**New olib utility modules (lib/gemstone/olib/):**
-```bash
-mkdir -p lib/gemstone/olib
-git show origin/feat/password_encrypts:lib/gemstone/olib/command.rb > lib/gemstone/olib/command.rb
-git show origin/feat/password_encrypts:lib/gemstone/olib/container.rb > lib/gemstone/olib/container.rb
-git show origin/feat/password_encrypts:lib/gemstone/olib/containers.rb > lib/gemstone/olib/containers.rb
-git show origin/feat/password_encrypts:lib/gemstone/olib/exist.rb > lib/gemstone/olib/exist.rb
-git show origin/feat/password_encrypts:lib/gemstone/olib/item.rb > lib/gemstone/olib/item.rb
 ```
 
 ### Step 3: Copy Modified Production Files
@@ -93,11 +83,6 @@ ruby -c lib/common/gui/password_change.rb
 ruby -c lib/common/gui/utilities.rb
 ruby -c lib/common/gui/yaml_state.rb
 ruby -c lib/common/game-loader.rb
-ruby -c lib/gemstone/olib/command.rb
-ruby -c lib/gemstone/olib/container.rb
-ruby -c lib/gemstone/olib/containers.rb
-ruby -c lib/gemstone/olib/exist.rb
-ruby -c lib/gemstone/olib/item.rb
 ```
 
 All should return silently (no output = success).
@@ -129,7 +114,6 @@ git push -u origin feat/password-encryption-core
 Before pushing, verify:
 
 - [ ] All new files exist in lib/common/gui/
-- [ ] All olib files exist in lib/gemstone/olib/
 - [ ] All modified files updated
 - [ ] Gemfile updated with `os` gem
 - [ ] No syntax errors (all `ruby -c` checks passed)
@@ -143,17 +127,12 @@ Before pushing, verify:
 
 ## Files Included
 
-**New (10 files):**
+**New (5 files):**
 - lib/common/gui/password_cipher.rb
 - lib/common/gui/master_password_manager.rb
 - lib/common/gui/master_password_prompt.rb
 - lib/common/gui/master_password_prompt_ui.rb
 - lib/common/gui/password_manager.rb
-- lib/gemstone/olib/command.rb
-- lib/gemstone/olib/container.rb
-- lib/gemstone/olib/containers.rb
-- lib/gemstone/olib/exist.rb
-- lib/gemstone/olib/item.rb
 
 **Modified (8 files):**
 - lib/common/gui/account_manager.rb
@@ -192,14 +171,14 @@ Report: Complete or Blocked (with error details)
 
 **Important:**
 - This PR has NO test files—those are deferred
-- The code is testable (can be manually verified), but automated tests come in follow-up PR
+- This PR includes ONLY password encryption code—no unrelated infrastructure
 - All core encryption logic is complete: Standard mode, Enhanced mode, keychain, UI
-- File size: ~1,700-1,800 lines (vs. 3,500+ with tests)
-- Ellipsis should be able to process this cleanly
+- File size: ~1,300-1,500 lines (Ellipsis-processable)
+- BRD compliance: All 4 encryption modes conceptually covered (Plaintext in eo-996, Standard+Enhanced here, SSH Key in Phase 2)
 
 **Follow-up PR (after this merges):**
 - Add all spec files (password_cipher_spec, master_password_manager_spec, etc.)
-- Refactor yaml_state_spec.rb
+- Refactor yaml_state_spec.rb for new modes
 - Run full test suite
 - Merge with branch protection + all tests green
 
