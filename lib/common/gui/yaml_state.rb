@@ -707,9 +707,10 @@ module Lich
         # @param yaml_data [Hash] YAML data structure to dump
         # @return [String] Complete YAML file content with header
         def self.generate_yaml_content(yaml_data)
-          content = "# Lich 5 Login Entries - YAML Format\n"
-          content += "# Generated: #{Time.now}\n"
-          content += YAML.dump(yaml_data)
+          content = "# Lich 5 Login Entries - YAML Format\n" \
+                  + "# Generated: #{Time.now}\n" \
+                  + YAML.dump(yaml_data)
+          return content
         end
 
         # Ensures master password exists for master_password mode conversions
