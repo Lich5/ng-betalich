@@ -31,6 +31,16 @@ git checkout -b feat/windows-keychain-passwordvault
 
 ---
 
+## Setup
+
+```bash
+git fetch origin feat/password-encryption-core
+git checkout feat/password-encryption-core
+git checkout -b feat/windows-keychain-passwordvault
+```
+
+---
+
 ## Files
 
 **Modify:**
@@ -158,6 +168,7 @@ end
 
 ## Acceptance Criteria
 
+- [ ] `windows_10_or_later?` detects Windows version correctly
 - [ ] `windows_keychain_available?` returns true on Windows 10+ with PasswordVault
 - [ ] `windows_keychain_available?` returns false on Windows < 10
 - [ ] `store_windows_keychain` stores password successfully
@@ -168,9 +179,8 @@ end
 - [ ] Enhanced mode available in conversion dialog on Windows 10+
 - [ ] RuboCop passes (0 offenses)
 - [ ] Code follows SOLID + DRY principles
-- [ ] YARD documentation complete
-- [ ] Zero regression verified
-- [ ] Committed to branch with conventional commit
+- [ ] YARD documentation complete for new methods
+- [ ] Committed to branch with conventional commit: `feat(all): add Windows keychain support via PowerShell PasswordVault`
 
 ---
 
@@ -205,7 +215,7 @@ feat(all): add Windows keychain support via PowerShell PasswordVault
 
 ## Rollback Plan
 
-**If this fails:**
+**If implementation fails:**
 
 1. **Revert changes:**
    ```bash
