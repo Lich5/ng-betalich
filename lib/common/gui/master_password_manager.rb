@@ -168,23 +168,106 @@ module Lich
           system("secret-tool clear service #{KEYCHAIN_SERVICE.shellescape} user lich5 2>/dev/null")
         end
 
-        private_class_method def self.windows_keychain_available?
-          system('where cmdkey >nul 2>&1')
-        end
+        private_class_method def self.windows_10_or_later?
+          return false unless OS.windows?
 
-        private_class_method def self.store_windows_keychain(_password)
-          # Windows credential manager doesn't support piping passwords safely
-          # Return false - Windows support would need different approach
-          Lich.log "warning: Master password storage not fully implemented for Windows"
+          # Get Windows version via PowerShell
+          version_cmd = '[System.Environment]::OSVersion.Version.Major'
+          major = `powershell -NoProfile -Command "#{version_cmd}"`.strip.to_i
+
+          # Windows 10 = version 10, Windows 11 = version 10 (yes, really)
+          major >= 10
+        rescue
           false
         end
 
+        private_class_method def self.windows_keychain_available?
+          return false unless windows_10_or_later?
+
+          # Test if PasswordVault is accessible
+          test_script = <<~POWERSHELL
+            try {
+              $vault = New-Object Windows.Security.Credentials.PasswordVault
+              Write-Output "available"
+            } catch {
+              Write-Output "unavailable"
+            }
+          POWERSHELL
+
+          result = `powershell -NoProfile -Command "#{test_script}"`.strip
+          result == "available"
+        rescue
+          false
+        end
+
+        private_class_method def self.store_windows_keychain(password)
+          ps_script = <<~POWERSHELL
+            $vault = New-Object Windows.Security.Credentials.PasswordVault
+            try {
+              $existing = $vault.Retrieve('#{KEYCHAIN_SERVICE}', 'lich5')
+              $vault.Remove($existing)
+            } catch {}
+
+            $password = [Console]::In.ReadLine()
+            $cred = New-Object Windows.Security.Credentials.PasswordCredential('#{KEYCHAIN_SERVICE}', 'lich5', $password)
+            $vault.Add($cred)
+            Write-Output "success"
+          POWERSHELL
+
+          result = execute_powershell(ps_script, password)
+          result == "success"
+        end
+
         private_class_method def self.retrieve_windows_keychain
+          ps_script = <<~POWERSHELL
+            try {
+              $vault = New-Object Windows.Security.Credentials.PasswordVault
+              $cred = $vault.Retrieve('#{KEYCHAIN_SERVICE}', 'lich5')
+              $cred.RetrievePassword()
+              Write-Output $cred.Password
+            } catch {
+              Write-Output ""
+            }
+          POWERSHELL
+
+          output = `powershell -NoProfile -Command "#{ps_script}"`.strip
+          output.empty? ? nil : output
+        rescue
           nil
         end
 
         private_class_method def self.delete_windows_keychain
-          system("cmdkey /delete:#{KEYCHAIN_SERVICE} >nul 2>&1")
+          ps_script = <<~POWERSHELL
+            try {
+              $vault = New-Object Windows.Security.Credentials.PasswordVault
+              $cred = $vault.Retrieve('#{KEYCHAIN_SERVICE}', 'lich5')
+              $vault.Remove($cred)
+              Write-Output "success"
+            } catch {
+              Write-Output "unavailable"
+            }
+          POWERSHELL
+
+          result = execute_powershell(ps_script)
+          result == "success"
+        end
+
+        # Executes a PowerShell script with optional stdin input
+        # Provides secure password piping via stdin instead of command-line arguments
+        #
+        # @param script [String] PowerShell script to execute
+        # @param input_data [String, nil] Optional data to pipe to stdin (e.g., password)
+        # @return [String] Trimmed stdout output from PowerShell
+        private_class_method def self.execute_powershell(script, input_data = nil)
+          result = IO.popen(['powershell', '-NoProfile', '-Command', script], 'r+') do |io|
+            io.puts input_data if input_data
+            io.close_write
+            io.read.strip
+          end
+          result
+        rescue StandardError => e
+          Lich.log "error: PowerShell execution failed: #{e.message}"
+          ""
         end
 
         private_class_method def self.secure_compare(a, b)
