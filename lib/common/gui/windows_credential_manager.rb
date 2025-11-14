@@ -15,9 +15,9 @@ module Lich
       module WindowsCredentialManager
         extend FFI::Library
 
-        # Load advapi32.dll for Credential Manager functions (Windows only)
+        # Load advapi32.dll and kernel32.dll for Credential Manager functions (Windows only)
         if OS.windows?
-          ffi_lib 'advapi32'
+          ffi_lib 'advapi32', 'kernel32'
         end
 
         # CRED_TYPE values
