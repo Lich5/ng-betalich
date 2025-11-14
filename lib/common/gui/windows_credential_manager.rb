@@ -15,8 +15,10 @@ module Lich
       module WindowsCredentialManager
         extend FFI::Library
 
-        # Load advapi32.dll for Credential Manager functions
-        ffi_lib 'advapi32'
+        # Load advapi32.dll for Credential Manager functions (Windows only)
+        if OS.windows?
+          ffi_lib 'advapi32'
+        end
 
         # CRED_TYPE values
         CRED_TYPE_GENERIC = 1
@@ -52,12 +54,14 @@ module Lich
           )
         end
 
-        # FFI function definitions
-        attach_function :CredReadW, [:pointer, :uint32, :uint32, :pointer], :bool
-        attach_function :CredWriteW, [:pointer, :uint32], :bool
-        attach_function :CredDeleteW, [:pointer, :uint32, :uint32], :bool
-        attach_function :CredFree, [:pointer], :void
-        attach_function :GetLastError, [], :uint32
+        # FFI function definitions (Windows only)
+        if OS.windows?
+          attach_function :CredReadW, [:pointer, :uint32, :uint32, :pointer], :bool
+          attach_function :CredWriteW, [:pointer, :uint32], :bool
+          attach_function :CredDeleteW, [:pointer, :uint32, :uint32], :bool
+          attach_function :CredFree, [:pointer], :void
+          attach_function :GetLastError, [], :uint32
+        end
 
         class << self
           # Check if Credential Manager is available
