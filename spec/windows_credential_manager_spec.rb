@@ -68,9 +68,9 @@ RSpec.describe Lich::Common::GUI::WindowsCredentialManager do
 
     context 'with various persistence levels' do
       persistence_levels = {
-        'session' => described_class::CRED_PERSIST_SESSION,
+        'session'       => described_class::CRED_PERSIST_SESSION,
         'local_machine' => described_class::CRED_PERSIST_LOCAL_MACHINE,
-        'enterprise' => described_class::CRED_PERSIST_ENTERPRISE
+        'enterprise'    => described_class::CRED_PERSIST_ENTERPRISE
       }
 
       persistence_levels.each do |name, level|
