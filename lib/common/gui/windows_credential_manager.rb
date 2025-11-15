@@ -209,9 +209,12 @@ module Lich
           # @param str [String] String to convert
           # @return [FFI::MemoryPointer] Pointer to wide character string
           def string_to_wide(str)
-            wide_str = str.encode('UTF-16LE') + "\x00\x00"
-            ptr = FFI::MemoryPointer.new(:byte, wide_str.bytesize)
-            ptr.put_bytes(0, wide_str)
+            wide_str = str.encode('UTF-16LE')
+            # Add UTF-16LE null terminator
+            null_term = "\x00\x00".b.force_encoding('UTF-16LE')
+            wide_str_with_null = wide_str + null_term
+            ptr = FFI::MemoryPointer.new(:byte, wide_str_with_null.bytesize)
+            ptr.put_bytes(0, wide_str_with_null)
             ptr
           end
 
