@@ -99,6 +99,8 @@ module Lich
               password_blob = password_bytes.b
               comment_wide = comment ? string_to_wide(comment) : FFI::Pointer.new(:pointer, 0)
 
+              Lich.log "debug: Storing credential - target: #{target_name}, user: #{username}, pass_size: #{password_blob.bytesize}, persist: #{persist}"
+
               # Allocate memory for credential blob (password data)
               blob_ptr = FFI::MemoryPointer.new(:byte, password_blob.bytesize)
               blob_ptr.put_bytes(0, password_blob)
@@ -122,6 +124,7 @@ module Lich
               result = CredWriteW(cred_ptr, 0)
 
               if result
+                Lich.log "debug: Credential stored successfully"
                 true
               else
                 error_code = GetLastError
@@ -129,7 +132,7 @@ module Lich
                 false
               end
             rescue StandardError => e
-              Lich.log "error: Failed to store credential: #{e.message}" if e.message.include?('GetLastError') || e.message.include?('CredWriteW')
+              Lich.log "error: Failed to store credential: #{e.class.name}: #{e.message}"
               false
             end
           end
