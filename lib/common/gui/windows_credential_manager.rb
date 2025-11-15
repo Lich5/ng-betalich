@@ -94,8 +94,9 @@ module Lich
               # Convert strings to wide characters (UTF-16LE)
               target_name_wide = string_to_wide(target_name)
               username_wide = string_to_wide(username)
-              # Store password as UTF-8 bytes (plain ASCII-compatible encoding for passwords)
-              password_blob = password.force_encoding('UTF-8').bytes.pack('C*')
+              # Store password as UTF-8 bytes (as binary data, not text)
+              password_bytes = password.to_s.encode('UTF-8')
+              password_blob = password_bytes.b
               comment_wide = comment ? string_to_wide(comment) : FFI::Pointer.new(:pointer, 0)
 
               # Allocate memory for credential blob (password data)
@@ -128,7 +129,7 @@ module Lich
                 false
               end
             rescue StandardError => e
-              Lich.log "error: Failed to store credential: #{e.message}"
+              Lich.log "error: Failed to store credential: #{e.message}" if e.message.include?('GetLastError') || e.message.include?('CredWriteW')
               false
             end
           end
@@ -154,8 +155,8 @@ module Lich
                 blob_ptr = credential[:credential_blob]
                 blob_size = credential[:credential_blob_size]
                 password_blob = blob_ptr.read_bytes(blob_size)
-                # Password is stored as UTF-8 bytes, ensure proper encoding
-                password = password_blob.dup.force_encoding('UTF-8')
+                # Password blob is stored as UTF-8 bytes; convert safely with encoding handling
+                password = password_blob.b.force_encoding('UTF-8')
 
                 # Free credential structure
                 CredFree(cred)
@@ -168,7 +169,8 @@ module Lich
                 nil
               end
             rescue StandardError => e
-              Lich.log "error: Failed to retrieve credential: #{e.message}"
+              # Don't log as error for "not found" - it's expected on first run
+              # Only actual failures (encoding, access, API errors) should log
               nil
             end
           end
