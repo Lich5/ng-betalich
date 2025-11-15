@@ -98,7 +98,7 @@ module Lich
         # Converts entry.dat to entry.yaml format for improved maintainability
         #
         # @param data_dir [String] Directory containing entry data
-        # @param encryption_mode [Symbol] Encryption mode (:plaintext, :account_name, :master_password)
+        # @param encryption_mode [Symbol] Encryption mode (:plaintext, :account_name, :enhanced)
         # @return [Boolean] True if migration was successful
         def self.migrate_from_legacy(data_dir, encryption_mode: :plaintext)
           dat_file = File.join(data_dir, "entry.dat")
@@ -112,7 +112,7 @@ module Lich
           # NEW: Handle master_password mode - prompt user to create password
           # ====================================================================
           master_password = nil
-          if encryption_mode == :master_password
+          if encryption_mode == :enhanced
             master_password = ensure_master_password_exists
 
             if master_password.nil?
@@ -148,9 +148,9 @@ module Lich
         # Encrypts a password based on the current encryption mode
         #
         # @param password [String] Plaintext password
-        # @param mode [Symbol] Encryption mode (:plaintext, :account_name, :master_password)
+        # @param mode [Symbol] Encryption mode (:plaintext, :account_name, :enhanced)
         # @param account_name [String, nil] Account name for :account_name mode
-        # @param master_password [String, nil] Master password for :master_password mode
+        # @param master_password [String, nil] Master password for :enhanced mode
         # @return [String] Encrypted password or plaintext if mode is :plaintext
         def self.encrypt_password(password, mode:, account_name: nil, master_password: nil)
           Lich.log "debug: encrypt_password called - mode: #{mode}, account_name: #{account_name}, has_master_pw: #{!master_password.nil?}"
@@ -165,16 +165,16 @@ module Lich
         # Decrypts a password based on the current encryption mode
         #
         # @param encrypted_password [String] Encrypted password
-        # @param mode [Symbol] Encryption mode (:plaintext, :account_name, :master_password)
+        # @param mode [Symbol] Encryption mode (:plaintext, :account_name, :enhanced)
         # @param account_name [String, nil] Account name for :account_name mode
-        # @param master_password [String, nil] Master password for :master_password mode
+        # @param master_password [String, nil] Master password for :enhanced mode
         # @return [String] Decrypted plaintext password
         def self.decrypt_password(encrypted_password, mode:, account_name: nil, master_password: nil)
           Lich.log "debug: decrypt_password called - mode: #{mode}, account_name: #{account_name}, has_master_pw: #{!master_password.nil?}"
           return encrypted_password if mode == :plaintext || mode.to_sym == :plaintext
 
           # For master_password mode: auto-retrieve from Keychain if not provided
-          if mode.to_sym == :master_password && master_password.nil?
+          if mode.to_sym == :enhanced && master_password.nil?
             master_password = MasterPasswordManager.retrieve_master_password
             raise StandardError, "Master password not found in Keychain - cannot decrypt" if master_password.nil?
           end
@@ -189,7 +189,7 @@ module Lich
         #
         # @param yaml_data [Hash] YAML data structure
         # @param mode [Symbol] Encryption mode
-        # @param master_password [String, nil] Master password if using :master_password mode
+        # @param master_password [String, nil] Master password if using :enhanced mode
         # @return [Hash] YAML data with encrypted passwords
         def self.encrypt_all_passwords(yaml_data, mode, master_password: nil)
           return yaml_data if mode == :plaintext

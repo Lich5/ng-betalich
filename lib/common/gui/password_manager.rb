@@ -40,13 +40,13 @@ module Lich
               mode: :standard,
               account_name: account_name
             )
-          when :master_password
+          when :enhanced
             # Master password mode - encrypt with master password
             raise ArgumentError, 'master_password required for master_password mode' if master_password.nil?
 
             entry[:password] = PasswordCipher.encrypt(
               new_password,
-              mode: :master_password,
+              mode: :enhanced,
               master_password: master_password
             )
           when :enhanced, :ssh_key
@@ -84,13 +84,13 @@ module Lich
               mode: :standard,
               account_name: account_name
             )
-          when :master_password
+          when :enhanced
             # Master password mode - decrypt with master password
             raise ArgumentError, 'master_password required for master_password mode' if master_password.nil?
 
             PasswordCipher.decrypt(
               encrypted_password,
-              mode: :master_password,
+              mode: :enhanced,
               master_password: master_password
             )
           when :enhanced, :ssh_key

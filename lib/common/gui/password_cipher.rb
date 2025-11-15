@@ -16,8 +16,8 @@ module Lich
       # @example Decrypt with standard mode
       #   decrypted = PasswordCipher.decrypt(encrypted, mode: :standard, account_name: 'user123')
       #
-      # @example Encrypt with master password
-      #   encrypted = PasswordCipher.encrypt('mypassword', mode: :master_password, master_password: 'master123')
+      # @example Encrypt with enhanced encryption
+      #   encrypted = PasswordCipher.encrypt('mypassword', mode: :enhanced, master_password: 'secret123')
       module PasswordCipher
         # Custom exception for decryption failures
         class DecryptionError < StandardError; end
@@ -34,9 +34,9 @@ module Lich
         # Encrypts a password using the specified mode
         #
         # @param password [String] The plaintext password to encrypt
-        # @param mode [Symbol] Encryption mode (:standard or :master_password)
+        # @param mode [Symbol] Encryption mode (:standard or :enhanced)
         # @param account_name [String, nil] Account name for :standard mode
-        # @param master_password [String, nil] Master password for :master_password mode
+        # @param master_password [String, nil] Master password for :enhanced mode
         # @return [String] Base64-encoded encrypted password (IV + ciphertext)
         # @raise [ArgumentError] If required parameters are missing or mode is invalid
         def self.encrypt(password, mode:, account_name: nil, master_password: nil)
@@ -63,9 +63,9 @@ module Lich
         # Decrypts a password using the specified mode
         #
         # @param encrypted_password [String] Base64-encoded encrypted password
-        # @param mode [Symbol] Encryption mode (:standard or :master_password)
+        # @param mode [Symbol] Encryption mode (:standard or :enhanced)
         # @param account_name [String, nil] Account name for :standard mode
-        # @param master_password [String, nil] Master password for :master_password mode
+        # @param master_password [String, nil] Master password for :enhanced mode
         # @return [String] Decrypted plaintext password
         # @raise [ArgumentError] If required parameters are missing or mode is invalid
         # @raise [DecryptionError] If decryption fails
@@ -103,7 +103,7 @@ module Lich
         # @param master_password [String, nil] Master password
         # @raise [ArgumentError] If parameters are invalid
         def self.validate_encryption_params(mode, account_name, master_password)
-          unless %i[standard master_password].include?(mode)
+          unless %i[standard enhanced].include?(mode)
             raise ArgumentError, "Unsupported encryption mode: #{mode}"
           end
 
@@ -111,8 +111,8 @@ module Lich
             raise ArgumentError, 'account_name required for :standard mode'
           end
 
-          if mode == :master_password && master_password.nil?
-            raise ArgumentError, 'master_password required for :master_password mode'
+          if mode == :enhanced && master_password.nil?
+            raise ArgumentError, 'master_password required for :enhanced mode'
           end
         end
         private_class_method :validate_encryption_params
@@ -121,14 +121,14 @@ module Lich
         #
         # @param mode [Symbol] Encryption mode
         # @param account_name [String, nil] Account name for :standard mode
-        # @param master_password [String, nil] Master password for :master_password mode
+        # @param master_password [String, nil] Master password for :enhanced mode
         # @return [String] Derived encryption key
         def self.derive_key(mode, account_name, master_password)
           # Select passphrase based on mode
           passphrase = case mode
                        when :standard
                          account_name
-                       when :master_password
+                       when :enhanced
                          master_password
                        end
 

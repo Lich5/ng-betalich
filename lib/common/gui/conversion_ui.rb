@@ -93,23 +93,23 @@ module Lich
           # Radio buttons for mode selection
           plaintext_radio = Gtk::RadioButton.new(label: "Plaintext (no encryption - least secure)")
           standard_radio = Gtk::RadioButton.new(member: plaintext_radio, label: "Standard Encryption (basic encryption)")
-          master_radio = Gtk::RadioButton.new(member: plaintext_radio, label: "Master Password Encryption (recommended)")
-          enhanced_radio = Gtk::RadioButton.new(member: plaintext_radio, label: "Enhanced Encryption (future - not yet available)")
+          enhanced_radio = Gtk::RadioButton.new(member: plaintext_radio, label: "Enhanced Encryption (recommended)")
+          certificate_radio = Gtk::RadioButton.new(member: plaintext_radio, label: "Certificate Encryption (future - not yet available)")
 
           # Set standard encryption as default
           standard_radio.active = true
 
           # Disable/hide modes if keychain not available
           unless MasterPasswordManager.keychain_available?
-            master_radio.sensitive = false
             enhanced_radio.sensitive = false
-            master_radio.visible = false if OS.windows? # Hide on Windows if unavailable
+            certificate_radio.sensitive = false
             enhanced_radio.visible = false if OS.windows? # Hide on Windows if unavailable
-            Lich.log "info: Master password mode disabled - Keychain tools not available on this system"
+            certificate_radio.visible = false if OS.windows? # Hide on Windows if unavailable
+            Lich.log "info: Enhanced encryption mode disabled - Keychain tools not available on this system"
           end
 
-          # Keep enhanced disabled (future feature - requires master password infrastructure)
-          enhanced_radio.sensitive = false
+          # Keep certificate mode disabled (future feature - requires certificate infrastructure)
+          certificate_radio.sensitive = false
 
           # Set accessible properties
           Accessibility.make_accessible(
@@ -125,22 +125,22 @@ module Lich
             :radio_button
           )
           Accessibility.make_accessible(
-            master_radio,
-            "Master Password Mode",
-            "Encrypt passwords using a master password - most secure option currently available",
+            enhanced_radio,
+            "Enhanced Encryption Mode",
+            "Encrypt passwords using an enhanced method - most secure option",
             :radio_button
           )
           Accessibility.make_accessible(
-            enhanced_radio,
-            "Enhanced Mode",
-            "Future encryption mode - not yet implemented",
+            certificate_radio,
+            "Certificate Encryption Mode",
+            "Encrypt passwords using certificate-based authentication",
             :radio_button
           )
 
           mode_box.add(plaintext_radio)
           mode_box.add(standard_radio)
-          mode_box.add(master_radio)
           mode_box.add(enhanced_radio)
+          mode_box.add(certificate_radio)
 
           content_area.add(mode_frame)
 
@@ -182,10 +182,10 @@ module Lich
                                 :plaintext
                               elsif standard_radio.active?
                                 :standard
-                              elsif master_radio.active?
-                                :master_password
+                              elsif enhanced_radio.active?
+                                :enhanced
                               else
-                                :enhanced # Should not reach here since it's disabled
+                                :certificate # Should not reach here since it's disabled
                               end
 
               # Show warning for plaintext mode

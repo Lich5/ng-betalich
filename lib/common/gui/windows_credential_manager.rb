@@ -168,7 +168,7 @@ module Lich
                 Lich.log "error: CredReadW failed with error code #{error_code}" unless error_code == 1168
                 nil
               end
-            rescue StandardError => e
+            rescue StandardError
               # Don't log as error for "not found" - it's expected on first run
               # Only actual failures (encoding, access, API errors) should log
               nil
