@@ -94,11 +94,12 @@ module Lich
               # Convert strings to wide characters (UTF-16LE)
               target_name_wide = string_to_wide(target_name)
               username_wide = string_to_wide(username)
-              password_blob = password.bytes.pack('C*')
+              # Store password as UTF-8 bytes (plain ASCII-compatible encoding for passwords)
+              password_blob = password.force_encoding('UTF-8').bytes.pack('C*')
               comment_wide = comment ? string_to_wide(comment) : FFI::Pointer.new(:pointer, 0)
 
               # Allocate memory for credential blob (password data)
-              blob_ptr = FFI::MemoryPointer.new(:byte, password_blob.size)
+              blob_ptr = FFI::MemoryPointer.new(:byte, password_blob.bytesize)
               blob_ptr.put_bytes(0, password_blob)
 
               # Fill credential structure
@@ -153,7 +154,8 @@ module Lich
                 blob_ptr = credential[:credential_blob]
                 blob_size = credential[:credential_blob_size]
                 password_blob = blob_ptr.read_bytes(blob_size)
-                password = password_blob.force_encoding('UTF-8')
+                # Password is stored as UTF-8 bytes, ensure proper encoding
+                password = password_blob.dup.force_encoding('UTF-8')
 
                 # Free credential structure
                 CredFree(cred)
