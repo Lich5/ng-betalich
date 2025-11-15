@@ -117,11 +117,8 @@ module Lich
               credential[:attributes] = FFI::Pointer.new(:pointer, 0)
               credential[:user_name] = username_wide
 
-              # Call CredWriteW
-              cred_ptr = FFI::MemoryPointer.new(CredentialStruct)
-              cred_ptr.put_struct(0, credential)
-
-              result = CredWriteW(cred_ptr, 0)
+              # Call CredWriteW - pass pointer to the credential struct
+              result = CredWriteW(credential, 0)
 
               if result
                 Lich.log "debug: Credential stored successfully"
