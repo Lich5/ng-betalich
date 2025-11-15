@@ -41,16 +41,16 @@ module Lich
               account_name: account_name
             )
           when :enhanced
-            # Master password mode - encrypt with master password
-            raise ArgumentError, 'master_password required for master_password mode' if master_password.nil?
+            # Enhanced encryption mode - encrypt with master password
+            raise ArgumentError, 'master_password required for enhanced mode' if master_password.nil?
 
             entry[:password] = PasswordCipher.encrypt(
               new_password,
               mode: :enhanced,
               master_password: master_password
             )
-          when :enhanced, :ssh_key
-            # Future modes - not yet implemented
+          when :ssh_key
+            # Certificate encryption mode - future feature, not yet implemented
             raise NotImplementedError, "#{mode} mode not yet implemented"
           else
             raise ArgumentError, "Unknown encryption mode: #{mode}"
@@ -85,16 +85,16 @@ module Lich
               account_name: account_name
             )
           when :enhanced
-            # Master password mode - decrypt with master password
-            raise ArgumentError, 'master_password required for master_password mode' if master_password.nil?
+            # Enhanced encryption mode - decrypt with master password
+            raise ArgumentError, 'master_password required for enhanced mode' if master_password.nil?
 
             PasswordCipher.decrypt(
               encrypted_password,
               mode: :enhanced,
               master_password: master_password
             )
-          when :enhanced, :ssh_key
-            # Future modes - not yet implemented
+          when :ssh_key
+            # Certificate encryption mode - future feature, not yet implemented
             raise NotImplementedError, "#{mode} mode not yet implemented"
           else
             raise ArgumentError, "Unknown encryption mode: #{mode}"
