@@ -102,7 +102,7 @@ module Lich
               Lich.log "debug: Storing credential - target: #{target_name}, user: #{username}, pass_size: #{password_blob.bytesize}, persist: #{persist}"
 
               # Allocate memory for credential blob (password data)
-              blob_ptr = FFI::MemoryPointer.new(:byte, password_blob.bytesize)
+              blob_ptr = FFI::MemoryPointer.new(:uint8, password_blob.bytesize)
               blob_ptr.put_bytes(0, password_blob)
 
               # Fill credential structure
@@ -213,7 +213,7 @@ module Lich
             # Add UTF-16LE null terminator
             null_term = "\x00\x00".b.force_encoding('UTF-16LE')
             wide_str_with_null = wide_str + null_term
-            ptr = FFI::MemoryPointer.new(:byte, wide_str_with_null.bytesize)
+            ptr = FFI::MemoryPointer.new(:uint8, wide_str_with_null.bytesize)
             ptr.put_bytes(0, wide_str_with_null)
             ptr
           end
