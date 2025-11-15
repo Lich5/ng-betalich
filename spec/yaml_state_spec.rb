@@ -27,7 +27,7 @@ RSpec.describe Lich::Common::GUI::YamlState do
 
   after { FileUtils.remove_entry(temp_dir) if Dir.exist?(temp_dir) }
 
-  describe '.migrate_from_legacy with master_password mode' do
+  describe '.migrate_from_legacy with enhanced mode' do
     before do
       # Create a dummy entry.dat file for each test
       File.write(dat_file, 'dummy')
@@ -49,7 +49,7 @@ RSpec.describe Lich::Common::GUI::YamlState do
         allow(State).to receive(:load_saved_entries).and_return([])
         allow(described_class).to receive(:save_entries).and_return(true)
 
-        described_class.migrate_from_legacy(data_dir, encryption_mode: :master_password)
+        described_class.migrate_from_legacy(data_dir, encryption_mode: :enhanced)
 
         expect(described_class).to have_received(:ensure_master_password_exists).once
       end
@@ -73,7 +73,7 @@ RSpec.describe Lich::Common::GUI::YamlState do
         allow(described_class).to receive(:encrypt_password).and_return('encrypted_password')
         allow(described_class).to receive(:save_entries).and_return(true)
 
-        result = described_class.migrate_from_legacy(data_dir, encryption_mode: :master_password)
+        result = described_class.migrate_from_legacy(data_dir, encryption_mode: :enhanced)
 
         expect(result).to be true
       end
@@ -101,13 +101,13 @@ RSpec.describe Lich::Common::GUI::YamlState do
         expect(described_class).to receive(:encrypt_password)
           .with(
             'plaintext_password',
-            mode: :master_password,
+            mode: :enhanced,
             account_name: 'testuser',
             master_password: master_password
           )
           .and_return('encrypted_password')
 
-        described_class.migrate_from_legacy(data_dir, encryption_mode: :master_password)
+        described_class.migrate_from_legacy(data_dir, encryption_mode: :enhanced)
       end
 
       it 'adds encryption_mode to entries' do
@@ -129,11 +129,11 @@ RSpec.describe Lich::Common::GUI::YamlState do
         allow(described_class).to receive(:encrypt_password).and_return('encrypted_password')
 
         expect(described_class).to receive(:save_entries) do |_, entries|
-          expect(entries.first[:encryption_mode]).to eq(:master_password)
+          expect(entries.first[:encryption_mode]).to eq(:enhanced)
           true
         end
 
-        described_class.migrate_from_legacy(data_dir, encryption_mode: :master_password)
+        described_class.migrate_from_legacy(data_dir, encryption_mode: :enhanced)
       end
 
       it 'encrypts each password' do
@@ -164,7 +164,7 @@ RSpec.describe Lich::Common::GUI::YamlState do
 
         expect(described_class).to receive(:encrypt_password).twice.and_return('encrypted')
 
-        described_class.migrate_from_legacy(data_dir, encryption_mode: :master_password)
+        described_class.migrate_from_legacy(data_dir, encryption_mode: :enhanced)
       end
     end
 
@@ -173,7 +173,7 @@ RSpec.describe Lich::Common::GUI::YamlState do
         allow(described_class).to receive(:ensure_master_password_exists)
           .and_return(nil)
 
-        result = described_class.migrate_from_legacy(data_dir, encryption_mode: :master_password)
+        result = described_class.migrate_from_legacy(data_dir, encryption_mode: :enhanced)
 
         expect(result).to be false
       end
@@ -184,7 +184,7 @@ RSpec.describe Lich::Common::GUI::YamlState do
 
         expect(State).not_to receive(:load_saved_entries)
 
-        described_class.migrate_from_legacy(data_dir, encryption_mode: :master_password)
+        described_class.migrate_from_legacy(data_dir, encryption_mode: :enhanced)
       end
     end
 
@@ -285,7 +285,7 @@ RSpec.describe Lich::Common::GUI::YamlState do
       allow(described_class).to receive(:encrypt_password).and_return('encrypted')
     end
 
-    context 'with master_password mode' do
+    context 'with enhanced mode' do
       it 'adds encryption_mode field' do
         yaml_data = { 'accounts' => {} }
 
@@ -306,12 +306,12 @@ RSpec.describe Lich::Common::GUI::YamlState do
       it 'preserves existing encryption_mode' do
         yaml_data = {
           'accounts'        => {},
-          'encryption_mode' => 'master_password'
+          'encryption_mode' => 'enhanced'
         }
 
         result = described_class.migrate_to_encryption_format(yaml_data)
 
-        expect(result['encryption_mode']).to eq('master_password')
+        expect(result['encryption_mode']).to eq('enhanced')
       end
     end
 
