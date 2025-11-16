@@ -147,11 +147,16 @@ def update_change_master_password_button_state
 
   # Disable if feature available but not currently usable
   if has_keychain
-    yaml_state = YamlState.new(@data_dir)
-    has_enhanced = yaml_state.accounts.any? { |acc| acc['encryption_mode'] == 'enhanced' }
-    has_password = MasterPasswordManager.retrieve_master_password
+    yaml_file = YamlState.yaml_file_path(@data_dir)
+    if File.exist?(yaml_file)
+      yaml_data = YAML.load_file(yaml_file)
+      has_enhanced = (yaml_data['encryption_mode'] == 'enhanced')
+      has_password = MasterPasswordManager.retrieve_master_password
 
-    @change_master_password_button.sensitive = has_enhanced && has_password
+      @change_master_password_button.sensitive = has_enhanced && has_password
+    else
+      @change_master_password_button.sensitive = false
+    end
   end
 end
 ```
