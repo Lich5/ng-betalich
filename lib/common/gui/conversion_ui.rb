@@ -94,7 +94,6 @@ module Lich
           plaintext_radio = Gtk::RadioButton.new(label: "Plaintext (no encryption - least secure)")
           standard_radio = Gtk::RadioButton.new(member: plaintext_radio, label: "Standard Encryption (basic encryption)")
           enhanced_radio = Gtk::RadioButton.new(member: plaintext_radio, label: "Enhanced Encryption (recommended)")
-          certificate_radio = Gtk::RadioButton.new(member: plaintext_radio, label: "Certificate Encryption (future - not yet available)")
 
           # Set standard encryption as default
           standard_radio.active = true
@@ -102,14 +101,9 @@ module Lich
           # Disable/hide modes if keychain not available
           unless MasterPasswordManager.keychain_available?
             enhanced_radio.sensitive = false
-            certificate_radio.sensitive = false
             enhanced_radio.visible = false if OS.windows? # Hide on Windows if unavailable
-            certificate_radio.visible = false if OS.windows? # Hide on Windows if unavailable
             Lich.log "info: Enhanced encryption mode disabled - Keychain tools not available on this system"
           end
-
-          # Keep certificate mode disabled (future feature - requires certificate infrastructure)
-          certificate_radio.sensitive = false
 
           # Set accessible properties
           Accessibility.make_accessible(
@@ -130,17 +124,10 @@ module Lich
             "Encrypt passwords using an enhanced method - most secure option",
             :radio_button
           )
-          Accessibility.make_accessible(
-            certificate_radio,
-            "Certificate Encryption Mode",
-            "Encrypt passwords using certificate-based authentication",
-            :radio_button
-          )
 
           mode_box.add(plaintext_radio)
           mode_box.add(standard_radio)
           mode_box.add(enhanced_radio)
-          mode_box.add(certificate_radio)
 
           content_area.add(mode_frame)
 
@@ -182,10 +169,8 @@ module Lich
                                 :plaintext
                               elsif standard_radio.active?
                                 :standard
-                              elsif enhanced_radio.active?
-                                :enhanced
                               else
-                                :certificate # Should not reach here since it's disabled
+                                :enhanced # Default to enhanced if somehow neither plaintext nor standard
                               end
 
               # Show warning for plaintext mode
