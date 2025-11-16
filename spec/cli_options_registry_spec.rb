@@ -16,8 +16,8 @@ RSpec.describe Lich::Util::CliOptionsRegistry do
   describe '.option' do
     it 'registers an option with metadata' do
       Lich::Util::CliOptionsRegistry.option :test_option,
-                                             type: :string,
-                                             default: 'default_value'
+                                            type: :string,
+                                            default: 'default_value'
 
       option = Lich::Util::CliOptionsRegistry.get_option(:test_option)
       expect(option).not_to be_nil
@@ -27,9 +27,9 @@ RSpec.describe Lich::Util::CliOptionsRegistry do
 
     it 'registers option with deprecation metadata' do
       Lich::Util::CliOptionsRegistry.option :deprecated_option,
-                                             type: :boolean,
-                                             deprecated: true,
-                                             deprecation_message: 'Use new_option instead'
+                                            type: :boolean,
+                                            deprecated: true,
+                                            deprecation_message: 'Use new_option instead'
 
       option = Lich::Util::CliOptionsRegistry.get_option(:deprecated_option)
       expect(option[:deprecated]).to be true
@@ -38,12 +38,12 @@ RSpec.describe Lich::Util::CliOptionsRegistry do
 
     it 'registers option with mutually exclusive constraints' do
       Lich::Util::CliOptionsRegistry.option :gui,
-                                             type: :boolean,
-                                             default: true,
-                                             mutually_exclusive: [:no_gui]
+                                            type: :boolean,
+                                            default: true,
+                                            mutually_exclusive: [:no_gui]
       Lich::Util::CliOptionsRegistry.option :no_gui,
-                                             type: :boolean,
-                                             mutually_exclusive: [:gui]
+                                            type: :boolean,
+                                            mutually_exclusive: [:gui]
 
       gui_option = Lich::Util::CliOptionsRegistry.get_option(:gui)
       expect(gui_option[:mutually_exclusive]).to include(:no_gui)
@@ -53,10 +53,10 @@ RSpec.describe Lich::Util::CliOptionsRegistry do
     end
 
     it 'registers option with handler function' do
-      handler = ->(opts) { puts 'Executed!' }
+      handler = ->(_opts) { puts 'Executed!' }
       Lich::Util::CliOptionsRegistry.option :execute_command,
-                                             type: :boolean,
-                                             handler: handler
+                                            type: :boolean,
+                                            handler: handler
 
       retrieved_handler = Lich::Util::CliOptionsRegistry.get_handler(:execute_command)
       expect(retrieved_handler).to eq(handler)
@@ -112,10 +112,10 @@ RSpec.describe Lich::Util::CliOptionsRegistry do
 
   describe '.get_handler' do
     it 'returns handler for option with handler' do
-      handler = ->(opts) { 'executed' }
+      handler = ->(_opts) { 'executed' }
       Lich::Util::CliOptionsRegistry.option :command,
-                                             type: :boolean,
-                                             handler: handler
+                                            type: :boolean,
+                                            handler: handler
 
       retrieved = Lich::Util::CliOptionsRegistry.get_handler(:command)
       expect(retrieved).to eq(handler)
@@ -146,11 +146,11 @@ RSpec.describe Lich::Util::CliOptionsRegistry do
 
     it 'detects mutually exclusive option violations' do
       Lich::Util::CliOptionsRegistry.option :gui,
-                                             type: :boolean,
-                                             mutually_exclusive: [:no_gui]
+                                            type: :boolean,
+                                            mutually_exclusive: [:no_gui]
       Lich::Util::CliOptionsRegistry.option :no_gui,
-                                             type: :boolean,
-                                             mutually_exclusive: [:gui]
+                                            type: :boolean,
+                                            mutually_exclusive: [:gui]
       parsed = OpenStruct.new(gui: true, no_gui: true)
 
       errors = Lich::Util::CliOptionsRegistry.validate(parsed)
@@ -169,11 +169,11 @@ RSpec.describe Lich::Util::CliOptionsRegistry do
 
     it 'returns errors as array' do
       Lich::Util::CliOptionsRegistry.option :opt1,
-                                             type: :boolean,
-                                             mutually_exclusive: [:opt2]
+                                            type: :boolean,
+                                            mutually_exclusive: [:opt2]
       Lich::Util::CliOptionsRegistry.option :opt2,
-                                             type: :boolean,
-                                             mutually_exclusive: [:opt1]
+                                            type: :boolean,
+                                            mutually_exclusive: [:opt1]
       parsed = OpenStruct.new(opt1: true, opt2: true)
 
       errors = Lich::Util::CliOptionsRegistry.validate(parsed)

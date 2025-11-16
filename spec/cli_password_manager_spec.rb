@@ -64,7 +64,7 @@ RSpec.describe Lich::Util::CLI::PasswordManager do
       before do
         yaml_data = {
           'encryption_mode' => 'plaintext',
-          'accounts' => {
+          'accounts'        => {
             'DOUG' => {
               'password' => 'oldpassword',
               'username' => 'DOUG'
@@ -82,7 +82,6 @@ RSpec.describe Lich::Util::CLI::PasswordManager do
         expect(yaml_data['accounts']['DOUG']['password']).to eq('newpassword')
       end
 
-
       it 'returns 2 when account not found' do
         exit_code = Lich::Util::CLI::PasswordManager.change_account_password('NONEXISTENT', 'newpass')
         expect(exit_code).to eq(2)
@@ -99,10 +98,10 @@ RSpec.describe Lich::Util::CLI::PasswordManager do
       before do
         yaml_data = {
           'encryption_mode' => 'standard',
-          'accounts' => {
+          'accounts'        => {
             'DOUG' => {
               'password_encrypted' => 'encrypted_old_password',
-              'username' => 'DOUG'
+              'username'           => 'DOUG'
             }
           }
         }
@@ -145,10 +144,10 @@ RSpec.describe Lich::Util::CLI::PasswordManager do
       before do
         yaml_data = {
           'encryption_mode' => 'enhanced',
-          'accounts' => {
+          'accounts'        => {
             'DOUG' => {
               'password_encrypted' => 'encrypted_old_password',
-              'username' => 'DOUG'
+              'username'           => 'DOUG'
             }
           }
         }
@@ -195,7 +194,7 @@ RSpec.describe Lich::Util::CLI::PasswordManager do
       before do
         yaml_data = {
           'encryption_mode' => 'plaintext',
-          'accounts' => { 'DOUG' => { 'password' => 'oldpassword' } }
+          'accounts'        => { 'DOUG' => { 'password' => 'oldpassword' } }
         }
         File.write(yaml_file, YAML.dump(yaml_data))
       end
@@ -219,7 +218,7 @@ RSpec.describe Lich::Util::CLI::PasswordManager do
     before do
       yaml_data = {
         'encryption_mode' => 'plaintext',
-        'accounts' => {}
+        'accounts'        => {}
       }
       File.write(yaml_file, YAML.dump(yaml_data))
     end
@@ -236,9 +235,9 @@ RSpec.describe Lich::Util::CLI::PasswordManager do
     it 'authenticates with game servers' do
       allow(Lich::Common::GUI::Authentication).to receive(:authenticate)
         .and_return([
-          { char_name: 'Char1', game_code: 'GS3', game_name: 'GemStone IV' },
-          { char_name: 'Char2', game_code: 'GS3', game_name: 'GemStone IV' }
-        ])
+                      { char_name: 'Char1', game_code: 'GS3', game_name: 'GemStone IV' },
+                      { char_name: 'Char2', game_code: 'GS3', game_name: 'GemStone IV' }
+                    ])
       allow(Lich::Common::GUI::AccountManager).to receive(:add_or_update_account)
         .and_return(true)
 
@@ -303,16 +302,16 @@ RSpec.describe Lich::Util::CLI::PasswordManager do
   describe '.change_master_password' do
     before do
       yaml_data = {
-        'encryption_mode' => 'enhanced',
+        'encryption_mode'      => 'enhanced',
         'master_password_test' => {
-          'validation_salt' => 'salt',
-          'validation_hash' => 'hash',
+          'validation_salt'    => 'salt',
+          'validation_hash'    => 'hash',
           'validation_version' => 1
         },
-        'accounts' => {
+        'accounts'             => {
           'DOUG' => {
             'password_encrypted' => 'encrypted_pass',
-            'username' => 'DOUG'
+            'username'           => 'DOUG'
           }
         }
       }
@@ -444,7 +443,7 @@ RSpec.describe Lich::Util::CLI::PasswordManager do
     it 'does not log password values in change_account_password' do
       yaml_data = {
         'encryption_mode' => 'plaintext',
-        'accounts' => { 'DOUG' => { 'password' => 'oldpass' } }
+        'accounts'        => { 'DOUG' => { 'password' => 'oldpass' } }
       }
       File.write(yaml_file, YAML.dump(yaml_data))
 
