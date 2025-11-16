@@ -1137,14 +1137,12 @@ module Lich
           has_keychain = MasterPasswordManager.keychain_available?
           button.visible = has_keychain
 
-          # Disable button if keychain available but no Enhanced accounts or no master password
+          # Disable button if keychain available but encryption mode is not Enhanced or no master password
           if has_keychain
             yaml_file = YamlState.yaml_file_path(@data_dir)
             if File.exist?(yaml_file)
               yaml_data = YAML.load_file(yaml_file)
-              has_enhanced = yaml_data['accounts']&.values&.any? do |account|
-                account['encryption_mode'] == 'enhanced'
-              end
+              has_enhanced = yaml_data['encryption_mode'] == 'enhanced'
               has_password = MasterPasswordManager.retrieve_master_password
 
               button.sensitive = has_enhanced && has_password
