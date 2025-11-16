@@ -110,11 +110,11 @@ puts "\n✓ Test 4: YAML Serialization Compatibility"
 
 yaml_data = {
   'encryption_mode' => 'standard',
-  'accounts' => {
+  'accounts'        => {
     'TESTACCOUNT' => {
-      'username' => 'TESTACCOUNT',
-      'password_encrypted' => encrypted,  # Base64 string
-      'encryption_mode' => 'standard'
+      'username'           => 'TESTACCOUNT',
+      'password_encrypted' => encrypted, # Base64 string
+      'encryption_mode'    => 'standard'
     }
   }
 }
