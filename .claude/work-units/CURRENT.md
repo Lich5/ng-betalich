@@ -135,16 +135,24 @@ end
 **State Management:**
 ```ruby
 def update_change_master_password_button_state
-  # Enable only if:
-  # 1. At least one account uses Enhanced (:enhanced) mode
-  # 2. Master password exists in keychain
+  # Hide button if OS keychain not available (feature unavailable)
+  # Disable button if keychain available but:
+  #   - No Enhanced accounts exist, OR
+  #   - No master password in keychain
 
-  yaml_state = YamlState.new(@data_dir)
-  has_enhanced = yaml_state.accounts.any? { |acc| acc['encryption_mode'] == 'enhanced' }
   has_keychain = MasterPasswordManager.keychain_available?
-  has_password = MasterPasswordManager.retrieve_master_password
 
-  @change_master_password_button.sensitive = has_enhanced && has_keychain && has_password
+  # Hide if feature not available on this OS
+  @change_master_password_button.visible = has_keychain
+
+  # Disable if feature available but not currently usable
+  if has_keychain
+    yaml_state = YamlState.new(@data_dir)
+    has_enhanced = yaml_state.accounts.any? { |acc| acc['encryption_mode'] == 'enhanced' }
+    has_password = MasterPasswordManager.retrieve_master_password
+
+    @change_master_password_button.sensitive = has_enhanced && has_password
+  end
 end
 ```
 
@@ -234,9 +242,10 @@ end
 
 ### UI Implementation
 - [ ] "Change Master Password" button added to Account Manager
-- [ ] Button enabled only when Enhanced accounts exist
-- [ ] Button disabled when no keychain available
-- [ ] Button disabled when no master password in keychain
+- [ ] Button hidden when OS keychain not available
+- [ ] Button visible but disabled when no Enhanced accounts exist
+- [ ] Button visible but disabled when no master password in keychain
+- [ ] Button visible and enabled when Enhanced accounts exist with master password
 - [ ] Dialog with 3 password fields (current, new, confirm)
 - [ ] Dialog has Cancel and Change Password buttons
 - [ ] Dialog follows existing accessibility patterns
@@ -315,12 +324,12 @@ git diff origin/feat/windows-credential-manager --stat
 ## Edge Cases
 
 ### 1. No Enhanced Mode Accounts
-- Button should be disabled
+- Button visible but disabled (grayed out)
 - If somehow activated, show error: "No Enhanced encryption accounts found"
 
 ### 2. Keychain Unavailable
-- Button should be disabled
-- Fallback: Enhanced mode requires keychain
+- Button hidden (not visible at all)
+- Enhanced mode requires keychain - feature completely unavailable
 
 ### 3. Re-encryption Fails Mid-Process
 - Rollback to backup immediately
