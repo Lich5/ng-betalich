@@ -225,7 +225,7 @@ module Lich
           def validate_current_password(current_password, yaml_file)
             begin
               yaml_data = YAML.load_file(yaml_file)
-              validation_test = yaml_data['master_password_validation']
+              validation_test = yaml_data['master_password_validation_test']
 
               return false if validation_test.nil?
 
@@ -292,7 +292,7 @@ module Lich
 
               # Create new validation test
               new_validation = MasterPasswordManager.create_validation_test(new_password)
-              yaml_data['master_password_validation'] = new_validation
+              yaml_data['master_password_validation_test'] = new_validation
 
               # Save YAML
               File.open(yaml_file, 'w', 0600) do |file|
