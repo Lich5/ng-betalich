@@ -1,304 +1,436 @@
-# Work Unit: Extract and Restore Phase 1-2 Test Suite
+# Work Unit: Change Master Password (Enhanced Encryption)
 
-**Created:** 2025-11-13
+**Created:** 2025-11-16
+**Updated:** 2025-11-16
 **Estimated Effort:** 3-4 hours
-**Branch:** `feat/password-encryption-tests-phase1-2`
-
----
-
-## Task
-
-Extract 96 passing encryption-relevant tests from `feat/password-encryption-modes-unified`, add Windows keychain and conversion UI tests, restore complete Phase 1-2 test coverage.
-
----
-
-## Prerequisites
-
-**Base Branch:** `feat/password-encryption-core`
-
-**Branch Creation Instructions:**
-```bash
-git fetch origin feat/password-encryption-modes-unified
-git fetch origin feat/password-encryption-core
-git checkout feat/password-encryption-core
-git checkout -b feat/password-encryption-tests-phase1-2
-```
-
-- [ ] Branch created: `feat/password-encryption-tests-phase1-2` from `feat/password-encryption-core`
-- [ ] Context read: `.claude/docs/TRACEABILITY_MATRIX_UNIFIED_SPECS.md` (extraction plan)
-- [ ] Source branch available: `feat/password-encryption-modes-unified`
-
----
-
-## Setup
-
-```bash
-git fetch origin feat/password-encryption-modes-unified
-git fetch origin feat/password-encryption-core
-git checkout feat/password-encryption-core
-git checkout -b feat/password-encryption-tests-phase1-2
-```
-
----
-
-## Files
-
-**Extract from feat/password-encryption-modes-unified (ONLY):**
-- `spec/password_cipher_spec.rb` (as-is, 18 examples)
-- `spec/master_password_manager_spec.rb` (as-is, 16 examples)
-- `spec/master_password_prompt_spec.rb` (verify, 47 examples)
-- `spec/yaml_state_spec.rb` (verify, ~50 examples)
-- `spec/account_manager_spec.rb` (as-is, 43 examples)
-- `spec/login_spec_helper.rb` (if required)
-
-**Create NEW:**
-- `spec/windows_keychain_spec.rb` (Windows PasswordVault mocking, ~14 examples)
-- `spec/conversion_ui_spec.rb` (Mode selection dialog, ~12 examples)
-
-**DO NOT Extract:**
-```
-infomon_spec.rb, bounty_parser_spec.rb, games_spec.rb, settings_spec.rb,
-task_spec.rb, psms_spec.rb, activespell_spec.rb, hmr_spec.rb,
-authentication_spec.rb, gui_login_spec.rb
-```
-
----
-
-## Implementation Details
-
-### Step 1: Verify Source Branch (feat/password-encryption-modes-unified)
-
-```bash
-git checkout feat/password-encryption-modes-unified
-bundle exec rspec spec/password_cipher_spec.rb \
-                  spec/master_password_manager_spec.rb \
-                  spec/master_password_prompt_spec.rb \
-                  spec/yaml_state_spec.rb \
-                  spec/account_manager_spec.rb -v
-```
-
-Expected: 96 examples, 0 failures, ~1.1 seconds
-
-Verify no SSH Key contamination:
-```bash
-grep -r "ssh_key\|SSH_KEY\|ssh_mode" spec/password_cipher_spec.rb \
-  spec/master_password_manager_spec.rb spec/master_password_prompt_spec.rb \
-  spec/yaml_state_spec.rb spec/account_manager_spec.rb
-```
-
-Expected: No matches
-
-### Step 2: Switch to Target Branch
-
-```bash
-git checkout feat/password-encryption-tests-phase1-2
-```
-
-### Step 3: Copy Extraction Files
-
-From checked-out `feat/password-encryption-modes-unified`, copy these files:
-
-```bash
-git show origin/feat/password-encryption-modes-unified:spec/password_cipher_spec.rb > spec/password_cipher_spec.rb
-git show origin/feat/password-encryption-modes-unified:spec/master_password_manager_spec.rb > spec/master_password_manager_spec.rb
-git show origin/feat/password-encryption-modes-unified:spec/master_password_prompt_spec.rb > spec/master_password_prompt_spec.rb
-git show origin/feat/password-encryption-modes-unified:spec/yaml_state_spec.rb > spec/yaml_state_spec.rb
-git show origin/feat/password-encryption-modes-unified:spec/account_manager_spec.rb > spec/account_manager_spec.rb
-git show origin/feat/password-encryption-modes-unified:spec/login_spec_helper.rb > spec/login_spec_helper.rb 2>/dev/null || true
-```
-
-### Step 4: Verify Extracted Tests Pass
-
-```bash
-bundle exec rspec spec/password_cipher_spec.rb \
-                  spec/master_password_manager_spec.rb \
-                  spec/master_password_prompt_spec.rb \
-                  spec/yaml_state_spec.rb \
-                  spec/account_manager_spec.rb -v
-```
-
-Expected: 96 examples, 0 failures
-
-### Step 5: Create Windows Keychain Tests (spec/windows_keychain_spec.rb)
-
-Create test file covering:
-- Windows 10+ detection via PowerShell
-- PasswordVault credential storage
-- PasswordVault credential retrieval
-- Password deletion
-- Fallback when unavailable
-- Error handling (permission denied, vault locked)
-
-Reference: `lib/common/gui/master_password_manager.rb` (lines 171-188)
-
-### Step 6: Create Conversion UI Tests (spec/conversion_ui_spec.rb)
-
-Create test file covering:
-- Dialog creation with all 4 radio button options
-- Default selection (Standard mode)
-- Plaintext warning dialog
-- Mode availability per platform
-- User cancel/close behavior
-- Progress indication
-
-Reference: `lib/common/gui/conversion_ui.rb` (lines 33-292)
-
-### Step 7: Run All Tests Together
-
-```bash
-bundle exec rspec spec/password_cipher_spec.rb \
-                  spec/master_password_manager_spec.rb \
-                  spec/master_password_prompt_spec.rb \
-                  spec/yaml_state_spec.rb \
-                  spec/account_manager_spec.rb \
-                  spec/windows_keychain_spec.rb \
-                  spec/conversion_ui_spec.rb -v
-```
-
-Expected: 122+ examples, 0 failures, <2 seconds
-
-### Step 8: Check Test Coverage
-
-```bash
-bundle exec rspec spec/ --format RcovText | grep -E "^(Finished|Coverage:)"
-```
-
-Expected: ≥85% coverage for encryption logic
-
-### Step 9: RuboCop Verification
-
-```bash
-bundle exec rubocop spec/
-```
-
-Expected: 0 offenses
-
----
-
-## Acceptance Criteria
-
-- [ ] All 96 extracted tests pass individually and together
-- [ ] Windows keychain tests (14 examples) created and passing
-- [ ] Conversion UI tests (12 examples) created and passing
-- [ ] Combined test suite (122+ examples) runs in <2 seconds
-- [ ] Zero SSH Key mode contamination verified
-- [ ] Test coverage ≥85% for encryption logic
-- [ ] RuboCop: 0 offenses
-- [ ] Only encryption-related files extracted (6 spec files + helpers)
-- [ ] No unrelated specs included (infomon, bounty_parser, games, etc.)
-- [ ] All imports/requires properly updated
-- [ ] Committed with conventional commit message
-
----
-
-## Conventional Commit Format (CRITICAL)
-
-**Your commit MUST use this format:**
-```
-feat(all): extract and restore Phase 1-2 encryption test suite
-```
-
-**Details in commit body:**
-```
-Extract 6 encryption-relevant spec files from feat/password-encryption-modes-unified:
-- password_cipher_spec.rb (AES-256-CBC tests)
-- master_password_manager_spec.rb (validation test creation)
-- master_password_prompt_spec.rb (password dialog)
-- yaml_state_spec.rb (encryption and migration)
-- account_manager_spec.rb (account CRUD)
-
-Add new test coverage:
-- windows_keychain_spec.rb (PowerShell PasswordVault integration)
-- conversion_ui_spec.rb (mode selection dialog)
-
-Total: 96 extracted + 26 new = 122 examples
-Zero failures, zero SSH Key contamination
-```
+**Branch:** `feat/change-master-password`
+**Priority:** CRITICAL (next day delivery)
 
 ---
 
 ## Context
 
-**Read before starting:**
-- `.claude/docs/CLI_PRIMER.md` (ground rules, quality standards)
-- `.claude/docs/TRACEABILITY_MATRIX_UNIFIED_SPECS.md` (extraction scope and rationale)
-- `.claude/docs/BRD_Password_Encryption.md` (FR-1 through FR-11 requirements)
+**Base Branch:** `feat/windows-credential-manager`
+**BRD Reference:** FR-6 (Change Master Password)
+**Status:** Phase 2 - Enhanced Security features
 
-**Key Context:**
-- 96 tests are already written and passing in source branch
-- Extraction = copy files, verify they pass
-- New tests = Windows keychain + conversion UI (reference existing code)
-- Phase 1-2 test suite restores after core + Windows branches deploy
+**What exists:**
+- ✅ Enhanced encryption mode with master password
+- ✅ Master password stored in OS keychain (macOS/Linux/Windows)
+- ✅ PBKDF2 validation test (100k iterations)
+- ✅ Account password change UI (change individual account passwords)
+- ✅ All keychain operations (store, retrieve, delete, validate)
+
+**What's missing:**
+- ❌ UI to change the master password itself
+- ❌ Re-encryption workflow when master password changes
+- ❌ Master password change button in Account Manager
+
+---
+
+## Objective
+
+Allow users to **change their master password** with automatic re-encryption of all accounts.
+
+**User Flow:**
+1. User clicks "Change Master Password" button
+2. Dialog prompts for current master password
+3. System validates current password (keychain + PBKDF2 test)
+4. Dialog prompts for new master password (enter twice)
+5. System re-encrypts all Enhanced mode accounts with new password
+6. System updates PBKDF2 validation test
+7. System updates keychain with new password
+8. System saves updated entry.yaml
+
+---
+
+## Branch Setup
+
+```bash
+git fetch origin feat/windows-credential-manager
+git checkout feat/windows-credential-manager
+git pull origin feat/windows-credential-manager
+git checkout -b feat/change-master-password
+```
+
+---
+
+## Implementation
+
+### File 1: master_password_change.rb (NEW - ~250 lines)
+
+**Location:** `lib/common/gui/master_password_change.rb`
+
+**Structure:**
+```ruby
+# frozen_string_literal: true
+
+require 'gtk3'
+require_relative 'master_password_manager'
+require_relative 'password_cipher'
+require_relative 'yaml_state'
+require_relative 'accessibility'
+
+module Lich
+  module Common
+    module GUI
+      module MasterPasswordChange
+        # Show change master password dialog
+        # @param parent [Gtk::Window] Parent window
+        # @param data_dir [String] Directory containing account data
+        # @return [Boolean] true if password changed, false if cancelled
+        def self.show_change_master_password_dialog(parent, data_dir)
+          # Create dialog
+          # Validate current password
+          # Prompt for new password
+          # Re-encrypt all accounts
+          # Update validation test
+          # Update keychain
+          # Save YAML
+        end
+      end
+    end
+  end
+end
+```
+
+**Key Methods:**
+- `show_change_master_password_dialog(parent, data_dir)` - Main entry point
+- `validate_current_password(current_password, yaml_state)` - Validate against PBKDF2 test
+- `validate_new_password(new_password, confirm_password)` - Check strength and match
+- `re_encrypt_all_accounts(yaml_state, old_password, new_password)` - Core workflow
+- `update_keychain_and_validation(new_password)` - Update keychain and PBKDF2 test
+
+**Pattern Reference:** Follow `password_change.rb` dialog structure
+
+---
+
+### File 2: account_manager_ui.rb (MODIFY)
+
+**Location:** `lib/common/gui/account_manager_ui.rb`
+
+**Add Button:**
+```ruby
+# After existing password change button (~line 400)
+@change_master_password_button = Gtk::Button.new(label: "Change Master Password")
+@change_master_password_button.signal_connect('clicked') do
+  on_change_master_password_clicked
+end
+
+# Add to button box
+button_box.pack_start(@change_master_password_button, expand: false, fill: false, padding: 5)
+
+# Update button state based on encryption mode
+update_change_master_password_button_state
+```
+
+**Signal Handler:**
+```ruby
+def on_change_master_password_clicked
+  success = MasterPasswordChange.show_change_master_password_dialog(self, @data_dir)
+  refresh_account_list if success
+end
+```
+
+**State Management:**
+```ruby
+def update_change_master_password_button_state
+  # Enable only if:
+  # 1. At least one account uses Enhanced (:enhanced) mode
+  # 2. Master password exists in keychain
+
+  yaml_state = YamlState.new(@data_dir)
+  has_enhanced = yaml_state.accounts.any? { |acc| acc['encryption_mode'] == 'enhanced' }
+  has_keychain = MasterPasswordManager.keychain_available?
+  has_password = MasterPasswordManager.retrieve_master_password
+
+  @change_master_password_button.sensitive = has_enhanced && has_keychain && has_password
+end
+```
+
+**Call on Refresh:**
+```ruby
+# In refresh_account_list method
+update_change_master_password_button_state
+```
+
+---
+
+### File 3: master_password_change_spec.rb (NEW - ~150 lines)
+
+**Location:** `spec/master_password_change_spec.rb`
+
+**Test Coverage:**
+- Dialog creation and structure
+- Current password validation (correct/incorrect)
+- New password validation (strength, match, mismatch)
+- Re-encryption workflow (all Enhanced accounts)
+- Keychain update
+- PBKDF2 validation test update
+- Error handling (validation failure, re-encryption failure)
+- Cancel behavior
+
+**Pattern Reference:** Follow `password_change_spec.rb` test structure
+
+---
+
+## Re-Encryption Workflow
+
+**Core Logic:**
+```ruby
+def self.re_encrypt_all_accounts(yaml_state, old_password, new_password)
+  # Create backup first
+  yaml_state.create_backup
+
+  # Get all Enhanced mode accounts
+  enhanced_accounts = yaml_state.accounts.select do |account|
+    account['encryption_mode'] == 'enhanced'
+  end
+
+  # Re-encrypt each account
+  enhanced_accounts.each do |account|
+    # Decrypt with old password
+    encrypted_data = account['password_encrypted']
+    plaintext = PasswordCipher.decrypt(
+      encrypted_data,
+      account['username'],
+      mode: :enhanced,
+      master_password: old_password
+    )
+
+    # Encrypt with new password
+    new_encrypted = PasswordCipher.encrypt(
+      plaintext,
+      account['username'],
+      mode: :enhanced,
+      master_password: new_password
+    )
+
+    # Update account
+    account['password_encrypted'] = new_encrypted
+  end
+
+  # Create new validation test
+  new_validation = MasterPasswordManager.create_validation_test(new_password)
+  yaml_state.set_master_password_validation(new_validation)
+
+  # Save YAML
+  yaml_state.save
+
+  # Update keychain
+  MasterPasswordManager.store_master_password(new_password)
+
+  true
+rescue StandardError => e
+  Lich.log "error: Failed to change master password: #{e.message}"
+  yaml_state.restore_backup if yaml_state.backup_exists?
+  false
+end
+```
+
+---
+
+## Acceptance Criteria
+
+### UI Implementation
+- [ ] "Change Master Password" button added to Account Manager
+- [ ] Button enabled only when Enhanced accounts exist
+- [ ] Button disabled when no keychain available
+- [ ] Button disabled when no master password in keychain
+- [ ] Dialog with 3 password fields (current, new, confirm)
+- [ ] Dialog has Cancel and Change Password buttons
+- [ ] Dialog follows existing accessibility patterns
+
+### Functionality
+- [ ] Current password validated against PBKDF2 test
+- [ ] Current password validated against keychain
+- [ ] New password strength validated (8+ chars minimum)
+- [ ] Password confirmation matching works
+- [ ] All Enhanced accounts re-encrypted with new password
+- [ ] PBKDF2 validation test updated with new password
+- [ ] Keychain updated with new password
+- [ ] YAML saved with new encrypted passwords and validation test
+- [ ] Backup created before changes
+
+### Security
+- [ ] Current password required (prevents unauthorized change)
+- [ ] Password strength enforced (minimum 8 characters)
+- [ ] Old password not logged
+- [ ] New password stored securely in keychain
+- [ ] Constant-time comparison used for validation
+
+### Error Handling
+- [ ] Wrong current password → clear error message, retry allowed
+- [ ] Weak new password → error with requirements shown
+- [ ] Password mismatch → error message, retry allowed
+- [ ] Re-encryption failure → rollback to backup, error shown
+- [ ] Keychain update failure → error message
+
+### Tests
+- [ ] All new tests pass (~15-20 examples)
+- [ ] All existing tests still pass
+- [ ] Dialog creation tested
+- [ ] Validation logic tested
+- [ ] Re-encryption workflow tested
+- [ ] Error cases covered
+- [ ] Edge cases handled (no Enhanced accounts, keychain unavailable)
+
+### Code Quality
+- [ ] SOLID + DRY principles followed
+- [ ] YARD documentation on all public methods
+- [ ] Follows existing UI patterns (password_change.rb)
+- [ ] RuboCop clean: 0 offenses
+- [ ] No code duplication
+
+### Git
+- [ ] Conventional commit: `feat(all): add change master password workflow`
+- [ ] Branch: `feat/change-master-password`
+- [ ] Clean commit history
+- [ ] No merge conflicts with base branch
+
+---
+
+## Verification Commands
+
+```bash
+# File existence
+ls lib/common/gui/master_password_change.rb
+grep -n "Change Master Password" lib/common/gui/account_manager_ui.rb
+
+# Tests
+bundle exec rspec spec/master_password_change_spec.rb -v
+bundle exec rspec  # All tests
+
+# Code quality
+bundle exec rubocop lib/common/gui/master_password_change.rb
+bundle exec rubocop spec/master_password_change_spec.rb
+
+# Git
+git log --oneline -1
+git diff origin/feat/windows-credential-manager --stat
+```
+
+---
+
+## Edge Cases
+
+### 1. No Enhanced Mode Accounts
+- Button should be disabled
+- If somehow activated, show error: "No Enhanced encryption accounts found"
+
+### 2. Keychain Unavailable
+- Button should be disabled
+- Fallback: Enhanced mode requires keychain
+
+### 3. Re-encryption Fails Mid-Process
+- Rollback to backup immediately
+- Don't update keychain
+- Show specific error
+
+### 4. Keychain Update Fails After Re-encryption
+- Log error
+- Warn user: "Passwords updated but keychain update failed"
+- Don't rollback (passwords already changed)
+
+### 5. User Cancels Mid-Dialog
+- No changes made
+- No partial updates
+- Atomic operation
+
+### 6. Multiple Enhanced Accounts (20+)
+- Show progress indication during re-encryption
+- Don't block UI completely
+- Handle gracefully if one account fails
+
+---
+
+## Testing Notes
+
+**Manual Testing Checklist:**
+1. Create account with Enhanced mode
+2. Click "Change Master Password"
+3. Enter incorrect current password → see error
+4. Enter correct current password
+5. Enter weak new password (< 8 chars) → see error
+6. Enter strong new password, mismatched confirm → see error
+7. Enter strong new password, matched confirm → success
+8. Close app, reopen
+9. Verify account still decrypts with new password
+10. Verify keychain has new password
+
+**Test Data:**
+- Current password: `TestPassword123`
+- New password: `NewSecurePassword456`
+- Weak password: `weak`
+
+---
+
+## Commit Message Template
+
+```
+feat(all): add change master password workflow
+
+Implements FR-6 (Change Master Password) from BRD:
+- "Change Master Password" button in Account Manager UI
+- Dialog for current/new/confirm password entry
+- Current password validation (keychain + PBKDF2 test)
+- New password strength validation (8+ characters)
+- Automatic re-encryption of all Enhanced mode accounts
+- PBKDF2 validation test update (100k iterations)
+- Keychain update with new password
+- Backup/rollback on failure
+
+Users can now change their master password without data loss.
+
+Related: BRD Password Encryption FR-6
+```
 
 ---
 
 ## Rollback Plan
 
-**If extraction fails:**
-
+**If implementation fails:**
 ```bash
-# Revert extracted files
-git reset spec/
-git checkout spec/
-
-# Remove any new files created
-rm -f spec/windows_keychain_spec.rb spec/conversion_ui_spec.rb
-
-# Verify clean state
-git status
+git reset --hard origin/feat/windows-credential-manager
+git branch -D feat/change-master-password
 ```
 
-**If new tests too complex:**
-- Defer windows_keychain_spec.rb to separate work unit
-- Defer conversion_ui_spec.rb to separate work unit
-- Commit 96 extracted tests only
+**If tests too complex:**
+- Defer progress indication (manual testing only)
+- Defer edge case handling (multiple accounts)
+- Deliver core workflow first
 
 ---
 
-## Edge Cases to Handle
+## Dependencies
 
-1. **master_password_prompt_spec.rb mocks don't match current GTK implementation**
-   - Run verification step before extraction
-   - If tests fail, update mocks to match current code
+**Base Branch:** `feat/windows-credential-manager`
 
-2. **yaml_state_spec.rb tests fail on current implementation**
-   - Verify decrypt_password/encrypt_password method signatures match
-   - Update test expectations if implementation changed
+**Required Files (must exist in base):**
+- ✅ `lib/common/gui/master_password_manager.rb`
+- ✅ `lib/common/gui/password_cipher.rb`
+- ✅ `lib/common/gui/yaml_state.rb`
+- ✅ `lib/common/gui/account_manager_ui.rb`
 
-3. **PowerShell not available on test system**
-   - Mock system() calls, don't execute actual PowerShell
-   - Return false for windows_keychain_available? in tests
-
-4. **Gtk dialog mocking incomplete**
-   - Reference existing master_password_prompt_spec.rb mocking approach
-   - Use same Gtk::Dialog, Gtk::RadioButton patterns
-
----
-
-## Questions/Blockers
-
-None anticipated. All tests pre-written and verified in source branch.
-
-**If stuck:**
-1. Verify feat/password-encryption-modes-unified branch exists and is accessible
-2. Check that extracted tests reference correct lib/ file locations
-3. Verify Gtk and OpenSSL gems installed (bundle install)
-4. Ask product owner for clarification on test mocking approach
+**Methods Required:**
+- ✅ `MasterPasswordManager.validate_master_password`
+- ✅ `MasterPasswordManager.create_validation_test`
+- ✅ `MasterPasswordManager.store_master_password`
+- ✅ `PasswordCipher.encrypt`
+- ✅ `PasswordCipher.decrypt`
 
 ---
 
-**When complete:**
-1. Run final verification: `bundle exec rspec spec/ -v`
-2. Push branch: `git push -u origin feat/password-encryption-tests-phase1-2`
-3. Archive this work unit file:
-   ```bash
-   # Switch to documentation branch (where this work unit lives after PR merge)
-   git checkout main
-   # or if different: git checkout [docs-branch]
+## Next Steps After Completion
 
-   # Archive the file
-   git mv .claude/work-units/CURRENT.md .claude/work-units/archive/003-test-extraction-phase1-2.md
-   git commit -m "chore(all): archive test extraction work unit after completion"
-   git push origin main
-   ```
-4. Await next work unit
+1. Push branch: `git push -u origin feat/change-master-password`
+2. Manual testing on all platforms (macOS, Linux, Windows)
+3. Create PR for review
+4. Archive work unit to `.claude/work-units/archive/`
+5. Move to CLI variant work unit
+
+---
+
+**Status:** Ready for CLI Claude execution
+**Estimated Completion:** 3-4 hours
+**Blocker:** None (all dependencies in base branch)
