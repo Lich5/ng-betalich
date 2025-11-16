@@ -51,8 +51,8 @@ module Lich
             if arg == option_name || (short_option && arg == short_option)
               matched = true
               options[key] = parse_value(argv, i, config)
-              # Skip next arg(s) if this option consumed them
-              i += 1 if config[:type] == :boolean || config[:parser]
+              # Skip next arg if this option consumed it (not boolean or custom parser with = form)
+              i += 1 if config[:type] != :boolean && !config[:parser]
               break
             elsif arg =~ /^#{option_name}=(.+)$/
               matched = true
@@ -94,6 +94,9 @@ module Lich
       end
 
       def self.parse_value_with_content(value, config)
+        # If custom parser provided, use it first
+        return config[:parser].call(value) if config[:parser]
+
         case config[:type]
         when :boolean
           value.match?(/^(true|on|yes|1)$/i)
@@ -102,7 +105,7 @@ module Lich
         when :integer
           value.to_i
         else
-          config[:parser] ? config[:parser].call(value) : value
+          value
         end
       end
     end
