@@ -194,11 +194,14 @@ update_change_master_password_button_state
 def self.re_encrypt_all_accounts(yaml_state, old_password, new_password)
   # Create backup first
   yaml_state.create_backup
+  Lich.log "info: Starting master password change, backup created"
 
   # Get all Enhanced mode accounts
   enhanced_accounts = yaml_state.accounts.select do |account|
     account['encryption_mode'] == 'enhanced'
   end
+
+  Lich.log "info: Re-encrypting #{enhanced_accounts.length} Enhanced mode account(s)"
 
   # Re-encrypt each account
   enhanced_accounts.each do |account|
@@ -231,11 +234,18 @@ def self.re_encrypt_all_accounts(yaml_state, old_password, new_password)
   yaml_state.save
 
   # Update keychain
-  MasterPasswordManager.store_master_password(new_password)
+  unless MasterPasswordManager.store_master_password(new_password)
+    Lich.log "error: Failed to update keychain with new master password"
+    yaml_state.restore_backup if yaml_state.backup_exists?
+    return false
+  end
 
+  Lich.log "info: Master password changed successfully"
   true
 rescue StandardError => e
+  # CRITICAL: Only log e.message, NEVER log password values
   Lich.log "error: Failed to change master password: #{e.message}"
+  Lich.log "warning: Rolling back master password change"
   yaml_state.restore_backup if yaml_state.backup_exists?
   false
 end
@@ -269,9 +279,19 @@ end
 ### Security
 - [ ] Current password required (prevents unauthorized change)
 - [ ] Password strength enforced (minimum 8 characters)
-- [ ] Old password not logged
+- [ ] Old password not logged (only log `#{e.message}`, never password values)
+- [ ] New password not logged (only log `#{e.message}`, never password values)
 - [ ] New password stored securely in keychain
 - [ ] Constant-time comparison used for validation
+
+### Logging
+- [ ] Use `Lich.log "prefix: message"` format for all debug logging
+- [ ] Prefixes: `error:`, `warning:`, `info:` as appropriate
+- [ ] Log format: `Lich.log "error: Failed to change master password: #{e.message}"`
+- [ ] **CRITICAL**: NEVER log password values, encrypted passwords, or master passwords
+- [ ] Only log error messages (`#{e.message}`), usernames, and operation status
+- [ ] Log successful operations: `Lich.log "info: Master password changed successfully"`
+- [ ] Log rollback events: `Lich.log "warning: Rolling back master password change due to error"`
 
 ### Error Handling
 - [ ] Wrong current password → clear error message, retry allowed

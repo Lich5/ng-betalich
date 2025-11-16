@@ -170,8 +170,11 @@ module Lich
             # Find account
             unless yaml_data['accounts'] && yaml_data['accounts'][account]
               puts "error: Account '#{account}' not found"
+              Lich.log "error: CLI change password failed - account '#{account}' not found"
               return 2
             end
+
+            Lich.log "info: Changing password for account '#{account}' (mode: #{encryption_mode})"
 
             # Encrypt password based on mode
             encrypted = case encryption_mode
@@ -187,6 +190,7 @@ module Lich
               master_password = Lich::Common::GUI::MasterPasswordManager.retrieve_master_password
               if master_password.nil?
                 puts 'error: Enhanced mode requires master password in keychain'
+                Lich.log 'error: CLI change password failed - master password not in keychain'
                 return 1
               end
               Lich::Common::GUI::PasswordCipher.encrypt(
@@ -197,6 +201,7 @@ module Lich
               )
             else
               puts "error: Unknown encryption mode: #{encryption_mode}"
+              Lich.log "error: CLI change password failed - unknown encryption mode: #{encryption_mode}"
               return 1
             end
 
@@ -213,9 +218,12 @@ module Lich
             end
 
             puts "success: Password changed for account '#{account}'"
+            Lich.log "info: Password changed successfully for account '#{account}'"
             0
           rescue StandardError => e
+            # CRITICAL: Only log e.message, NEVER log password values
             puts "error: #{e.message}"
+            Lich.log "error: CLI change password failed for '#{account}': #{e.message}"
             1
           end
         end
@@ -239,12 +247,16 @@ module Lich
               if yaml_data['accounts'] && yaml_data['accounts'][account]
                 puts "error: Account '#{account}' already exists"
                 puts "Use --change-account-password to update the password."
+                Lich.log "error: CLI add account failed - account '#{account}' already exists"
                 return 1
               end
             end
 
+            Lich.log "info: Adding account '#{account}' via CLI"
+
             # Authenticate with game servers to fetch characters (like GUI does)
             puts "Authenticating with game servers..."
+            Lich.log "info: Authenticating account '#{account}' with game servers"
             auth_data = Lich::Common::GUI::Authentication.authenticate(
               account: account,
               password: password,
@@ -253,18 +265,23 @@ module Lich
 
             unless auth_data && auth_data.is_a?(Array) && !auth_data.empty?
               puts "error: Authentication failed or no characters found"
+              Lich.log "error: CLI add account failed - game server authentication failed for '#{account}'"
               return 2
             end
+
+            Lich.log "info: Authentication successful - found #{auth_data.length} character(s)"
 
             # Determine frontend
             selected_frontend = if frontend
               # Frontend provided via --frontend flag
+              Lich.log "info: Using provided frontend: #{frontend}"
               frontend
             else
               # Check predominant frontend in YAML, or prompt
               predominant = determine_predominant_frontend(yaml_file)
               if predominant
                 puts "Using predominant frontend: #{predominant}"
+                Lich.log "info: Using predominant frontend: #{predominant}"
                 predominant
               else
                 # Prompt user
@@ -286,16 +303,21 @@ module Lich
             # Save account + characters using AccountManager
             if Lich::Common::GUI::AccountManager.add_or_update_account(data_dir, account, password, character_list)
               puts "success: Account '#{account}' added with #{character_list.length} character(s)"
+              Lich.log "info: Account '#{account}' added successfully with #{character_list.length} character(s)"
               if selected_frontend.nil? || selected_frontend.empty?
                 puts "note: Frontend not set - use GUI to configure or rerun with --frontend"
+                Lich.log "warning: No frontend set for account '#{account}'"
               end
               0
             else
               puts "error: Failed to save account"
+              Lich.log "error: CLI add account failed - could not save account '#{account}'"
               1
             end
           rescue StandardError => e
+            # CRITICAL: Only log e.message, NEVER log password values
             puts "error: #{e.message}"
+            Lich.log "error: CLI add account failed for '#{account}': #{e.message}"
             1
           end
         end
@@ -366,15 +388,21 @@ module Lich
             unless encryption_mode == :enhanced
               puts "error: Master password only used in Enhanced encryption mode"
               puts "Current mode: #{encryption_mode}"
+              Lich.log "error: CLI change master password failed - wrong encryption mode: #{encryption_mode}"
               return 3
             end
+
+            Lich.log "info: Starting CLI master password change"
 
             # Validate old password
             validation_test = yaml_data['master_password_test']
             unless Lich::Common::GUI::MasterPasswordManager.validate_master_password(old_password, validation_test)
               puts 'error: Current master password incorrect'
+              Lich.log 'error: CLI change master password failed - incorrect current password'
               return 1
             end
+
+            Lich.log "info: Current master password validated successfully"
 
             # Prompt for new password
             print "Enter new master password: "
@@ -385,13 +413,18 @@ module Lich
 
             unless new_password == confirm_password
               puts "error: Passwords do not match"
+              Lich.log "error: CLI change master password failed - password confirmation mismatch"
               return 1
             end
 
             if new_password.length < 8
               puts "error: Password must be at least 8 characters"
+              Lich.log "error: CLI change master password failed - password too short"
               return 1
             end
+
+            account_count = yaml_data['accounts'].length
+            Lich.log "info: Re-encrypting #{account_count} account(s) with new master password"
 
             # Re-encrypt all accounts
             yaml_data['accounts'].each do |username, account_data|
@@ -421,6 +454,7 @@ module Lich
             # Update keychain
             unless Lich::Common::GUI::MasterPasswordManager.store_master_password(new_password)
               puts 'error: Failed to update keychain'
+              Lich.log 'error: CLI change master password failed - keychain update failed'
               return 1
             end
 
@@ -430,9 +464,12 @@ module Lich
             end
 
             puts 'success: Master password changed'
+            Lich.log 'info: Master password changed successfully via CLI'
             0
           rescue StandardError => e
+            # CRITICAL: Only log e.message, NEVER log password values
             puts "error: #{e.message}"
+            Lich.log "error: CLI change master password failed: #{e.message}"
             1
           end
         end
@@ -540,10 +577,22 @@ ruby lich.rbw -cmp OldPassword123
 - [ ] Keychain unavailable (Enhanced) → clear error + exit 1
 
 ### Security
-- [ ] Passwords not logged to stdout
+- [ ] Passwords not logged to stdout or debug logs
+- [ ] **CRITICAL**: NEVER log password values, account passwords, or master passwords
+- [ ] Only log `#{e.message}`, usernames, and operation status
 - [ ] YAML file saved with 0600 permissions
-- [ ] Master password retrieved from keychain (not prompted)
-- [ ] Old password validated before re-encryption
+- [ ] Master password retrieved from keychain (not prompted for change-account-password)
+- [ ] Old password validated before re-encryption (change-master-password)
+- [ ] New master password strength enforced (8+ characters minimum)
+
+### Logging
+- [ ] Use `Lich.log "prefix: message"` format for all debug logging
+- [ ] Prefixes: `error:`, `warning:`, `info:` as appropriate
+- [ ] Log CLI operation starts: `Lich.log "info: Adding account '#{account}' via CLI"`
+- [ ] Log successful operations: `Lich.log "info: Password changed successfully for account '#{account}'"`
+- [ ] Log errors with context: `Lich.log "error: CLI change password failed for '#{account}': #{e.message}"`
+- [ ] Log authentication attempts: `Lich.log "info: Authenticating account '#{account}' with game servers"`
+- [ ] **CRITICAL**: Only log error messages (`#{e.message}`), never password values
 
 ### Code Quality
 - [ ] Follows existing ARGV parsing pattern
