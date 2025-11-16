@@ -178,7 +178,6 @@ module Lich
         # @param master_password [String, nil] Master password for :enhanced mode
         # @return [String] Encrypted password or plaintext if mode is :plaintext
         def self.encrypt_password(password, mode:, account_name: nil, master_password: nil)
-          Lich.log "debug: encrypt_password called - mode: #{mode}, account_name: #{account_name}, has_master_pw: #{!master_password.nil?}"
           return password if mode == :plaintext || mode.to_sym == :plaintext
 
           PasswordCipher.encrypt(password, mode: mode.to_sym, account_name: account_name, master_password: master_password)
