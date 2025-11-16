@@ -226,10 +226,24 @@ module Lich
 
             # Prompt for new password
             print "Enter new master password: "
-            new_password = $stdin.gets.strip
+            input = $stdin.gets
+            if input.nil?
+              puts 'error: Unable to read password from STDIN / terminal'
+              puts 'Please run this command interactively (not in a pipe or automated script without input)'
+              Lich.log 'error: CLI change master password failed - stdin unavailable'
+              return 1
+            end
+            new_password = input.strip
 
             print "Confirm new master password: "
-            confirm_password = $stdin.gets.strip
+            input = $stdin.gets
+            if input.nil?
+              puts 'error: Unable to read password from STDIN / terminal'
+              puts 'Please run this command interactively (not in a pipe or automated script without input)'
+              Lich.log 'error: CLI change master password failed - stdin unavailable'
+              return 1
+            end
+            confirm_password = input.strip
 
             unless new_password == confirm_password
               puts "error: Passwords do not match"
@@ -329,7 +343,13 @@ module Lich
           puts "  3. avalon"
           print "Choice (1-3 or Enter): "
 
-          choice = $stdin.gets.strip
+          input = $stdin.gets
+          if input.nil?
+            puts 'error: Unable to read input from STDIN / terminal'
+            puts 'Please run this command interactively (not in a pipe or automated script without input)'
+            return nil
+          end
+          choice = input.strip
           return nil if choice.empty?
 
           case choice
