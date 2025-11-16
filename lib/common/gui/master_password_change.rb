@@ -258,11 +258,9 @@ module Lich
             Lich.log "info: Starting master password change, backup created at #{backup_file}"
 
             begin
-              # Get all Enhanced mode accounts
-              enhanced_accounts = if yaml_data['accounts']
-                                    yaml_data['accounts'].values.select do |account|
-                                      account['encryption_mode'] == 'enhanced'
-                                    end
+              # Get all accounts if encryption mode is Enhanced (mode is global, not per-account)
+              enhanced_accounts = if yaml_data['encryption_mode'] == 'enhanced' && yaml_data['accounts']
+                                    yaml_data['accounts'].values
                                   else
                                     []
                                   end
