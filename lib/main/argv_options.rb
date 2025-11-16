@@ -246,12 +246,12 @@ module Lich
       # Apply side effects: dark mode, hosts-dir, detachable-client
       module SideEffects
         def self.execute(argv_options)
-          handle_hosts_dir
+          handle_hosts_dir(argv_options)
           handle_detachable_client
           handle_sal_launch(argv_options)
         end
 
-        def self.handle_hosts_dir
+        def self.handle_hosts_dir(argv_options)
           if (arg = ARGV.find { |a| a == '--hosts-dir' })
             i = ARGV.index(arg)
             ARGV.delete_at(i)
@@ -259,7 +259,8 @@ module Lich
             ARGV.delete_at(i)
             if hosts_dir && File.exist?(hosts_dir)
               hosts_dir = hosts_dir.tr('\\', '/')
-              hosts_dir + '/' unless hosts_dir[-1..-1] == '/'
+              hosts_dir += '/' unless hosts_dir[-1..-1] == '/'
+              argv_options[:hosts_dir] = hosts_dir
             else
               $stdout.puts "warning: given hosts directory does not exist: #{hosts_dir}"
             end
