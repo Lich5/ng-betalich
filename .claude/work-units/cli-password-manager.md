@@ -63,8 +63,9 @@ git checkout -b feat/cli-password-manager
 ```ruby
 # Password management options (headless CLI)
 for arg in ARGV
-  if arg =~ /^--change-account-password$/
+  if arg =~ /^--change-account-password$/ || arg =~ /^-cap$/
     # Usage: ruby lich.rbw --change-account-password ACCOUNT NEWPASSWORD
+    #    or: ruby lich.rbw -cap ACCOUNT NEWPASSWORD
     require_relative 'lib/common/gui/yaml_state'
     require_relative 'lib/common/cli/password_manager'
 
@@ -74,14 +75,17 @@ for arg in ARGV
     if account.nil? || new_password.nil?
       puts 'error: Missing required arguments'
       puts 'Usage: ruby lich.rbw --change-account-password ACCOUNT NEWPASSWORD'
+      puts '   or: ruby lich.rbw -cap ACCOUNT NEWPASSWORD'
       exit 1
     end
 
     exit Lich::Common::CLI::PasswordManager.change_account_password(account, new_password)
 
-  elsif arg =~ /^--add-account$/
-    # Usage: ruby lich.rbw --add-account ACCOUNT PASSWORD --char-name NAME --game-code CODE [--frontend FRONTEND]
+  elsif arg =~ /^--add-account$/ || arg =~ /^-aa$/
+    # Usage: ruby lich.rbw --add-account ACCOUNT PASSWORD [--frontend FRONTEND]
+    #    or: ruby lich.rbw -aa ACCOUNT PASSWORD [--frontend FRONTEND]
     require_relative 'lib/common/gui/yaml_state'
+    require_relative 'lib/common/gui/authentication'
     require_relative 'lib/common/cli/password_manager'
 
     account = ARGV[ARGV.index(arg) + 1]
@@ -89,33 +93,34 @@ for arg in ARGV
 
     if account.nil? || password.nil?
       puts 'error: Missing required arguments'
-      puts 'Usage: ruby lich.rbw --add-account ACCOUNT PASSWORD --char-name NAME --game-code CODE [--frontend FRONTEND]'
+      puts 'Usage: ruby lich.rbw --add-account ACCOUNT PASSWORD [--frontend FRONTEND]'
+      puts '   or: ruby lich.rbw -aa ACCOUNT PASSWORD [--frontend FRONTEND]'
       exit 1
     end
 
-    # Parse optional character data
-    char_name = ARGV[ARGV.index('--char-name') + 1] if ARGV.include?('--char-name')
-    game_code = ARGV[ARGV.index('--game-code') + 1] if ARGV.include?('--game-code')
+    # Parse optional frontend
     frontend = ARGV[ARGV.index('--frontend') + 1] if ARGV.include?('--frontend')
 
-    exit Lich::Common::CLI::PasswordManager.add_account(account, password, char_name, game_code, frontend)
+    exit Lich::Common::CLI::PasswordManager.add_account(account, password, frontend)
 
-  elsif arg =~ /^--change-master-password$/
-    # Usage: ruby lich.rbw --change-master-password OLDPASSWORD NEWPASSWORD
+  elsif arg =~ /^--change-master-password$/ || arg =~ /^-cmp$/
+    # Usage: ruby lich.rbw --change-master-password OLDPASSWORD
+    #    or: ruby lich.rbw -cmp OLDPASSWORD
     require_relative 'lib/common/gui/yaml_state'
     require_relative 'lib/common/gui/master_password_manager'
     require_relative 'lib/common/cli/password_manager'
 
     old_password = ARGV[ARGV.index(arg) + 1]
-    new_password = ARGV[ARGV.index(arg) + 2]
 
-    if old_password.nil? || new_password.nil?
+    if old_password.nil?
       puts 'error: Missing required arguments'
-      puts 'Usage: ruby lich.rbw --change-master-password OLDPASSWORD NEWPASSWORD'
+      puts 'Usage: ruby lich.rbw --change-master-password OLDPASSWORD'
+      puts '   or: ruby lich.rbw -cmp OLDPASSWORD'
+      puts 'Note: New password will be prompted for confirmation'
       exit 1
     end
 
-    exit Lich::Common::CLI::PasswordManager.change_master_password(old_password, new_password)
+    exit Lich::Common::CLI::PasswordManager.change_master_password(old_password)
   end
 end
 ```
@@ -216,109 +221,136 @@ module Lich
         end
 
         # Adds new account to entry.yaml
-        # Creates account with character data
+        # Authenticates with game servers to fetch all characters
+        # Mimics GUI "Add Account" behavior
         #
         # @param account [String] Account username
         # @param password [String] Account password
-        # @param char_name [String, nil] Character name
-        # @param game_code [String, nil] Game code (GS3, DR, etc)
-        # @param frontend [String, nil] Frontend (wizard, stormfront, etc)
-        # @return [Integer] Exit code (0=success, 1=error)
-        def self.add_account(account, password, char_name = nil, game_code = nil, frontend = nil)
+        # @param frontend [String, nil] Frontend (wizard, stormfront, avalon, or nil to prompt/use predominant)
+        # @return [Integer] Exit code (0=success, 1=error, 2=auth failed)
+        def self.add_account(account, password, frontend = nil)
           data_dir = Lich.datadir
           yaml_file = Lich::Common::GUI::YamlState.yaml_file_path(data_dir)
 
-          # Create empty YAML if doesn't exist
-          unless File.exist?(yaml_file)
-            yaml_data = {
-              'encryption_mode' => 'plaintext',
-              'accounts' => {}
-            }
-          else
-            yaml_data = YAML.load_file(yaml_file)
-          end
-
           begin
-            encryption_mode = (yaml_data['encryption_mode'] || 'plaintext').to_sym
-
             # Check if account already exists
-            if yaml_data['accounts'] && yaml_data['accounts'][account]
-              puts "error: Account '#{account}' already exists"
-              return 1
-            end
-
-            # Encrypt password based on mode
-            encrypted = case encryption_mode
-            when :plaintext
-              password
-            when :standard
-              Lich::Common::GUI::PasswordCipher.encrypt(
-                password,
-                account,
-                mode: :standard
-              )
-            when :enhanced
-              master_password = Lich::Common::GUI::MasterPasswordManager.retrieve_master_password
-              if master_password.nil?
-                puts 'error: Enhanced mode requires master password in keychain'
+            if File.exist?(yaml_file)
+              yaml_data = YAML.load_file(yaml_file)
+              if yaml_data['accounts'] && yaml_data['accounts'][account]
+                puts "error: Account '#{account}' already exists"
+                puts "Use --change-account-password to update the password."
                 return 1
               end
-              Lich::Common::GUI::PasswordCipher.encrypt(
-                password,
-                account,
-                mode: :enhanced,
-                master_password: master_password
-              )
-            else
-              puts "error: Unknown encryption mode: #{encryption_mode}"
-              return 1
             end
 
-            # Build account data
-            yaml_data['accounts'] ||= {}
-            account_data = {}
+            # Authenticate with game servers to fetch characters (like GUI does)
+            puts "Authenticating with game servers..."
+            auth_data = Lich::Common::GUI::Authentication.authenticate(
+              account: account,
+              password: password,
+              legacy: true
+            )
 
-            if encryption_mode == :plaintext
-              account_data['password'] = encrypted
-            else
-              account_data['password_encrypted'] = encrypted
+            unless auth_data && auth_data.is_a?(Array) && !auth_data.empty?
+              puts "error: Authentication failed or no characters found"
+              return 2
             end
 
-            # Add character if provided
-            if char_name && game_code
-              account_data['characters'] = [{
-                'char_name' => char_name,
-                'game_code' => game_code,
-                'game_name' => game_name_from_code(game_code),
-                'frontend' => frontend || 'wizard',
+            # Determine frontend
+            selected_frontend = if frontend
+              # Frontend provided via --frontend flag
+              frontend
+            else
+              # Check predominant frontend in YAML, or prompt
+              predominant = determine_predominant_frontend(yaml_file)
+              if predominant
+                puts "Using predominant frontend: #{predominant}"
+                predominant
+              else
+                # Prompt user
+                prompt_for_frontend
+              end
+            end
+
+            # Convert authentication data to character list
+            character_list = auth_data.map do |char_data|
+              {
+                'char_name' => char_data[:char_name],
+                'game_code' => char_data[:game_code],
+                'game_name' => char_data[:game_name],
+                'frontend' => selected_frontend || '',
                 'is_favorite' => false
-              }]
+              }
+            end
+
+            # Save account + characters using AccountManager
+            if Lich::Common::GUI::AccountManager.add_or_update_account(data_dir, account, password, character_list)
+              puts "success: Account '#{account}' added with #{character_list.length} character(s)"
+              if selected_frontend.nil? || selected_frontend.empty?
+                puts "note: Frontend not set - use GUI to configure or rerun with --frontend"
+              end
+              0
             else
-              account_data['characters'] = []
+              puts "error: Failed to save account"
+              1
             end
-
-            yaml_data['accounts'][account] = account_data
-
-            # Save YAML
-            File.open(yaml_file, 'w', 0600) do |file|
-              file.write(YAML.dump(yaml_data))
-            end
-
-            puts "success: Account '#{account}' created"
-            0
           rescue StandardError => e
             puts "error: #{e.message}"
             1
           end
         end
 
+        # Determines predominant frontend from existing YAML accounts
+        # @param yaml_file [String] Path to entry.yaml
+        # @return [String, nil] Predominant frontend or nil
+        def self.determine_predominant_frontend(yaml_file)
+          return nil unless File.exist?(yaml_file)
+
+          yaml_data = YAML.load_file(yaml_file)
+          return nil unless yaml_data['accounts']
+
+          frontend_counts = Hash.new(0)
+          yaml_data['accounts'].each do |_username, account_data|
+            next unless account_data['characters']
+            account_data['characters'].each do |char|
+              fe = char['frontend']
+              frontend_counts[fe] += 1 if fe && !fe.empty?
+            end
+          end
+
+          return nil if frontend_counts.empty?
+          frontend_counts.max_by { |_fe, count| count }&.first
+        end
+
+        # Prompts user for frontend selection
+        # @return [String, nil] Selected frontend or nil (user skipped)
+        def self.prompt_for_frontend
+          puts "\nSelect frontend (or press Enter to skip):"
+          puts "  1. wizard"
+          puts "  2. stormfront"
+          puts "  3. avalon"
+          print "Choice (1-3 or Enter): "
+
+          choice = $stdin.gets.strip
+          return nil if choice.empty?
+
+          case choice
+          when '1' then 'wizard'
+          when '2' then 'stormfront'
+          when '3' then 'avalon'
+          else
+            puts "Invalid choice, skipping frontend selection"
+            nil
+          end
+        end
+
         # Changes master password and re-encrypts all accounts
         # Only works in Enhanced encryption mode
+        # Prompts for new password confirmation
         #
         # @param old_password [String] Current master password
-        # @param new_password [String] New master password
         # @return [Integer] Exit code (0=success, 1=error, 3=wrong mode)
-        def self.change_master_password(old_password, new_password)
+        def self.change_master_password(old_password)
           data_dir = Lich.datadir
           yaml_file = Lich::Common::GUI::YamlState.yaml_file_path(data_dir)
 
@@ -341,6 +373,23 @@ module Lich
             validation_test = yaml_data['master_password_test']
             unless Lich::Common::GUI::MasterPasswordManager.validate_master_password(old_password, validation_test)
               puts 'error: Current master password incorrect'
+              return 1
+            end
+
+            # Prompt for new password
+            print "Enter new master password: "
+            new_password = $stdin.gets.strip
+
+            print "Confirm new master password: "
+            confirm_password = $stdin.gets.strip
+
+            unless new_password == confirm_password
+              puts "error: Passwords do not match"
+              return 1
+            end
+
+            if new_password.length < 8
+              puts "error: Password must be at least 8 characters"
               return 1
             end
 
@@ -409,24 +458,52 @@ end
 
 ### Change Account Password
 ```bash
+# Long form
 ruby lich.rbw --change-account-password DOUG MyNewPassword123
+# Output: success: Password changed for account 'DOUG'
+# Exit code: 0
+
+# Short form
+ruby lich.rbw -cap DOUG MyNewPassword123
 # Output: success: Password changed for account 'DOUG'
 # Exit code: 0
 ```
 
 ### Add New Account
 ```bash
-ruby lich.rbw --add-account NEWUSER SecurePass456 \
-  --char-name Dionket \
-  --game-code GS3 \
-  --frontend wizard
-# Output: success: Account 'NEWUSER' created
+# Long form
+ruby lich.rbw --add-account NEWUSER SecurePass456 --frontend wizard
+# Output: Authenticating with game servers...
+# Output: success: Account 'NEWUSER' added with 3 character(s)
+# Exit code: 0
+
+# Short form
+ruby lich.rbw -aa NEWUSER SecurePass456 --frontend wizard
+# Output: Authenticating with game servers...
+# Output: success: Account 'NEWUSER' added with 3 character(s)
+# Exit code: 0
+
+# Without frontend (will prompt or use predominant)
+ruby lich.rbw -aa NEWUSER SecurePass456
+# Output: Authenticating with game servers...
+# Output: Using predominant frontend: stormfront
+# Output: success: Account 'NEWUSER' added with 3 character(s)
 # Exit code: 0
 ```
 
 ### Change Master Password
 ```bash
-ruby lich.rbw --change-master-password OldPassword123 NewPassword456
+# Long form (prompts for new password)
+ruby lich.rbw --change-master-password OldPassword123
+# Prompts: Enter new master password:
+# Prompts: Confirm new master password:
+# Output: success: Master password changed
+# Exit code: 0
+
+# Short form (prompts for new password)
+ruby lich.rbw -cmp OldPassword123
+# Prompts: Enter new master password:
+# Prompts: Confirm new master password:
 # Output: success: Master password changed
 # Exit code: 0
 ```
@@ -438,8 +515,8 @@ ruby lich.rbw --change-master-password OldPassword123 NewPassword456
 | Code | Meaning | Example |
 |------|---------|---------|
 | 0 | Success | Operation completed |
-| 1 | General error | Invalid input, encryption failed |
-| 2 | Not found | Account not found, entry.yaml missing |
+| 1 | General error | Invalid input, encryption failed, passwords don't match |
+| 2 | Not found / Auth failed | Account not found, entry.yaml missing, game server authentication failed |
 | 3 | Wrong mode | Master password change on non-Enhanced mode |
 
 ---
@@ -485,16 +562,18 @@ ruby lich.rbw --change-master-password OldPassword123 NewPassword456
 ## Verification Commands
 
 ```bash
-# Test change password
-ruby lich.rbw --change-account-password TESTACCOUNT NewPassword123
+# Test change password (short option)
+ruby lich.rbw -cap TESTACCOUNT NewPassword123
 echo $?  # Should be 0
 
-# Test add account
-ruby lich.rbw --add-account NEWACCOUNT Pass456 --char-name TestChar --game-code GS3
-echo $?  # Should be 0
+# Test add account (short option)
+ruby lich.rbw -aa NEWACCOUNT Pass456 --frontend wizard
+echo $?  # Should be 0 (after game server authentication)
 
-# Test change master password (Enhanced mode only)
-ruby lich.rbw --change-master-password OldPass NewPass
+# Test change master password (Enhanced mode only, prompts for new password)
+ruby lich.rbw -cmp OldPass
+# Enter new password when prompted
+# Confirm new password when prompted
 echo $?  # Should be 0 (or 3 if not Enhanced mode)
 
 # RuboCop
@@ -556,20 +635,23 @@ cat ~/.lich/entry.yaml
 feat(all): add CLI password management operations
 
 Implements headless password operations for automation:
-- --change-account-password ACCOUNT NEWPASSWORD
+- --change-account-password|-cap ACCOUNT NEWPASSWORD
   Changes account password in entry.yaml (all modes)
-- --add-account ACCOUNT PASSWORD [--char-name ...] [--game-code ...]
-  Creates new account with optional character data
-- --change-master-password OLDPASSWORD NEWPASSWORD
+- --add-account|-aa ACCOUNT PASSWORD [--frontend FRONTEND]
+  Authenticates with game servers, creates account with all characters
+  Uses predominant frontend from YAML or prompts user if not specified
+- --change-master-password|-cmp OLDPASSWORD
   Re-encrypts all accounts with new master password (Enhanced mode)
+  Prompts for new password with confirmation (8+ characters required)
 
 All operations:
 - Work headless (no GUI required)
+- Support short options (-cap, -aa, -cmp)
 - Respect current encryption_mode
-- Use existing YamlState/PasswordCipher methods
+- Use existing YamlState/PasswordCipher/Authentication methods
 - Provide clear error messages and exit codes
 
-Exit codes: 0=success, 1=error, 2=not found, 3=wrong mode
+Exit codes: 0=success, 1=error, 2=not found/auth failed, 3=wrong mode
 
 Related: Password Encryption Phase 2
 ```
