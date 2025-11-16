@@ -166,6 +166,8 @@ module Lich
               end
             end
           end
+
+          true
         end
 
         # Encrypts a password based on the current encryption mode
