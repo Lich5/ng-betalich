@@ -200,7 +200,7 @@ RSpec.describe Lich::Util::CLI::PasswordManager do
       end
 
       it 'returns 1 on general error' do
-        allow(File).to receive(:open).and_raise(StandardError.new('Write error'))
+        allow(YAML).to receive(:load_file).and_raise(StandardError.new('Write error'))
 
         exit_code = Lich::Util::CLI::PasswordManager.change_account_password('DOUG', 'newpass')
         expect(exit_code).to eq(1)
