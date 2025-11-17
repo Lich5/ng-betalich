@@ -100,8 +100,8 @@ RSpec.describe Lich::Util::CLI::PasswordManager do
           'encryption_mode' => 'standard',
           'accounts'        => {
             'DOUG' => {
-              'password_encrypted' => 'encrypted_old_password',
-              'username'           => 'DOUG'
+              'password' => 'encrypted_old_password',
+              'username' => 'DOUG'
             }
           }
         }
@@ -116,19 +116,19 @@ RSpec.describe Lich::Util::CLI::PasswordManager do
 
         expect(Lich::Common::GUI::PasswordCipher).to have_received(:encrypt).with(
           'newpassword',
-          'DOUG',
-          mode: :standard
+          mode: :standard,
+          account_name: 'DOUG'
         )
       end
 
-      it 'updates password_encrypted field in standard mode' do
+      it 'updates password field in standard mode' do
         allow(Lich::Common::GUI::PasswordCipher).to receive(:encrypt)
           .and_return('encrypted_new_password')
 
         Lich::Util::CLI::PasswordManager.change_account_password('DOUG', 'newpassword')
 
         yaml_data = YAML.load_file(yaml_file)
-        expect(yaml_data['accounts']['DOUG']['password_encrypted']).to eq('encrypted_new_password')
+        expect(yaml_data['accounts']['DOUG']['password']).to eq('encrypted_new_password')
       end
 
       it 'returns 0 on success' do
@@ -146,8 +146,8 @@ RSpec.describe Lich::Util::CLI::PasswordManager do
           'encryption_mode' => 'enhanced',
           'accounts'        => {
             'DOUG' => {
-              'password_encrypted' => 'encrypted_old_password',
-              'username'           => 'DOUG'
+              'password' => 'encrypted_old_password',
+              'username' => 'DOUG'
             }
           }
         }
@@ -183,8 +183,8 @@ RSpec.describe Lich::Util::CLI::PasswordManager do
 
         expect(Lich::Common::GUI::PasswordCipher).to have_received(:encrypt).with(
           'newpassword',
-          'DOUG',
           mode: :enhanced,
+          account_name: 'DOUG',
           master_password: 'my_master_password'
         )
       end
@@ -310,8 +310,8 @@ RSpec.describe Lich::Util::CLI::PasswordManager do
         },
         'accounts'             => {
           'DOUG' => {
-            'password_encrypted' => 'encrypted_pass',
-            'username'           => 'DOUG'
+            'password' => 'encrypted_pass',
+            'username' => 'DOUG'
           }
         }
       }
