@@ -37,30 +37,30 @@ RSpec.describe Lich::Common::GUI::PasswordCipher do
       end
     end
 
-    context 'with master_password mode' do
+    context 'with enhanced mode' do
       it 'encrypts and decrypts password successfully' do
-        encrypted = described_class.encrypt(password, mode: :master_password, master_password: master_password)
+        encrypted = described_class.encrypt(password, mode: :enhanced, master_password: master_password)
         expect(encrypted).not_to eq(password)
         expect(encrypted).to be_a(String)
 
-        decrypted = described_class.decrypt(encrypted, mode: :master_password, master_password: master_password)
+        decrypted = described_class.decrypt(encrypted, mode: :enhanced, master_password: master_password)
         expect(decrypted).to eq(password)
       end
 
       it 'produces different output each time due to IV' do
-        encrypted1 = described_class.encrypt(password, mode: :master_password, master_password: master_password)
-        encrypted2 = described_class.encrypt(password, mode: :master_password, master_password: master_password)
+        encrypted1 = described_class.encrypt(password, mode: :enhanced, master_password: master_password)
+        encrypted2 = described_class.encrypt(password, mode: :enhanced, master_password: master_password)
         expect(encrypted1).not_to eq(encrypted2)
 
         # But both decrypt to same password
-        expect(described_class.decrypt(encrypted1, mode: :master_password, master_password: master_password)).to eq(password)
-        expect(described_class.decrypt(encrypted2, mode: :master_password, master_password: master_password)).to eq(password)
+        expect(described_class.decrypt(encrypted1, mode: :enhanced, master_password: master_password)).to eq(password)
+        expect(described_class.decrypt(encrypted2, mode: :enhanced, master_password: master_password)).to eq(password)
       end
 
       it 'fails to decrypt with wrong master password' do
-        encrypted = described_class.encrypt(password, mode: :master_password, master_password: master_password)
+        encrypted = described_class.encrypt(password, mode: :enhanced, master_password: master_password)
         expect do
-          described_class.decrypt(encrypted, mode: :master_password, master_password: 'WrongMasterPass')
+          described_class.decrypt(encrypted, mode: :enhanced, master_password: 'WrongMasterPass')
         end.to raise_error(Lich::Common::GUI::PasswordCipher::DecryptionError)
       end
     end
@@ -78,9 +78,9 @@ RSpec.describe Lich::Common::GUI::PasswordCipher do
         end.to raise_error(ArgumentError, /account_name required/)
       end
 
-      it 'raises error when master_password missing for master_password mode' do
+      it 'raises error when master_password missing for enhanced mode' do
         expect do
-          described_class.encrypt(password, mode: :master_password)
+          described_class.encrypt(password, mode: :enhanced)
         end.to raise_error(ArgumentError, /master_password required/)
       end
 

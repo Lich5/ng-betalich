@@ -5,6 +5,7 @@ require 'securerandom'
 require 'base64'
 require 'os'
 require 'shellwords'
+require_relative 'windows_credential_manager'
 
 module Lich
   module Common
@@ -169,22 +170,28 @@ module Lich
         end
 
         private_class_method def self.windows_keychain_available?
-          system('where cmdkey >nul 2>&1')
+          return false unless OS.windows?
+
+          # Check if Credential Manager is available via FFI
+          WindowsCredentialManager.available?
         end
 
-        private_class_method def self.store_windows_keychain(_password)
-          # Windows credential manager doesn't support piping passwords safely
-          # Return false - Windows support would need different approach
-          Lich.log "warning: Master password storage not fully implemented for Windows"
-          false
+        private_class_method def self.store_windows_keychain(password)
+          WindowsCredentialManager.store_credential(
+            KEYCHAIN_SERVICE,
+            'lich5',
+            password,
+            'Lich 5 Master Password',
+            WindowsCredentialManager::CRED_PERSIST_LOCAL_MACHINE
+          )
         end
 
         private_class_method def self.retrieve_windows_keychain
-          nil
+          WindowsCredentialManager.retrieve_credential(KEYCHAIN_SERVICE)
         end
 
         private_class_method def self.delete_windows_keychain
-          system("cmdkey /delete:#{KEYCHAIN_SERVICE} >nul 2>&1")
+          WindowsCredentialManager.delete_credential(KEYCHAIN_SERVICE)
         end
 
         private_class_method def self.secure_compare(a, b)
