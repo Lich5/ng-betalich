@@ -270,9 +270,8 @@ module Lich
               # Re-encrypt each account
               enhanced_accounts.each do |account|
                 # Decrypt with old password
-                encrypted_data = account['password_encrypted'] || account['password']
                 plaintext = PasswordCipher.decrypt(
-                  encrypted_data,
+                  account['password'],
                   mode: :enhanced,
                   master_password: old_password
                 )
@@ -285,7 +284,7 @@ module Lich
                 )
 
                 # Update account
-                account['password_encrypted'] = new_encrypted
+                account['password'] = new_encrypted
               end
 
               # Create new validation test
