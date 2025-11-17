@@ -200,7 +200,6 @@ module Lich
         # @param master_password [String, nil] Master password for :enhanced mode
         # @return [String] Decrypted plaintext password
         def self.decrypt_password(encrypted_password, mode:, account_name: nil, master_password: nil)
-          Lich.log "debug: decrypt_password called - mode: #{mode}, account_name: #{account_name}, has_master_pw: #{!master_password.nil?}"
           return encrypted_password if mode == :plaintext || mode.to_sym == :plaintext
 
           # For master_password mode: auto-retrieve from Keychain if not provided
