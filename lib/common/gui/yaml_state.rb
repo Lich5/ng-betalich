@@ -46,6 +46,13 @@ module Lich
 
               # Apply sorting with favorites priority if enabled
               sort_entries_with_favorites(entries, autosort_state)
+
+              # Log encryption mode and loaded accounts
+              encryption_mode = (yaml_data['encryption_mode'] || 'plaintext').upcase
+              account_names = entries.map { |entry| entry[:user_id] }.uniq.sort.join(', ')
+              Lich.log "info: Loaded #{entries.length} entries - Encryption mode: #{encryption_mode}, Accounts: #{account_names}"
+
+              entries
             rescue StandardError => e
               Lich.log "error: Error loading YAML entry file: #{e.message}"
               []
@@ -172,6 +179,10 @@ module Lich
               end
             end
           end
+
+          # Log conversion summary
+          account_names = legacy_entries.map { |entry| entry[:user_id] }.uniq.sort.join(', ')
+          Lich.log "info: Migration complete - Encryption mode: #{encryption_mode.upcase}, Converted accounts: #{account_names}"
 
           true
         end
