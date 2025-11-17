@@ -64,7 +64,9 @@ git commit -m "chore(all): add RSpec tests for password cipher"
 
 ## Ground Rules
 
-**Read:** `.claude/docs/SOCIAL_CONTRACT.md` for complete expectations
+**Read:**
+- `.claude/docs/SOCIAL_CONTRACT.md` for complete expectations
+- `.claude/docs/DEVELOPMENT_WORKFLOW.md` for branch strategy, testing procedures, and pre-push validation
 
 **Critical expectations:**
 1. **Clarify First** - If work unit unclear, ask Product Owner before proceeding
@@ -196,6 +198,8 @@ Question: [Specific question for Product Owner]
 | Quality gates | `QUALITY-GATES-POLICY.md` |
 | Project overview | `CLAUDE.md` |
 | Ground rules | `SOCIAL_CONTRACT.md` |
+| Development workflow | `DEVELOPMENT_WORKFLOW.md` |
+| Session initialization | `SESSION_INIT_CHECKLIST.md` |
 
 ---
 
