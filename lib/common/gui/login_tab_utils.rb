@@ -78,15 +78,31 @@ module Lich
                   game_code: login_info[:game_code]
                 )
 
-                launch_data = Authentication.prepare_launch_data(
-                  launch_data_hash,
-                  login_info[:frontend],
-                  login_info[:custom_launch],
-                  login_info[:custom_launch_dir]
-                )
+                # Check if authentication succeeded (Hash) or failed (String error message)
+                if launch_data_hash.is_a?(Hash)
+                  launch_data = Authentication.prepare_launch_data(
+                    launch_data_hash,
+                    login_info[:frontend],
+                    login_info[:custom_launch],
+                    login_info[:custom_launch_dir]
+                  )
 
-                # Call the play callback if provided
-                callback.call(launch_data) if callback
+                  # Call the play callback if provided
+                  callback.call(launch_data) if callback
+                else
+                  # Authentication failed - show error message
+                  error_dialog = Gtk::MessageDialog.new(
+                    parent: button.toplevel,
+                    flags: :modal,
+                    type: :error,
+                    buttons: :ok,
+                    message: "Authentication Failed"
+                  )
+                  error_dialog.secondary_text = launch_data_hash
+                  error_dialog.run
+                  error_dialog.destroy
+                  button.sensitive = true
+                end
               elsif (ev.button == 3)
                 pp "I would be adding to a team tab"
               end
