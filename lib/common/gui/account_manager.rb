@@ -426,11 +426,17 @@ module Lich
 
         # Writes YAML data with proper headers
         # Private helper method to maintain consistent file format
+        # Ensures top-level fields (encryption_mode, master_password_validation_test) are preserved
         #
         # @param yaml_file [String] Path to YAML file
         # @param yaml_data [Hash] YAML data structure
         # @return [Boolean] True if write succeeded
         def self.write_yaml_with_headers(yaml_file, yaml_data)
+          # Ensure top-level fields are explicitly present (defensive programming)
+          # This prevents accidental loss of these critical fields during serialization
+          yaml_data['encryption_mode'] ||= 'plaintext'
+          yaml_data['master_password_validation_test'] ||= nil
+
           content = "# Lich 5 Login Entries - YAML Format\n"
           content += "# Generated: #{Time.now}\n"
           content += YAML.dump(yaml_data)
