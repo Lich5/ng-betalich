@@ -782,9 +782,24 @@ module Lich
         # @param yaml_data [Hash] YAML data structure to dump
         # @return [String] Complete YAML file content with header
         def self.generate_yaml_content(yaml_data)
+          # Ensure top-level fields are explicitly present (defensive programming)
+          yaml_data['encryption_mode'] ||= 'plaintext'
+          yaml_data['master_password_validation_test'] ||= nil
+
+          # Preserve encrypted passwords by ensuring they are serialized as quoted strings
+          # This prevents YAML from using multiline formatting (|, >) which breaks Base64 decoding
+          if yaml_data['accounts']
+            yaml_data['accounts'].each do |_username, account_data|
+              if account_data.is_a?(Hash) && account_data['password']
+                # Force password to be treated as a plain scalar string
+                account_data['password'] = account_data['password'].to_s
+              end
+            end
+          end
+
           content = "# Lich 5 Login Entries - YAML Format\n" \
                   + "# Generated: #{Time.now}\n" \
-                  + YAML.dump(yaml_data)
+                  + YAML.dump(yaml_data, permitted_classes: [Symbol])
           return content
         end
 
