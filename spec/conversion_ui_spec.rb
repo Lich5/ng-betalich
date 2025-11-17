@@ -221,7 +221,7 @@ RSpec.describe Lich::Common::GUI::ConversionUI do
         allow(Lich::Common::GUI::MasterPasswordManager).to receive(:keychain_available?).and_return(false)
         allow(Lich).to receive(:log)
         described_class.show_conversion_dialog(parent_window, test_data_dir, on_conversion_complete)
-        expect(Lich).to have_received(:log).with(/Master password mode disabled/)
+        expect(Lich).to have_received(:log).with(/Enhanced encryption mode disabled/)
       end
     end
 

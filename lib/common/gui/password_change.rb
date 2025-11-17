@@ -198,9 +198,9 @@ module Lich
           # For master_password mode, retrieves from Keychain (required)
           #
           # @param encryption_mode [Symbol] Encryption mode
-          # @return [String, nil] Master password if :master_password mode, nil otherwise
+          # @return [String, nil] Master password if :enhanced mode, nil otherwise
           def get_master_password_for_mode(encryption_mode)
-            return nil unless encryption_mode == :master_password
+            return nil unless encryption_mode == :enhanced
             MasterPasswordManager.retrieve_master_password
           end
 
