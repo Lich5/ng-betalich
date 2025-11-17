@@ -201,7 +201,7 @@ module Lich
           puts '  -w, --wizard          Run in Wizard mode (default)'
           puts '  -s, --stormfront      Run in StormFront mode.'
           puts '      --avalon          Run in Avalon mode.'
-          puts '      --frostbite       Run in Frosbite mode.'
+          puts '      --frostbite       Run in Frostbite mode.'
           puts ''
           puts '      --dark-mode       Enable/disable darkmode without GUI. See example below.'
           puts ''
