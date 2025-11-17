@@ -32,6 +32,7 @@ module Lich
           @data_dir = data_dir
           @msgbox = ->(message) { show_message_dialog(message) }
           @data_change_callback = nil
+          @change_encryption_password_button = nil
         end
 
         # Sets the data change callback for cross-tab communication
@@ -83,6 +84,14 @@ module Lich
           rescue StandardError => e
             Lich.log "error: Error refreshing accounts display: #{e.message}"
           end
+        end
+
+        # Refreshes the encryption password button state based on current conditions
+        # Called after data changes to ensure button visibility matches encryption mode
+        #
+        # @return [void]
+        def refresh_encryption_password_button_state
+          update_encryption_password_button_state(@change_encryption_password_button) if @change_encryption_password_button
         end
 
         # Creates the accounts tab
@@ -1137,15 +1146,13 @@ module Lich
           has_keychain = MasterPasswordManager.keychain_available?
           button.visible = has_keychain
 
-          # Disable button if keychain available but no Enhanced accounts or no master password
+          # Disable button if keychain available but encryption mode is not Enhanced or no master password
           if has_keychain
             yaml_file = YamlState.yaml_file_path(@data_dir)
             if File.exist?(yaml_file)
               yaml_data = YAML.load_file(yaml_file)
-              has_enhanced = yaml_data['accounts']&.values&.any? do |account|
-                account['encryption_mode'] == 'enhanced'
-              end
-              has_password = MasterPasswordManager.retrieve_master_password
+              has_enhanced = yaml_data['encryption_mode'] == 'enhanced'
+              has_password = MasterPasswordManager.master_password_exists?
 
               button.sensitive = has_enhanced && has_password
             else

@@ -225,16 +225,20 @@ module Lich
           def validate_current_password(current_password, yaml_file)
             begin
               yaml_data = YAML.load_file(yaml_file)
-              validation_test = yaml_data['master_password_validation']
+              validation_test = yaml_data['master_password_validation_test']
 
+              Lich.log "debug: [validate_current_password] validation_test from YAML: #{validation_test.nil? ? 'nil' : '[present]'}"
               return false if validation_test.nil?
 
               # Also validate against keychain as additional verification
               stored_password = MasterPasswordManager.retrieve_master_password
+              Lich.log "debug: [validate_current_password] stored_password in keychain: #{stored_password.nil? ? 'nil' : '[present]'}"
               return false if stored_password.nil?
 
               # Validate using PBKDF2 test
-              MasterPasswordManager.validate_master_password(current_password, validation_test)
+              result = MasterPasswordManager.validate_master_password(current_password, validation_test)
+              Lich.log "debug: [validate_current_password] validation result: #{result}"
+              result
             rescue StandardError => e
               Lich.log "error: Error validating current password: #{e.message}"
               false
@@ -258,11 +262,9 @@ module Lich
             Lich.log "info: Starting master password change, backup created at #{backup_file}"
 
             begin
-              # Get all Enhanced mode accounts
-              enhanced_accounts = if yaml_data['accounts']
-                                    yaml_data['accounts'].values.select do |account|
-                                      account['encryption_mode'] == 'enhanced'
-                                    end
+              # Get all accounts if encryption mode is Enhanced (mode is global, not per-account)
+              enhanced_accounts = if yaml_data['encryption_mode'] == 'enhanced' && yaml_data['accounts']
+                                    yaml_data['accounts'].values
                                   else
                                     []
                                   end
@@ -270,9 +272,9 @@ module Lich
               Lich.log "info: Re-encrypting #{enhanced_accounts.length} Enhanced mode account(s)"
 
               # Re-encrypt each account
-              enhanced_accounts.each do |account|
+              enhanced_accounts.each_with_index do |account, idx|
                 # Decrypt with old password
-                encrypted_data = account['password_encrypted'] || account['password']
+                encrypted_data = account['password']
                 plaintext = PasswordCipher.decrypt(
                   encrypted_data,
                   mode: :enhanced,
@@ -286,13 +288,14 @@ module Lich
                   master_password: new_password
                 )
 
-                # Update account
-                account['password_encrypted'] = new_encrypted
+                # Update account - use 'password' field (not 'password_encrypted')
+                account['password'] = new_encrypted
+                Lich.log "debug: [re_encrypt_all_accounts] Account #{idx} re-encrypted"
               end
 
               # Create new validation test
               new_validation = MasterPasswordManager.create_validation_test(new_password)
-              yaml_data['master_password_validation'] = new_validation
+              yaml_data['master_password_validation_test'] = new_validation
 
               # Save YAML
               File.open(yaml_file, 'w', 0600) do |file|
@@ -300,6 +303,7 @@ module Lich
                 file.puts "# Generated: #{Time.now}"
                 file.write(YAML.dump(yaml_data))
               end
+              Lich.log "debug: [re_encrypt_all_accounts] YAML file written to #{yaml_file}"
 
               # Update keychain
               unless MasterPasswordManager.store_master_password(new_password)

@@ -66,6 +66,27 @@ module Lich
           nil
         end
 
+        # Checks if a master password entry exists in the keychain without retrieving it
+        # Returns true if entry exists, false otherwise
+        #
+        # @return [Boolean] true if master password entry exists in keychain
+        def self.master_password_exists?
+          return false unless keychain_available?
+
+          if OS.mac?
+            master_password_exists_macos?
+          elsif OS.linux?
+            master_password_exists_linux?
+          elsif OS.windows?
+            master_password_exists_windows?
+          else
+            false
+          end
+        rescue StandardError => e
+          Lich.log "error: Failed to check master password existence: #{e.message}"
+          false
+        end
+
         def self.create_validation_test(master_password)
           random_salt = SecureRandom.random_bytes(16)
           full_salt = VALIDATION_SALT_PREFIX + random_salt
@@ -85,6 +106,9 @@ module Lich
         end
 
         def self.validate_master_password(entered_password, validation_test)
+          Lich.log "debug: [validate_master_password] validation_test class: #{validation_test.class}"
+          Lich.log "debug: [validate_master_password] validation_test keys: #{validation_test.is_a?(Hash) ? validation_test.keys : 'not a hash'}"
+
           return false unless validation_test.is_a?(Hash)
           return false unless validation_test['validation_salt'] && validation_test['validation_hash']
 
@@ -99,9 +123,12 @@ module Lich
             )
 
             computed_hash = OpenSSL::Digest::SHA256.digest(validation_key)
-            secure_compare(computed_hash, stored_hash)
+            result = secure_compare(computed_hash, stored_hash)
+            Lich.log "debug: [validate_master_password] comparison result: #{result}"
+            result
           rescue StandardError => e
             Lich.log "error: Validation failed: #{e.message}"
+            Lich.log "error: Backtrace: #{e.backtrace.first(3).join(' | ')}"
             false
           end
         end
@@ -146,6 +173,13 @@ module Lich
           system("security delete-generic-password -s #{KEYCHAIN_SERVICE.shellescape} 2>/dev/null")
         end
 
+        private_class_method def self.master_password_exists_macos?
+          # Check if entry exists by trying to find it (exit code 0 = exists)
+          system("security find-generic-password -s #{KEYCHAIN_SERVICE.shellescape} >/dev/null 2>&1")
+        rescue
+          false
+        end
+
         private_class_method def self.linux_keychain_available?
           system('which secret-tool >/dev/null 2>&1')
         end
@@ -167,6 +201,13 @@ module Lich
 
         private_class_method def self.delete_linux_keychain
           system("secret-tool clear service #{KEYCHAIN_SERVICE.shellescape} user lich5 2>/dev/null")
+        end
+
+        private_class_method def self.master_password_exists_linux?
+          # Check if entry exists by trying to lookup (exit code 0 = exists)
+          system("secret-tool lookup service #{KEYCHAIN_SERVICE.shellescape} user lich5 >/dev/null 2>&1")
+        rescue
+          false
         end
 
         private_class_method def self.windows_keychain_available?
@@ -192,6 +233,13 @@ module Lich
 
         private_class_method def self.delete_windows_keychain
           WindowsCredentialManager.delete_credential(KEYCHAIN_SERVICE)
+        end
+
+        private_class_method def self.master_password_exists_windows?
+          # Check if credential exists (non-nil return means it exists)
+          !WindowsCredentialManager.retrieve_credential(KEYCHAIN_SERVICE).nil?
+        rescue
+          false
         end
 
         private_class_method def self.secure_compare(a, b)

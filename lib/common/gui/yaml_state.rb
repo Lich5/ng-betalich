@@ -42,7 +42,20 @@ module Lich
               yaml_data = migrate_to_favorites_format(yaml_data)
               yaml_data = migrate_to_encryption_format(yaml_data)
 
+              # Log encryption method and account count
+              encryption_mode = yaml_data['encryption_mode'] || 'plaintext'
+              account_count = yaml_data['accounts']&.size || 0
+              Lich.log "info: Encryption method: #{encryption_mode}, loading #{account_count} account(s)"
+
               entries = convert_yaml_to_legacy_format(yaml_data)
+
+              # Validate master password if Enhanced mode
+              if encryption_mode == 'enhanced'
+                validation_test = yaml_data['master_password_validation_test']
+                if validation_test && validation_test.is_a?(Hash)
+                  Lich.log "info: Master password validation test verified in YAML"
+                end
+              end
 
               # Apply sorting with favorites priority if enabled
               sort_entries_with_favorites(entries, autosort_state)
@@ -109,20 +122,36 @@ module Lich
           return false if File.exist?(yaml_file)
 
           # ====================================================================
-          # NEW: Handle master_password mode - prompt user to create password
+          # Handle master_password mode - check for existing or create new
           # ====================================================================
           master_password = nil
+          validation_test = nil
           if encryption_mode == :enhanced
-            master_password = ensure_master_password_exists
+            # First check if master password already exists in keychain
+            result = get_existing_master_password_for_migration
 
-            if master_password.nil?
-              Lich.log "error: Master password creation failed or cancelled"
+            # If no existing password, prompt user to create one
+            if result.nil?
+              result = ensure_master_password_exists
+            end
+
+            if result.nil?
+              Lich.log "error: Master password not available for migration"
               return false
+            end
+
+            # Handle both new (Hash) and existing (String) password returns
+            if result.is_a?(Hash)
+              master_password = result[:password]
+              validation_test = result[:validation_test]
+            else
+              master_password = result
             end
           end
 
           # Load legacy data
           legacy_entries = State.load_saved_entries(data_dir, false)
+          Lich.log "info: Migrating #{legacy_entries.length} entry/entries from legacy format"
 
           # Add encryption_mode to entries
           legacy_entries.each do |entry|
@@ -143,6 +172,32 @@ module Lich
 
           # Use save_entries to maintain test compatibility
           save_entries(data_dir, legacy_entries)
+
+          # Collect unique accounts for summary log
+          accounts = legacy_entries.map { |entry| entry[:user_id] }.uniq
+          Lich.log "info: Migrated accounts: #{accounts.join(', ')}"
+
+          # Save validation test to YAML if it was created
+          if validation_test && encryption_mode == :enhanced
+            yaml_file = yaml_file_path(data_dir)
+
+            if File.exist?(yaml_file)
+              begin
+                yaml_data = YAML.load_file(yaml_file)
+                yaml_data['master_password_validation_test'] = validation_test
+                File.open(yaml_file, 'w', 0600) do |file|
+                  file.puts "# Lich 5 Login Entries - YAML Format"
+                  file.puts "# Generated: #{Time.now}"
+                  file.write(YAML.dump(yaml_data))
+                end
+                Lich.log "info: Master password validation test saved to YAML"
+              rescue StandardError => e
+                Lich.log "error: Failed to save validation test: #{e.message}"
+              end
+            end
+          end
+
+          true
         end
 
         # Encrypts a password based on the current encryption mode
@@ -153,7 +208,6 @@ module Lich
         # @param master_password [String, nil] Master password for :enhanced mode
         # @return [String] Encrypted password or plaintext if mode is :plaintext
         def self.encrypt_password(password, mode:, account_name: nil, master_password: nil)
-          Lich.log "debug: encrypt_password called - mode: #{mode}, account_name: #{account_name}, has_master_pw: #{!master_password.nil?}"
           return password if mode == :plaintext || mode.to_sym == :plaintext
 
           PasswordCipher.encrypt(password, mode: mode.to_sym, account_name: account_name, master_password: master_password)
@@ -170,7 +224,6 @@ module Lich
         # @param master_password [String, nil] Master password for :enhanced mode
         # @return [String] Decrypted plaintext password
         def self.decrypt_password(encrypted_password, mode:, account_name: nil, master_password: nil)
-          Lich.log "debug: decrypt_password called - mode: #{mode}, account_name: #{account_name}, has_master_pw: #{!master_password.nil?}"
           return encrypted_password if mode == :plaintext || mode.to_sym == :plaintext
 
           # For master_password mode: auto-retrieve from Keychain if not provided
@@ -717,13 +770,15 @@ module Lich
         # Shows UI prompt to user if not found in Keychain
         # Creates validation test and stores in Keychain
         #
-        # @return [String, nil] Master password if created/found, nil if user cancelled
+        # @return [Hash, String, nil] Hash with {password, validation_test} if new, password string if existing, nil if cancelled
         def self.ensure_master_password_exists
           # Check if master password already in Keychain
           existing = MasterPasswordManager.retrieve_master_password
+          Lich.log "debug: [ensure_master_password_exists] existing in keychain: #{existing.nil? ? 'nil' : '[present]'}"
           return existing if !existing.nil? && !existing.empty?
 
           # Show UI prompt to CREATE master password
+          Lich.log "debug: [ensure_master_password_exists] prompting user to create master password"
           master_password = MasterPasswordPrompt.show_create_master_password_dialog
 
           if master_password.nil?
@@ -731,15 +786,20 @@ module Lich
             return nil
           end
 
+          Lich.log "debug: [ensure_master_password_exists] master_password received from prompt"
+
           # Create validation test (expensive 100k iterations, one-time)
+          Lich.log "debug: [ensure_master_password_exists] creating validation test..."
           validation_test = MasterPasswordManager.create_validation_test(master_password)
 
+          Lich.log "debug: [ensure_master_password_exists] validation_test created: #{validation_test.nil? ? 'nil' : '[present]'}"
           if validation_test.nil?
             Lich.log "error: Failed to create validation test"
             return nil
           end
 
           # Store in Keychain
+          Lich.log "debug: [ensure_master_password_exists] storing in keychain..."
           stored = MasterPasswordManager.store_master_password(master_password)
 
           unless stored
@@ -748,7 +808,39 @@ module Lich
           end
 
           Lich.log "info: Master password created and stored in Keychain"
-          master_password
+          result = { password: master_password, validation_test: validation_test }
+          Lich.log "debug: [ensure_master_password_exists] returning: #{result.class} with keys: #{result.keys}"
+          # Return both password and validation test for YAML storage
+          result
+        end
+
+        # Gets existing master password and creates validation test for migration scenarios
+        # Used when converting DAT to YAML and a master password already exists in keychain
+        # This handles the case: no YAML, DAT exists, master password in keychain
+        #
+        # @return [Hash, nil] Hash with {password, validation_test} or nil if error
+        def self.get_existing_master_password_for_migration
+          # Retrieve existing master password from keychain
+          existing_password = MasterPasswordManager.retrieve_master_password
+
+          if existing_password.nil? || existing_password.empty?
+            Lich.log "info: No existing master password found in keychain - user should create one"
+            return nil
+          end
+
+          Lich.log "info: Found existing master password in keychain - creating validation test for migration"
+
+          # Create a NEW validation test with the existing password
+          # This is needed because we don't have the old validation test in YAML yet
+          validation_test = MasterPasswordManager.create_validation_test(existing_password)
+
+          if validation_test.nil?
+            Lich.log "error: Failed to create validation test for existing master password"
+            return nil
+          end
+
+          Lich.log "info: Validation test created for existing master password"
+          { password: existing_password, validation_test: validation_test }
         end
       end
     end
