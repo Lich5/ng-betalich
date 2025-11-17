@@ -55,11 +55,18 @@ parse_and_resolve_conflicts() {
       # Add ours lines
       for ours_line in "${ours_lines[@]}"; do
         echo "$ours_line" >> "$temp_resolved"
+        # Skip array bookkeeping for empty lines to avoid "bad array subscript"
+        [[ -z "$ours_line" ]] && continue
         seen["$ours_line"]=1
       done
 
       # Add theirs lines (skip if duplicate)
       for theirs_line in "${theirs_lines[@]}"; do
+        #Preserve empty lines without touching the associative array
+        if [[ -z "$theirs_line" ]]; then
+          echo "$theirs_line" >> "$temp_resolved"
+          continue
+        fi
         if [[ -z "${seen[$theirs_line]:-}" ]]; then
           echo "$theirs_line" >> "$temp_resolved"
         fi
