@@ -1,11 +1,13 @@
 # frozen_string_literal: true
 
+require_relative 'master_password_manager'
+
 module Lich
   module Common
     module GUI
       # Provides UI for handling entry.dat to entry.yaml conversion
       # This module detects when entry.yaml is missing but entry.dat exists
-      # and provides a simple UI for conversion
+      # and provides a UI for conversion with encryption mode selection
       module ConversionUI
         # Checks if conversion is needed
         # Determines if the legacy data format needs to be converted to the new YAML format
@@ -20,8 +22,9 @@ module Lich
           File.exist?(dat_file) && !File.exist?(yml_file)
         end
 
-        # Creates a conversion dialog
+        # Creates a conversion dialog with encryption mode selection
         # Displays a UI for converting legacy data format to the new YAML format
+        # with radio buttons for selecting encryption mode
         #
         # @param parent [Gtk::Window] Parent window
         # @param data_dir [String] Directory containing entry data
@@ -38,14 +41,14 @@ module Lich
             ]
           )
 
-          dialog.set_default_size(410, -1)
+          dialog.set_default_size(500, -1)
           dialog.border_width = 10
 
           # Set accessible properties for screen readers
           Accessibility.make_window_accessible(
             dialog,
             "Data Conversion Dialog",
-            "Dialog for converting entry.dat to entry.yaml format"
+            "Dialog for converting entry.dat to entry.yaml format with encryption mode selection"
           )
 
           # Create content area
@@ -80,6 +83,64 @@ module Lich
           content_area.add(header_label)
           content_area.add(info_label)
 
+          # Add encryption mode selection
+          mode_frame = Gtk::Frame.new("Select Password Security Mode")
+          mode_frame.border_width = 10
+          mode_box = Gtk::Box.new(:vertical, 5)
+          mode_box.border_width = 10
+          mode_frame.add(mode_box)
+
+          # Radio buttons for mode selection
+          plaintext_radio = Gtk::RadioButton.new(label: "Plaintext (no encryption - least secure)")
+          standard_radio = Gtk::RadioButton.new(member: plaintext_radio, label: "Standard Encryption (basic encryption)")
+          master_radio = Gtk::RadioButton.new(member: plaintext_radio, label: "Master Password Encryption (recommended)")
+          enhanced_radio = Gtk::RadioButton.new(member: plaintext_radio, label: "Enhanced Encryption (future - not yet available)")
+
+          # Set standard encryption as default
+          standard_radio.active = true
+
+          # Disable master password mode if keychain not available
+          unless MasterPasswordManager.keychain_available?
+            master_radio.sensitive = false
+            Lich.log "info: Master password mode disabled - Keychain tools not available on this system"
+          end
+
+          # Disable enhanced mode (future feature)
+          enhanced_radio.sensitive = false
+
+          # Set accessible properties
+          Accessibility.make_accessible(
+            plaintext_radio,
+            "Plaintext Mode",
+            "Store passwords without encryption - not recommended",
+            :radio_button
+          )
+          Accessibility.make_accessible(
+            standard_radio,
+            "Standard Encryption Mode",
+            "Encrypt passwords using account name as encryption key",
+            :radio_button
+          )
+          Accessibility.make_accessible(
+            master_radio,
+            "Master Password Mode",
+            "Encrypt passwords using a master password - most secure option currently available",
+            :radio_button
+          )
+          Accessibility.make_accessible(
+            enhanced_radio,
+            "Enhanced Mode",
+            "Future encryption mode - not yet implemented",
+            :radio_button
+          )
+
+          mode_box.add(plaintext_radio)
+          mode_box.add(standard_radio)
+          mode_box.add(master_radio)
+          mode_box.add(enhanced_radio)
+
+          content_area.add(mode_frame)
+
           # Add progress bar (initially hidden)
           progress_bar = Gtk::ProgressBar.new
           progress_bar.visible = false
@@ -113,6 +174,45 @@ module Lich
           # Set up response handler
           dialog.signal_connect('response') do |dlg, response|
             if response == Gtk::ResponseType::APPLY
+              # Determine selected mode
+              selected_mode = if plaintext_radio.active?
+                                :plaintext
+                              elsif standard_radio.active?
+                                :standard
+                              elsif master_radio.active?
+                                :master_password
+                              else
+                                :enhanced # Should not reach here since it's disabled
+                              end
+
+              # Show warning for plaintext mode
+              if selected_mode == :plaintext
+                warning = Gtk::MessageDialog.new(
+                  parent: dialog,
+                  flags: :modal,
+                  type: :warning,
+                  buttons: :ok_cancel,
+                  message: "Encryption Warning"
+                )
+                warning.secondary_text = "You have selected plaintext mode. Your passwords will be stored WITHOUT encryption.\n\n" +
+                                         "This is NOT recommended for password protection.\n\n" +
+                                         "Are you sure you want to continue?"
+
+                Accessibility.make_window_accessible(
+                  warning,
+                  "Plaintext Warning",
+                  "Warning dialog about encryption risks of plaintext password storage"
+                )
+
+                warning_response = warning.run
+                warning.destroy
+
+                # If user cancels, skip to next iteration
+                if warning_response != Gtk::ResponseType::OK
+                  next
+                end
+              end
+
               # Disable buttons during conversion
               dialog.set_response_sensitive(Gtk::ResponseType::CANCEL, false)
               dialog.set_response_sensitive(Gtk::ResponseType::APPLY, false)
@@ -137,8 +237,8 @@ module Lich
                   end
                   sleep(0.5)
 
-                  # Perform the actual conversion using existing method
-                  success = YamlState.migrate_from_legacy(data_dir)
+                  # Perform the actual conversion using existing method with selected mode
+                  success = YamlState.migrate_from_legacy(data_dir, encryption_mode: selected_mode)
 
                   Gtk.queue do
                     progress_bar.fraction = 0.8
@@ -183,10 +283,10 @@ module Lich
               # user opted not to use new YAML / account management
               # too harsh?
               dlg.destroy
-              Gtk.queue {
+              Gtk.queue do
                 @done = true
                 Gtk.main_quit
-              }
+              end
             end
           end
         end
