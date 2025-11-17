@@ -1,10 +1,15 @@
 # frozen_string_literal: true
 
+require_relative 'password_cipher'
+require_relative 'master_password_manager'
+require_relative 'master_password_prompt'
+
 module Lich
   module Common
     module GUI
       # Handles YAML-based state management for the Lich GUI login system
       # Provides a more maintainable alternative to the Marshal-based state system
+      # Enhanced with password encryption support
       module YamlState
         # Generates the full path to the entry.yaml file.
         #
@@ -16,7 +21,7 @@ module Lich
 
         # Loads saved entry data from YAML file
         # Reads and deserializes entry data from the entry.yaml file, with fallback to entry.dat
-        # Enhanced to support favorites functionality with backward compatibility
+        # Enhanced to support favorites functionality and encryption with backward compatibility
         #
         # @param data_dir [String] Directory containing entry data
         # @param autosort_state [Boolean] Whether to use auto-sorting
@@ -33,8 +38,9 @@ module Lich
             begin
               yaml_data = YAML.load_file(yaml_file)
 
-              # Migrate data structure if needed to support favorites
+              # Migrate data structure if needed to support favorites and encryption
               yaml_data = migrate_to_favorites_format(yaml_data)
+              yaml_data = migrate_to_encryption_format(yaml_data)
 
               entries = convert_yaml_to_legacy_format(yaml_data)
 
@@ -55,7 +61,7 @@ module Lich
         end
 
         # Saves entry data to YAML file
-        # Converts and serializes entry data to the entry.yaml file
+        # Converts and serializes entry data to the entry.yaml file with encryption support
         #
         # @param data_dir [String] Directory to save entry data
         # @param entry_data [Array] Array of entry data in legacy format
@@ -72,12 +78,12 @@ module Lich
             FileUtils.cp(yaml_file, backup_file)
           end
 
-          # Write YAML data to file
+          # Write YAML data to file with secure permissions
           begin
-            File.open(yaml_file, 'w') do |file|
+            File.open(yaml_file, 'w', 0600) do |file|
               file.puts "# Lich 5 Login Entries - YAML Format"
               file.puts "# Generated: #{Time.now}"
-              file.puts "# WARNING: Passwords are stored in plain text"
+
               file.write(YAML.dump(yaml_data))
             end
 
@@ -88,12 +94,13 @@ module Lich
           end
         end
 
-        # Migrates from legacy Marshal format to YAML format
+        # Migrates from legacy Marshal format to YAML format with encryption support
         # Converts entry.dat to entry.yaml format for improved maintainability
         #
         # @param data_dir [String] Directory containing entry data
+        # @param encryption_mode [Symbol] Encryption mode (:plaintext, :account_name, :master_password)
         # @return [Boolean] True if migration was successful
-        def self.migrate_from_legacy(data_dir)
+        def self.migrate_from_legacy(data_dir, encryption_mode: :plaintext)
           dat_file = File.join(data_dir, "entry.dat")
           yaml_file = Lich::Common::GUI::YamlState.yaml_file_path(data_dir)
 
@@ -101,11 +108,121 @@ module Lich
           return false unless File.exist?(dat_file)
           return false if File.exist?(yaml_file)
 
+          # ====================================================================
+          # NEW: Handle master_password mode - prompt user to create password
+          # ====================================================================
+          master_password = nil
+          if encryption_mode == :master_password
+            master_password = ensure_master_password_exists
+
+            if master_password.nil?
+              Lich.log "error: Master password creation failed or cancelled"
+              return false
+            end
+          end
+
           # Load legacy data
           legacy_entries = State.load_saved_entries(data_dir, false)
 
-          # Save as YAML
+          # Add encryption_mode to entries
+          legacy_entries.each do |entry|
+            entry[:encryption_mode] = encryption_mode
+          end
+
+          # Encrypt passwords if not plaintext mode
+          if encryption_mode != :plaintext
+            legacy_entries.each do |entry|
+              entry[:password] = encrypt_password(
+                entry[:password],
+                mode: encryption_mode,
+                account_name: entry[:user_id],
+                master_password: master_password # NEW: Pass master password
+              )
+            end
+          end
+
+          # Use save_entries to maintain test compatibility
           save_entries(data_dir, legacy_entries)
+        end
+
+        # Encrypts a password based on the current encryption mode
+        #
+        # @param password [String] Plaintext password
+        # @param mode [Symbol] Encryption mode (:plaintext, :account_name, :master_password)
+        # @param account_name [String, nil] Account name for :account_name mode
+        # @param master_password [String, nil] Master password for :master_password mode
+        # @return [String] Encrypted password or plaintext if mode is :plaintext
+        def self.encrypt_password(password, mode:, account_name: nil, master_password: nil)
+          Lich.log "debug: encrypt_password called - mode: #{mode}, account_name: #{account_name}, has_master_pw: #{!master_password.nil?}"
+          return password if mode == :plaintext || mode.to_sym == :plaintext
+
+          PasswordCipher.encrypt(password, mode: mode.to_sym, account_name: account_name, master_password: master_password)
+        rescue StandardError => e
+          Lich.log "error: encrypt_password failed - #{e.class}: #{e.message}"
+          raise
+        end
+
+        # Decrypts a password based on the current encryption mode
+        #
+        # @param encrypted_password [String] Encrypted password
+        # @param mode [Symbol] Encryption mode (:plaintext, :account_name, :master_password)
+        # @param account_name [String, nil] Account name for :account_name mode
+        # @param master_password [String, nil] Master password for :master_password mode
+        # @return [String] Decrypted plaintext password
+        def self.decrypt_password(encrypted_password, mode:, account_name: nil, master_password: nil)
+          Lich.log "debug: decrypt_password called - mode: #{mode}, account_name: #{account_name}, has_master_pw: #{!master_password.nil?}"
+          return encrypted_password if mode == :plaintext || mode.to_sym == :plaintext
+
+          # For master_password mode: auto-retrieve from Keychain if not provided
+          if mode.to_sym == :master_password && master_password.nil?
+            master_password = MasterPasswordManager.retrieve_master_password
+            raise StandardError, "Master password not found in Keychain - cannot decrypt" if master_password.nil?
+          end
+
+          PasswordCipher.decrypt(encrypted_password, mode: mode.to_sym, account_name: account_name, master_password: master_password)
+        rescue StandardError => e
+          Lich.log "error: decrypt_password failed - #{e.class}: #{e.message}"
+          raise
+        end
+
+        # Encrypts all passwords in yaml_data structure
+        #
+        # @param yaml_data [Hash] YAML data structure
+        # @param mode [Symbol] Encryption mode
+        # @param master_password [String, nil] Master password if using :master_password mode
+        # @return [Hash] YAML data with encrypted passwords
+        def self.encrypt_all_passwords(yaml_data, mode, master_password: nil)
+          return yaml_data if mode == :plaintext
+
+          yaml_data['accounts'].each do |account_name, account_data|
+            next unless account_data['password']
+
+            # Encrypt password based on mode
+            account_data['password'] = encrypt_password(
+              account_data['password'],
+              mode: mode,
+              account_name: account_name,
+              master_password: master_password
+            )
+          end
+
+          yaml_data
+        end
+
+        # Migrates YAML data to support encryption format
+        # Adds encryption_mode field if not present
+        #
+        # @param yaml_data [Hash] YAML data structure
+        # @return [Hash] YAML data structure with encryption support
+        def self.migrate_to_encryption_format(yaml_data)
+          return yaml_data unless yaml_data.is_a?(Hash)
+
+          # Add encryption_mode if not present (defaults to plaintext for backward compatibility)
+          yaml_data['encryption_mode'] ||= 'plaintext'
+          # Add validation test field if master_password mode (for Phase 2)
+          yaml_data['master_password_validation_test'] ||= nil
+
+          yaml_data
         end
 
         # Adds a character to the favorites list
@@ -140,9 +257,10 @@ module Lich
 
             # Save updated data directly without conversion round-trip
             # This preserves the original YAML structure and account ordering
-            Utilities.safe_file_operation(yaml_file, :write, YAML.dump(yaml_data))
+            content = generate_yaml_content(yaml_data)
+            result = Utilities.safe_file_operation(yaml_file, :write, content)
 
-            true
+            result ? true : false
           rescue StandardError => e
             Lich.log "error: Error adding favorite: #{e.message}"
             false
@@ -182,7 +300,10 @@ module Lich
             reorder_all_favorites(yaml_data)
 
             # Save updated data
-            Utilities.safe_file_operation(yaml_file, :write, YAML.dump(yaml_data))
+            content = generate_yaml_content(yaml_data)
+            result = Utilities.safe_file_operation(yaml_file, :write, content)
+
+            result ? true : false
           rescue StandardError => e
             Lich.log "error: Error removing favorite: #{e.message}"
             false
@@ -285,7 +406,10 @@ module Lich
             end
 
             # Save updated data
-            Utilities.safe_file_operation(yaml_file, :write, YAML.dump(yaml_data))
+            content = generate_yaml_content(yaml_data)
+            result = Utilities.safe_file_operation(yaml_file, :write, content)
+
+            result ? true : false
           rescue StandardError => e
             Lich.log "error: Error reordering favorites: #{e.message}"
             false
@@ -295,21 +419,35 @@ module Lich
         # Converts YAML data structure to legacy format
         # Transforms the YAML structure into the format expected by existing code
         # Maintains normalized case formatting from YAML storage
+        # Handles encrypted passwords transparently
         #
         # @param yaml_data [Hash] YAML data structure
-        # @return [Array] Array of entry data in legacy format
+        # @return [Array] Array of entry data in legacy format with decrypted passwords
         def self.convert_yaml_to_legacy_format(yaml_data)
           entries = []
 
           return entries unless yaml_data['accounts']
 
+          encryption_mode = (yaml_data['encryption_mode'] || 'plaintext').to_sym
+
           yaml_data['accounts'].each do |username, account_data|
             next unless account_data['characters']
+
+            # Decrypt password if needed
+            password = if encryption_mode == :plaintext
+                         account_data['password']
+                       else
+                         decrypt_password(
+                           account_data['password'],
+                           mode: encryption_mode,
+                           account_name: username
+                         )
+                       end
 
             account_data['characters'].each do |character|
               entry = {
                 user_id: username, # Already normalized to UPCASE in YAML
-                password: account_data['password'], # Password is at account level
+                password: password, # Decrypted password
                 char_name: character['char_name'], # Already normalized to Title case in YAML
                 game_code: character['game_code'],
                 game_name: character['game_name'],
@@ -317,7 +455,8 @@ module Lich
                 custom_launch: character['custom_launch'],
                 custom_launch_dir: character['custom_launch_dir'],
                 is_favorite: character['is_favorite'] || false,
-                favorite_order: character['favorite_order']
+                favorite_order: character['favorite_order'],
+                encryption_mode: encryption_mode
               }
 
               entries << entry
@@ -330,11 +469,16 @@ module Lich
         # Converts legacy format to YAML data structure
         # Transforms legacy entry data into the YAML structure for storage
         # Enhanced with case normalization to prevent duplicate accounts and ensure consistent formatting
+        # Preserves encryption_mode from entries
         #
         # @param entry_data [Array] Array of entry data in legacy format
         # @return [Hash] YAML data structure
         def self.convert_legacy_to_yaml_format(entry_data)
           yaml_data = { 'accounts' => {} }
+
+          # Preserve encryption_mode if present in entries
+          encryption_mode = entry_data.first&.[](:encryption_mode) || :plaintext
+          yaml_data['encryption_mode'] = encryption_mode.to_s
 
           entry_data.each do |entry|
             # Normalize account name to UPCASE for consistent storage
@@ -555,6 +699,56 @@ module Lich
         def self.normalize_character_name(name)
           return '' if name.nil?
           name.to_s.strip.capitalize
+        end
+
+        # Generates YAML file content with standard header and dumped data
+        # Reduces code duplication by providing a common method for formatting YAML output
+        #
+        # @param yaml_data [Hash] YAML data structure to dump
+        # @return [String] Complete YAML file content with header
+        def self.generate_yaml_content(yaml_data)
+          content = "# Lich 5 Login Entries - YAML Format\n" \
+                  + "# Generated: #{Time.now}\n" \
+                  + YAML.dump(yaml_data)
+          return content
+        end
+
+        # Ensures master password exists for master_password mode conversions
+        # Shows UI prompt to user if not found in Keychain
+        # Creates validation test and stores in Keychain
+        #
+        # @return [String, nil] Master password if created/found, nil if user cancelled
+        def self.ensure_master_password_exists
+          # Check if master password already in Keychain
+          existing = MasterPasswordManager.retrieve_master_password
+          return existing if !existing.nil? && !existing.empty?
+
+          # Show UI prompt to CREATE master password
+          master_password = MasterPasswordPrompt.show_create_master_password_dialog
+
+          if master_password.nil?
+            Lich.log "info: User declined to create master password"
+            return nil
+          end
+
+          # Create validation test (expensive 100k iterations, one-time)
+          validation_test = MasterPasswordManager.create_validation_test(master_password)
+
+          if validation_test.nil?
+            Lich.log "error: Failed to create validation test"
+            return nil
+          end
+
+          # Store in Keychain
+          stored = MasterPasswordManager.store_master_password(master_password)
+
+          unless stored
+            Lich.log "error: Failed to store master password in Keychain"
+            return nil
+          end
+
+          Lich.log "info: Master password created and stored in Keychain"
+          master_password
         end
       end
     end
