@@ -148,8 +148,33 @@ module Lich
           content_box.pack_start(confirm_entry, expand: false)
 
           # ====================================================================
-          # Real-time strength updates
+          # SECTION 6: Password Match Status
           # ====================================================================
+          match_status = Gtk::Label.new("")
+          match_status.justify = :left
+          content_box.pack_start(match_status, expand: false)
+
+          # ====================================================================
+          # SECTION 7: Show Password Checkbox
+          # ====================================================================
+          show_password_check = Gtk::CheckButton.new("Show password")
+          show_password_check.active = false
+          content_box.pack_start(show_password_check, expand: false)
+
+          # ====================================================================
+          # Real-time strength updates and password matching
+          # ====================================================================
+          # Helper to update password match status
+          update_match_status = lambda do
+            if password_entry.text.empty? && confirm_entry.text.empty?
+              match_status.markup = ""
+            elsif password_entry.text == confirm_entry.text && !password_entry.text.empty?
+              match_status.markup = "<span foreground='#44ff44'>✓ Passwords match</span>"
+            else
+              match_status.markup = "<span foreground='#ff4444'>✗ Passwords do not match</span>"
+            end
+          end
+
           password_entry.signal_connect('changed') do
             password = password_entry.text
             strength = calculate_password_strength(password)
@@ -163,6 +188,20 @@ module Lich
             update_category_icon(special_icon, password.match?(/[!@#$%^&*\-_=+\[\]{};:'\",.<>?\/\\|`~]/), '#44ff44')
             update_category_icon(length_icon, password.length >= 12, '#44ff44')
             length_label.text = "Length: #{password.length} / 12"
+
+            # Update password match status
+            update_match_status.call
+          end
+
+          confirm_entry.signal_connect('changed') do
+            # Update password match status
+            update_match_status.call
+          end
+
+          show_password_check.signal_connect('toggled') do |_widget|
+            # Toggle visibility for both password entries
+            password_entry.visibility = show_password_check.active?
+            confirm_entry.visibility = show_password_check.active?
           end
 
           # Set content area
