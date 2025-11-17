@@ -292,7 +292,7 @@ module Lich
               yaml_data['master_password_validation_test'] = new_validation
 
               # Save YAML with password preservation
-              content = YamlState.send(:generate_yaml_content, yaml_data)
+              content = YamlState.generate_yaml_content(yaml_data)
               File.open(yaml_file, 'w', 0600) do |file|
                 file.write(content)
               end

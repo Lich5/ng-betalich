@@ -433,26 +433,13 @@ module Lich
         # @param yaml_data [Hash] YAML data structure
         # @return [Boolean] True if write succeeded
         def self.write_yaml_with_headers(yaml_file, yaml_data)
-          # Ensure top-level fields are explicitly present (defensive programming)
-          # This prevents accidental loss of these critical fields during serialization
-          yaml_data['encryption_mode'] ||= 'plaintext'
-          yaml_data['master_password_validation_test'] ||= nil
-
-          # Preserve encrypted passwords by explicitly tagging them as strings
-          # This prevents YAML from using multiline formatting (|, >) which breaks Base64 decoding
-          if yaml_data['accounts']
-            yaml_data['accounts'].each do |_username, account_data|
-              if account_data.is_a?(Hash) && account_data['password']
-                # Force password to be treated as a plain scalar string
-                account_data['password'] = account_data['password'].to_s
-              end
-            end
-          end
+          # Prepare YAML with password preservation (clones to avoid mutation)
+          prepared_yaml = Lich::Common::GUI::YamlState.prepare_yaml_for_serialization(yaml_data)
 
           content = "# Lich 5 Login Entries - YAML Format\n"
           content += "# Generated: #{Time.now}\n"
           # Use YAML dump with options to prevent multiline formatting of long strings
-          content += YAML.dump(yaml_data, permitted_classes: [Symbol])
+          content += YAML.dump(prepared_yaml, permitted_classes: [Symbol])
 
           Utilities.verified_file_operation(yaml_file, :write, content)
         end

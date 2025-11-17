@@ -94,23 +94,15 @@ module Lich
 
           # Write YAML data to file with secure permissions
           begin
-            # Preserve encrypted passwords by ensuring they are serialized as quoted strings
-            # This prevents YAML from using multiline formatting (|, >) which breaks Base64 decoding
-            if yaml_data['accounts']
-              yaml_data['accounts'].each do |_username, account_data|
-                if account_data.is_a?(Hash) && account_data['password']
-                  # Force password to be treated as a plain scalar string
-                  account_data['password'] = account_data['password'].to_s
-                end
-              end
-            end
+            # Prepare YAML with password preservation (clones to avoid mutation)
+            prepared_yaml = prepare_yaml_for_serialization(yaml_data)
 
             File.open(yaml_file, 'w', 0600) do |file|
               file.puts "# Lich 5 Login Entries - YAML Format"
               file.puts "# Generated: #{Time.now}"
 
               # Use YAML dump with options to prevent multiline formatting of long strings
-              file.write(YAML.dump(yaml_data, permitted_classes: [Symbol]))
+              file.write(YAML.dump(prepared_yaml, permitted_classes: [Symbol]))
             end
 
             true
@@ -192,21 +184,14 @@ module Lich
               yaml_data = YAML.load_file(yaml_file)
               yaml_data['master_password_validation_test'] = validation_test
 
-              # Preserve encrypted passwords by ensuring they are serialized as quoted strings
-              if yaml_data['accounts']
-                yaml_data['accounts'].each do |_username, account_data|
-                  if account_data.is_a?(Hash) && account_data['password']
-                    # Force password to be treated as a plain scalar string
-                    account_data['password'] = account_data['password'].to_s
-                  end
-                end
-              end
+              # Prepare YAML with password preservation (clones to avoid mutation)
+              prepared_yaml = prepare_yaml_for_serialization(yaml_data)
 
               File.open(yaml_file, 'w', 0600) do |file|
                 file.puts "# Lich 5 Login Entries - YAML Format"
                 file.puts "# Generated: #{Time.now}"
                 # Use YAML dump with options to prevent multiline formatting of long strings
-                file.write(YAML.dump(yaml_data, permitted_classes: [Symbol]))
+                file.write(YAML.dump(prepared_yaml, permitted_classes: [Symbol]))
               end
             end
           end
@@ -756,6 +741,35 @@ module Lich
           end
         end
 
+        # Prepares YAML data for serialization with password preservation
+        # Ensures encrypted passwords are serialized as quoted strings to prevent YAML multiline formatting
+        # Clones the data to avoid mutating the caller's object
+        # Ensures required top-level fields exist (encryption_mode, master_password_validation_test)
+        #
+        # @param yaml_data [Hash] YAML data structure to prepare for serialization
+        # @return [Hash] Cloned yaml_data with passwords forced to plain strings and required fields set
+        def self.prepare_yaml_for_serialization(yaml_data)
+          # Clone to avoid mutating caller's object
+          prepared_data = Marshal.load(Marshal.dump(yaml_data))
+
+          # Ensure top-level fields are explicitly present (defensive programming)
+          prepared_data['encryption_mode'] ||= 'plaintext'
+          prepared_data['master_password_validation_test'] ||= nil
+
+          # Preserve encrypted passwords by ensuring they are serialized as quoted strings
+          # This prevents YAML from using multiline formatting (|, >) which breaks Base64 decoding
+          if prepared_data['accounts']
+            prepared_data['accounts'].each do |_username, account_data|
+              if account_data.is_a?(Hash) && account_data['password']
+                # Force password to be treated as a plain scalar string
+                account_data['password'] = account_data['password'].to_s
+              end
+            end
+          end
+
+          prepared_data
+        end
+
         # Normalizes account names to UPCASE for consistent storage and comparison
         # Prevents duplicate accounts due to case variations
         #
@@ -782,24 +796,12 @@ module Lich
         # @param yaml_data [Hash] YAML data structure to dump
         # @return [String] Complete YAML file content with header
         def self.generate_yaml_content(yaml_data)
-          # Ensure top-level fields are explicitly present (defensive programming)
-          yaml_data['encryption_mode'] ||= 'plaintext'
-          yaml_data['master_password_validation_test'] ||= nil
-
-          # Preserve encrypted passwords by ensuring they are serialized as quoted strings
-          # This prevents YAML from using multiline formatting (|, >) which breaks Base64 decoding
-          if yaml_data['accounts']
-            yaml_data['accounts'].each do |_username, account_data|
-              if account_data.is_a?(Hash) && account_data['password']
-                # Force password to be treated as a plain scalar string
-                account_data['password'] = account_data['password'].to_s
-              end
-            end
-          end
+          # Prepare YAML with password preservation (clones to avoid mutation)
+          prepared_yaml = prepare_yaml_for_serialization(yaml_data)
 
           content = "# Lich 5 Login Entries - YAML Format\n" \
                   + "# Generated: #{Time.now}\n" \
-                  + YAML.dump(yaml_data, permitted_classes: [Symbol])
+                  + YAML.dump(prepared_yaml, permitted_classes: [Symbol])
           return content
         end
 

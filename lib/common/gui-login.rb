@@ -296,12 +296,18 @@ module Lich
             login_info[:frontend]
           )
             # Reload entry_data from updated YAML to stay in sync
-            @entry_data = GUI::YamlState.load_saved_entries(DATA_DIR, @autosort_state)
+            begin
+              new_entry_data = GUI::YamlState.load_saved_entries(DATA_DIR, @autosort_state)
+              @entry_data = new_entry_data
 
-            # Create sanitized entry for notification (without password)
-            sanitized_entry = login_info.dup
-            sanitized_entry.delete(:password)
-            @tab_communicator.notify_data_changed(:character_removed, { entry: sanitized_entry })
+              # Create sanitized entry for notification (without password)
+              sanitized_entry = login_info.dup
+              sanitized_entry.delete(:password)
+              @tab_communicator.notify_data_changed(:character_removed, { entry: sanitized_entry })
+            rescue StandardError => e
+              Lich.log "error: Failed to reload entries after character removal: #{e.message}"
+              # Notification not sent - UI may show stale data, user must refresh manually
+            end
           else
             Lich.log "warning: Could not remove character: #{login_info}"
           end
