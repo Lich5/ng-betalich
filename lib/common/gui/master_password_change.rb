@@ -225,7 +225,7 @@ module Lich
           def validate_current_password(current_password, yaml_file)
             begin
               yaml_data = YAML.load_file(yaml_file)
-              validation_test = yaml_data['master_password_validation']
+              validation_test = yaml_data['master_password_validation_test']
 
               return false if validation_test.nil?
 
@@ -258,11 +258,9 @@ module Lich
             Lich.log "info: Starting master password change, backup created at #{backup_file}"
 
             begin
-              # Get all Enhanced mode accounts
-              enhanced_accounts = if yaml_data['accounts']
-                                    yaml_data['accounts'].values.select do |account|
-                                      account['encryption_mode'] == 'enhanced'
-                                    end
+              # Get all accounts if encryption mode is Enhanced (mode is global, not per-account)
+              enhanced_accounts = if yaml_data['encryption_mode'] == 'enhanced' && yaml_data['accounts']
+                                    yaml_data['accounts'].values
                                   else
                                     []
                                   end
@@ -292,7 +290,7 @@ module Lich
 
               # Create new validation test
               new_validation = MasterPasswordManager.create_validation_test(new_password)
-              yaml_data['master_password_validation'] = new_validation
+              yaml_data['master_password_validation_test'] = new_validation
 
               # Save YAML
               File.open(yaml_file, 'w', 0600) do |file|
