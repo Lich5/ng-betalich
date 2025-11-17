@@ -74,6 +74,13 @@ module Lich
           end
 
           exit Lich::Util::CLI::PasswordManager.change_master_password(old_password)
+          new_password = ARGV[idx + 2]
+
+            $stdout.puts 'Usage: ruby lich.rbw --change-master-password OLDPASSWORD [NEWPASSWORD]'
+            $stdout.puts '   or: ruby lich.rbw -cmp OLDPASSWORD [NEWPASSWORD]'
+            $stdout.puts 'Note: If NEWPASSWORD is not provided, you will be prompted for confirmation'
+
+          exit Lich::Util::CLI::PasswordManager.change_master_password(old_password, new_password)
         end
       end
 

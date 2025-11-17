@@ -440,6 +440,33 @@ RSpec.describe Lich::Util::CLI::PasswordManager do
       exit_code = Lich::Util::CLI::PasswordManager.change_master_password('oldpass')
       expect(exit_code).to eq(0)
     end
+
+    it 'accepts new password as argument and does not prompt' do
+      allow(Lich::Common::GUI::MasterPasswordManager).to receive(:validate_master_password)
+        .and_return(true)
+      allow(Lich::Common::GUI::MasterPasswordManager).to receive(:create_validation_test)
+        .and_return({ 'validation_salt' => 'new_salt', 'validation_hash' => 'new_hash' })
+      allow(Lich::Common::GUI::MasterPasswordManager).to receive(:store_master_password)
+        .and_return(true)
+      allow(Lich::Common::GUI::PasswordCipher).to receive(:decrypt)
+        .and_return('plaintext_pass')
+      allow(Lich::Common::GUI::PasswordCipher).to receive(:encrypt)
+        .and_return('encrypted_new')
+
+      # Should NOT call $stdin.gets when new_password is provided
+      expect($stdin).not_to receive(:gets)
+
+      exit_code = Lich::Util::CLI::PasswordManager.change_master_password('oldpass', 'newpassword')
+      expect(exit_code).to eq(0)
+    end
+
+    it 'returns 1 when new password is too short (from argument)' do
+      allow(Lich::Common::GUI::MasterPasswordManager).to receive(:validate_master_password)
+        .and_return(true)
+
+      exit_code = Lich::Util::CLI::PasswordManager.change_master_password('oldpass', 'short')
+      expect(exit_code).to eq(1)
+    end
   end
 
   describe 'security concerns' do

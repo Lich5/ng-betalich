@@ -46,6 +46,8 @@ module Lich
 
               # Apply sorting with favorites priority if enabled
               sort_entries_with_favorites(entries, autosort_state)
+
+              entries
             rescue StandardError => e
               Lich.log "error: Error loading YAML entry file: #{e.message}"
               []
@@ -173,6 +175,10 @@ module Lich
             end
           end
 
+          # Log conversion summary
+          account_names = legacy_entries.map { |entry| entry[:user_id] }.uniq.sort.join(', ')
+          Lich.log "info: Migration complete - Encryption mode: #{encryption_mode.upcase}, Converted accounts: #{account_names}"
+
           true
         end
 
@@ -200,7 +206,6 @@ module Lich
         # @param master_password [String, nil] Master password for :enhanced mode
         # @return [String] Decrypted plaintext password
         def self.decrypt_password(encrypted_password, mode:, account_name: nil, master_password: nil)
-          Lich.log "debug: decrypt_password called - mode: #{mode}, account_name: #{account_name}, has_master_pw: #{!master_password.nil?}"
           return encrypted_password if mode == :plaintext || mode.to_sym == :plaintext
 
           # For master_password mode: auto-retrieve from Keychain if not provided
