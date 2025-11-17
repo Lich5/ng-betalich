@@ -3,6 +3,7 @@
 require_relative 'account_manager'
 require_relative 'favorites_manager'
 require_relative 'theme_utils'
+require_relative 'master_password_change'
 
 module Lich
   module Common
@@ -185,6 +186,19 @@ module Lich
 
           button_box.pack_start(change_password_button, expand: false, fill: false, padding: 0)
 
+          # Create change encryption password button
+          change_encryption_password_button = Gtk::Button.new(label: "Change Encryption Password")
+          change_encryption_password_button.sensitive = false
+
+          # Set accessible properties for screen readers
+          Accessibility.make_button_accessible(
+            change_encryption_password_button,
+            "Change Encryption Password Button",
+            "Change the encryption password for Enhanced encryption mode"
+          )
+
+          button_box.pack_start(change_encryption_password_button, expand: false, fill: false, padding: 0)
+
           accounts_box.pack_start(button_box, expand: false, fill: false, padding: 0)
 
           # Add tab to notebook
@@ -314,8 +328,17 @@ module Lich
               PasswordChange.show_password_change_dialog(@window, @data_dir, account)
             end
           end
+
+          # Set up change encryption password button handler
+          change_encryption_password_button.signal_connect('clicked') do
+            success = MasterPasswordChange.show_change_master_password_dialog(@window, @data_dir)
+            populate_accounts_view(accounts_store) if success
+            update_encryption_password_button_state(change_encryption_password_button)
+          end
+
           # Populate accounts view
           populate_accounts_view(accounts_store)
+          update_encryption_password_button_state(change_encryption_password_button)
         end
 
         # Creates the add character tab
@@ -1101,6 +1124,35 @@ module Lich
 
           # Select first account if available
           combo.active = 0 if accounts_data.any?
+        end
+
+        # Updates the state of the change encryption password button
+        # Button is hidden if keychain not available, disabled if no Enhanced accounts
+        # or no master password in keychain
+        #
+        # @param button [Gtk::Button] The change encryption password button
+        # @return [void]
+        def update_encryption_password_button_state(button)
+          # Hide button if OS keychain not available (feature unavailable)
+          has_keychain = MasterPasswordManager.keychain_available?
+          button.visible = has_keychain
+
+          # Disable button if keychain available but encryption mode is not Enhanced or no master password
+          if has_keychain
+            yaml_file = YamlState.yaml_file_path(@data_dir)
+            if File.exist?(yaml_file)
+              yaml_data = YAML.load_file(yaml_file)
+              has_enhanced = yaml_data['encryption_mode'] == 'enhanced'
+              has_password = MasterPasswordManager.retrieve_master_password
+
+              button.sensitive = has_enhanced && has_password
+            else
+              button.sensitive = false
+            end
+          end
+        rescue StandardError => e
+          Lich.log "error: Error updating encryption password button state: #{e.message}"
+          button.sensitive = false
         end
 
         # Shows a message dialog

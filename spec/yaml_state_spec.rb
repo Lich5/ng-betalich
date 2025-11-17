@@ -266,7 +266,7 @@ RSpec.describe Lich::Common::GUI::YamlState do
         described_class.send(:ensure_master_password_exists)
       end
 
-      it 'returns password on success' do
+      it 'returns password and validation test on success' do
         password = 'NewPassword123'
 
         allow(Lich::Common::GUI::MasterPasswordPrompt).to receive(:show_create_master_password_dialog)
@@ -274,7 +274,9 @@ RSpec.describe Lich::Common::GUI::YamlState do
 
         result = described_class.send(:ensure_master_password_exists)
 
-        expect(result).to eq(password)
+        expect(result).to be_a(Hash)
+        expect(result[:password]).to eq(password)
+        expect(result[:validation_test]).to eq('validation_test')
       end
     end
   end
