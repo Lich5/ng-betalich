@@ -257,7 +257,7 @@ module Lich
           return decrypt_password(encrypted_password, mode: mode, account_name: account_name, master_password: master_password)
         rescue StandardError => e
           # Only attempt recovery for enhanced mode with missing master password
-          if mode.to_sym == :enhanced && e.message.include?("Master password not found") && validation_test.present?
+          if mode.to_sym == :enhanced && e.message.include?("Master password not found") && validation_test && !validation_test.empty?
             Lich.log "info: Master password missing from Keychain, attempting recovery via user prompt"
 
             # Prompt user to enter master password
