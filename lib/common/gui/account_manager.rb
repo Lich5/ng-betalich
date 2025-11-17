@@ -46,6 +46,25 @@ module Lich
           # Initialize accounts hash if not present
           yaml_data['accounts'] ||= {}
 
+          # Determine encryption mode and get master password if needed
+          encryption_mode = yaml_data['encryption_mode'] || 'plaintext'
+          master_password = nil
+          if encryption_mode.to_sym == :enhanced
+            master_password = Lich::Common::GUI::MasterPasswordManager.retrieve_master_password
+            if master_password.nil?
+              Lich.log "error: Enhanced mode enabled but master password not found in Keychain"
+              raise StandardError, "Master password required for enhanced mode encryption"
+            end
+          end
+
+          # Encrypt the password based on encryption mode
+          encrypted_password = Lich::Common::GUI::YamlState.encrypt_password(
+            password,
+            mode: encryption_mode,
+            account_name: normalized_username,
+            master_password: master_password
+          )
+
           # Normalize character data if provided
           normalized_characters = characters.map do |char|
             {
@@ -60,8 +79,8 @@ module Lich
 
           # Add or update account using normalized username
           if yaml_data['accounts'][normalized_username]
-            # Update existing account password
-            yaml_data['accounts'][normalized_username]['password'] = password
+            # Update existing account password with encrypted value
+            yaml_data['accounts'][normalized_username]['password'] = encrypted_password
 
             # Merge characters: preserve existing characters and their metadata (like favorites)
             # while adding any new characters from the provided list
@@ -95,9 +114,9 @@ module Lich
               yaml_data['accounts'][normalized_username]['characters'] = existing_characters
             end
           else
-            # Create new account with normalized data
+            # Create new account with normalized data and encrypted password
             yaml_data['accounts'][normalized_username] = {
-              'password'   => password,
+              'password'   => encrypted_password,
               'characters' => normalized_characters
             }
           end
@@ -426,14 +445,20 @@ module Lich
 
         # Writes YAML data with proper headers
         # Private helper method to maintain consistent file format
+        # Ensures top-level fields (encryption_mode, master_password_validation_test) are preserved
+        # Preserves encrypted passwords by ensuring they are serialized as quoted strings
         #
         # @param yaml_file [String] Path to YAML file
         # @param yaml_data [Hash] YAML data structure
         # @return [Boolean] True if write succeeded
         def self.write_yaml_with_headers(yaml_file, yaml_data)
+          # Prepare YAML with password preservation (clones to avoid mutation)
+          prepared_yaml = Lich::Common::GUI::YamlState.prepare_yaml_for_serialization(yaml_data)
+
           content = "# Lich 5 Login Entries - YAML Format\n"
           content += "# Generated: #{Time.now}\n"
-          content += YAML.dump(yaml_data)
+          # Use YAML dump with options to prevent multiline formatting of long strings
+          content += YAML.dump(prepared_yaml, permitted_classes: [Symbol])
 
           Utilities.verified_file_operation(yaml_file, :write, content)
         end

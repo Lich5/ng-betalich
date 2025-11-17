@@ -291,11 +291,10 @@ module Lich
               new_validation = MasterPasswordManager.create_validation_test(new_password)
               yaml_data['master_password_validation_test'] = new_validation
 
-              # Save YAML
+              # Save YAML with password preservation
+              content = YamlState.generate_yaml_content(yaml_data)
               File.open(yaml_file, 'w', 0600) do |file|
-                file.puts "# Lich 5 Login Entries - YAML Format"
-                file.puts "# Generated: #{Time.now}"
-                file.write(YAML.dump(yaml_data))
+                file.write(content)
               end
 
               # Update keychain

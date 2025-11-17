@@ -286,27 +286,30 @@ module Lich
           }
         },
         on_remove: ->(login_info) {
-          # Find entry by key identifying fields instead of exact hash equality
-          entry_to_remove = GUI::YamlState.find_entry_in_legacy_format(
-            @entry_data,
+          # Use AccountManager to remove character directly from YAML to preserve encryption
+          # This ensures encrypted passwords are not overwritten with plaintext
+          if GUI::AccountManager.remove_character(
+            DATA_DIR,
             login_info[:user_id],
             login_info[:char_name],
             login_info[:game_code],
             login_info[:frontend]
           )
+            # Reload entry_data from updated YAML to stay in sync
+            begin
+              new_entry_data = GUI::YamlState.load_saved_entries(DATA_DIR, @autosort_state)
+              @entry_data = new_entry_data
 
-          if entry_to_remove
-            @entry_data.delete(entry_to_remove)
-
-            # IMMEDIATELY save to YAML before notifying to ensure refresh_data sees updated file
-            Lich::Common::GUI::YamlState.save_entries(DATA_DIR, @entry_data)
-
-            # Create sanitized entry for notification (without password)
-            sanitized_entry = login_info.dup
-            sanitized_entry.delete(:password)
-            @tab_communicator.notify_data_changed(:character_removed, { entry: sanitized_entry })
+              # Create sanitized entry for notification (without password)
+              sanitized_entry = login_info.dup
+              sanitized_entry.delete(:password)
+              @tab_communicator.notify_data_changed(:character_removed, { entry: sanitized_entry })
+            rescue StandardError => e
+              Lich.log "error: Failed to reload entries after character removal: #{e.message}"
+              # Notification not sent - UI may show stale data, user must refresh manually
+            end
           else
-            Lich.log "warning: Could not find entry to remove: #{login_info}"
+            Lich.log "warning: Could not remove character: #{login_info}"
           end
         },
         on_add_character: ->(character:, instance:, frontend:) {
