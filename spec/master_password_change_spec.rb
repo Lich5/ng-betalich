@@ -43,8 +43,8 @@ RSpec.describe Lich::Common::GUI::MasterPasswordChange do
           # Create validation test
           validation = master_password_manager.create_validation_test(test_password)
           yaml_data = {
-            'accounts'                   => {},
-            'master_password_validation' => validation
+            'accounts'                        => {},
+            'master_password_validation_test' => validation
           }
           File.write(yaml_file, YAML.dump(yaml_data))
 
@@ -79,8 +79,8 @@ RSpec.describe Lich::Common::GUI::MasterPasswordChange do
         before do
           validation = master_password_manager.create_validation_test(test_password)
           yaml_data = {
-            'accounts'                   => {},
-            'master_password_validation' => validation
+            'accounts'                        => {},
+            'master_password_validation_test' => validation
           }
           File.write(yaml_file, YAML.dump(yaml_data))
 
@@ -112,17 +112,16 @@ RSpec.describe Lich::Common::GUI::MasterPasswordChange do
         )
 
         @yaml_data = {
-          'accounts'                   => {
+          'encryption_mode'                 => 'enhanced',
+          'accounts'                        => {
             'ACCOUNT1' => {
-              'password_encrypted' => encrypted_pass1,
-              'encryption_mode'    => 'enhanced'
+              'password' => encrypted_pass1
             },
             'ACCOUNT2' => {
-              'password_encrypted' => encrypted_pass2,
-              'encryption_mode'    => 'enhanced'
+              'password' => encrypted_pass2
             }
           },
-          'master_password_validation' => @validation
+          'master_password_validation_test' => @validation
         }
 
         File.write(yaml_file, YAML.dump(@yaml_data))
@@ -172,7 +171,7 @@ RSpec.describe Lich::Common::GUI::MasterPasswordChange do
 
       it 'handles decryption errors gracefully' do
         # Corrupt the encrypted password
-        @yaml_data['accounts']['ACCOUNT1']['password_encrypted'] = 'invalid_encrypted_data'
+        @yaml_data['accounts']['ACCOUNT1']['password'] = 'invalid_encrypted_data'
 
         result = described_class.send(:re_encrypt_all_accounts, @yaml_data, data_dir, test_password, new_password)
         expect(result).to be false
@@ -180,10 +179,10 @@ RSpec.describe Lich::Common::GUI::MasterPasswordChange do
 
       context 'with no Enhanced accounts' do
         before do
+          @yaml_data['encryption_mode'] = 'plaintext'
           @yaml_data['accounts'] = {
             'ACCOUNT1' => {
-              'password'        => 'plaintext_pass',
-              'encryption_mode' => 'plaintext'
+              'password' => 'plaintext_pass'
             }
           }
           File.write(yaml_file, YAML.dump(@yaml_data))
@@ -195,35 +194,45 @@ RSpec.describe Lich::Common::GUI::MasterPasswordChange do
         end
       end
 
-      context 'with mixed encryption modes' do
+      context 'with multiple Enhanced accounts' do
         before do
-          plaintext_data = {
-            'accounts'                   => {
-              'PLAINTEXT_ACCT' => {
-                'password'        => 'plaintext_pass',
-                'encryption_mode' => 'plaintext'
-              },
-              'ENHANCED_ACCT'  => {
-                'password_encrypted' => password_cipher.encrypt(
-                  'encrypted_pass',
+          enhanced_data = {
+            'encryption_mode'                 => 'enhanced',
+            'accounts'                        => {
+              'ACCOUNT1' => {
+                'password' => password_cipher.encrypt(
+                  'pass1',
                   mode: :enhanced,
                   master_password: test_password
-                ),
-                'encryption_mode'    => 'enhanced'
+                )
+              },
+              'ACCOUNT2' => {
+                'password' => password_cipher.encrypt(
+                  'pass2',
+                  mode: :enhanced,
+                  master_password: test_password
+                )
+              },
+              'ACCOUNT3' => {
+                'password' => password_cipher.encrypt(
+                  'pass3',
+                  mode: :enhanced,
+                  master_password: test_password
+                )
               }
             },
-            'master_password_validation' => @validation
+            'master_password_validation_test' => @validation
           }
-          File.write(yaml_file, YAML.dump(plaintext_data))
+          File.write(yaml_file, YAML.dump(enhanced_data))
         end
 
-        it 're-encrypts only Enhanced accounts' do
-          plaintext_data = YAML.load_file(yaml_file)
-          result = described_class.send(:re_encrypt_all_accounts, plaintext_data, data_dir, test_password, new_password)
+        it 're-encrypts all Enhanced accounts' do
+          enhanced_data = YAML.load_file(yaml_file)
+          result = described_class.send(:re_encrypt_all_accounts, enhanced_data, data_dir, test_password, new_password)
 
           expect(result).to be true
-          # Plaintext account should not be modified
-          expect(Lich).to have_received(:log).with(include("Re-encrypting 1 Enhanced"))
+          # All 3 enhanced accounts should be re-encrypted
+          expect(Lich).to have_received(:log).with(include("Re-encrypting 3 Enhanced"))
         end
       end
     end
@@ -296,13 +305,13 @@ RSpec.describe Lich::Common::GUI::MasterPasswordChange do
       )
 
       yaml_data = {
-        'accounts'                   => {
+        'accounts'                        => {
           'ACCOUNT1' => {
             'password_encrypted' => encrypted_pass,
             'encryption_mode'    => 'enhanced'
           }
         },
-        'master_password_validation' => @validation
+        'master_password_validation_test' => @validation
       }
       File.write(yaml_file, YAML.dump(yaml_data))
 
@@ -322,8 +331,8 @@ RSpec.describe Lich::Common::GUI::MasterPasswordChange do
     it 'logs backup creation' do
       @validation = master_password_manager.create_validation_test(test_password)
       yaml_data = {
-        'accounts'                   => {},
-        'master_password_validation' => @validation
+        'accounts'                        => {},
+        'master_password_validation_test' => @validation
       }
       File.write(yaml_file, YAML.dump(yaml_data))
 
@@ -338,8 +347,8 @@ RSpec.describe Lich::Common::GUI::MasterPasswordChange do
     it 'logs successful password change' do
       @validation = master_password_manager.create_validation_test(test_password)
       yaml_data = {
-        'accounts'                   => {},
-        'master_password_validation' => @validation
+        'accounts'                        => {},
+        'master_password_validation_test' => @validation
       }
       File.write(yaml_file, YAML.dump(yaml_data))
 
@@ -361,17 +370,16 @@ RSpec.describe Lich::Common::GUI::MasterPasswordChange do
       )
 
       yaml_data = {
-        'accounts'                   => {
+        'encryption_mode'                 => 'enhanced',
+        'accounts'                        => {
           'ACCOUNT1' => {
-            'password_encrypted' => encrypted_pass,
-            'encryption_mode'    => 'enhanced'
+            'password' => encrypted_pass
           },
           'ACCOUNT2' => {
-            'password_encrypted' => encrypted_pass,
-            'encryption_mode'    => 'enhanced'
+            'password' => encrypted_pass
           }
         },
-        'master_password_validation' => @validation
+        'master_password_validation_test' => @validation
       }
       File.write(yaml_file, YAML.dump(yaml_data))
 
