@@ -307,8 +307,8 @@ RSpec.describe Lich::Common::GUI::MasterPasswordChange do
       yaml_data = {
         'accounts'                        => {
           'ACCOUNT1' => {
-            'password_encrypted' => encrypted_pass,
-            'encryption_mode'    => 'enhanced'
+            'password'        => encrypted_pass,
+            'encryption_mode' => 'enhanced'
           }
         },
         'master_password_validation_test' => @validation

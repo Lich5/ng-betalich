@@ -64,16 +64,17 @@ module Lich
         def self.handle_change_master_password
           idx = ARGV.index { |a| a =~ /^--change-master-password$|^-cmp$/ }
           old_password = ARGV[idx + 1]
+          new_password = ARGV[idx + 2]
 
           if old_password.nil?
             $stdout.puts 'error: Missing required arguments'
-            $stdout.puts 'Usage: ruby lich.rbw --change-master-password OLDPASSWORD'
-            $stdout.puts '   or: ruby lich.rbw -cmp OLDPASSWORD'
-            $stdout.puts 'Note: New password will be prompted for confirmation'
+            $stdout.puts 'Usage: ruby lich.rbw --change-master-password OLDPASSWORD [NEWPASSWORD]'
+            $stdout.puts '   or: ruby lich.rbw -cmp OLDPASSWORD [NEWPASSWORD]'
+            $stdout.puts 'Note: If NEWPASSWORD is not provided, you will be prompted for confirmation'
             exit 1
           end
 
-          exit Lich::Util::CLI::PasswordManager.change_master_password(old_password)
+          exit Lich::Util::CLI::PasswordManager.change_master_password(old_password, new_password)
         end
       end
 
