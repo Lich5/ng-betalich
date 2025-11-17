@@ -395,4 +395,123 @@ RSpec.describe Lich::Common::GUI::AccountManager do
       end
     end
   end
+
+  describe "encryption mode preservation during character removal" do
+    let(:validation_test) do
+      {
+        'validation_salt' => Base64.strict_encode64(SecureRandom.random_bytes(16)),
+        'validation_hash' => Base64.strict_encode64(SecureRandom.random_bytes(32)),
+        'validation_version' => 1
+      }
+    end
+
+    context "when removing character with enhanced encryption" do
+      before do
+        # Setup YAML file with enhanced encryption and validation test
+        # Note: character names are normalized to Title case (only first letter capitalized)
+        yaml_file = Lich::Common::GUI::YamlState.yaml_file_path(data_dir)
+        yaml_data = {
+          'accounts' => {
+            'TESTUSER' => {
+              'password' => 'encrypted_password_data',
+              'characters' => [
+                {
+                  'char_name' => 'Testchar',  # After capitalize: 'TestChar'.capitalize => 'Testchar'
+                  'game_code' => 'GS',
+                  'game_name' => 'GemStone III',
+                  'frontend' => 'stormfront'
+                },
+                {
+                  'char_name' => 'Secondchar',  # After capitalize: 'SecondChar'.capitalize => 'Secondchar'
+                  'game_code' => 'DR',
+                  'game_name' => 'DragonRealms',
+                  'frontend' => 'wizard'
+                }
+              ]
+            }
+          },
+          'encryption_mode' => 'enhanced',
+          'master_password_validation_test' => validation_test
+        }
+        File.write(yaml_file, YAML.dump(yaml_data))
+      end
+
+      it "preserves encryption_mode after removing character" do
+        # Remove a character
+        expect(described_class.remove_character(data_dir, 'TestUser', 'TestChar', 'GS', 'stormfront')).to be true
+
+        # Verify encryption_mode is preserved
+        yaml_file = Lich::Common::GUI::YamlState.yaml_file_path(data_dir)
+        result = YAML.load_file(yaml_file)
+        expect(result['encryption_mode']).to eq('enhanced')
+      end
+
+      it "preserves master_password_validation_test after removing character" do
+        # Remove a character
+        expect(described_class.remove_character(data_dir, 'TestUser', 'TestChar', 'GS', 'stormfront')).to be true
+
+        # Verify validation test is preserved
+        yaml_file = Lich::Common::GUI::YamlState.yaml_file_path(data_dir)
+        result = YAML.load_file(yaml_file)
+        expect(result['master_password_validation_test']).to eq(validation_test)
+      end
+
+      it "preserves encryption_mode after removing account" do
+        # Remove the account
+        expect(described_class.remove_account(data_dir, 'TestUser')).to be true
+
+        # Verify encryption_mode is preserved even with no accounts
+        yaml_file = Lich::Common::GUI::YamlState.yaml_file_path(data_dir)
+        result = YAML.load_file(yaml_file)
+        expect(result['encryption_mode']).to eq('enhanced')
+      end
+
+      it "preserves master_password_validation_test after removing account" do
+        # Remove the account
+        expect(described_class.remove_account(data_dir, 'TestUser')).to be true
+
+        # Verify validation test is preserved even with no accounts
+        yaml_file = Lich::Common::GUI::YamlState.yaml_file_path(data_dir)
+        result = YAML.load_file(yaml_file)
+        expect(result['master_password_validation_test']).to eq(validation_test)
+      end
+    end
+
+    context "when adding character with encryption mode present" do
+      before do
+        # Setup YAML file with encryption mode
+        yaml_file = Lich::Common::GUI::YamlState.yaml_file_path(data_dir)
+        yaml_data = {
+          'accounts' => {
+            'TESTUSER' => {
+              'password' => 'encrypted_password',
+              'characters' => []
+            }
+          },
+          'encryption_mode' => 'enhanced',
+          'master_password_validation_test' => validation_test
+        }
+        File.write(yaml_file, YAML.dump(yaml_data))
+      end
+
+      it "preserves encryption_mode and validation_test after adding character" do
+        # Add a character
+        character_data = {
+          char_name: "NewChar",
+          game_code: "GS",
+          game_name: "GemStone III",
+          frontend: "stormfront",
+          custom_launch: nil,
+          custom_launch_dir: nil
+        }
+        expect(described_class.add_character(data_dir, 'TestUser', character_data)[:success]).to be true
+
+        # Verify fields are preserved
+        yaml_file = Lich::Common::GUI::YamlState.yaml_file_path(data_dir)
+        result = YAML.load_file(yaml_file)
+        expect(result['encryption_mode']).to eq('enhanced')
+        expect(result['master_password_validation_test']).to eq(validation_test)
+      end
+    end
+  end
 end

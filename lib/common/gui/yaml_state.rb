@@ -62,6 +62,7 @@ module Lich
 
         # Saves entry data to YAML file
         # Converts and serializes entry data to the entry.yaml file with encryption support
+        # Preserves master_password_validation_test from existing YAML during round-trip conversion
         #
         # @param data_dir [String] Directory to save entry data
         # @param entry_data [Array] Array of entry data in legacy format
@@ -69,8 +70,19 @@ module Lich
         def self.save_entries(data_dir, entry_data)
           yaml_file = Lich::Common::GUI::YamlState.yaml_file_path(data_dir)
 
-          # Convert legacy format to YAML structure
-          yaml_data = convert_legacy_to_yaml_format(entry_data)
+          # Preserve validation test from existing YAML if it exists
+          original_validation_test = nil
+          if File.exist?(yaml_file)
+            begin
+              original_data = YAML.load_file(yaml_file)
+              original_validation_test = original_data['master_password_validation_test'] if original_data.is_a?(Hash)
+            rescue StandardError => e
+              Lich.log "warning: Could not load existing YAML to preserve validation test: #{e.message}"
+            end
+          end
+
+          # Convert legacy format to YAML structure, passing validation test to preserve it
+          yaml_data = convert_legacy_to_yaml_format(entry_data, original_validation_test)
 
           # Create backup of existing file if it exists
           if File.exist?(yaml_file)
@@ -499,16 +511,20 @@ module Lich
         # Converts legacy format to YAML data structure
         # Transforms legacy entry data into the YAML structure for storage
         # Enhanced with case normalization to prevent duplicate accounts and ensure consistent formatting
-        # Preserves encryption_mode from entries
+        # Preserves encryption_mode from entries and master_password_validation_test if provided
         #
         # @param entry_data [Array] Array of entry data in legacy format
+        # @param validation_test [Hash, nil] Master password validation test to preserve (optional)
         # @return [Hash] YAML data structure
-        def self.convert_legacy_to_yaml_format(entry_data)
+        def self.convert_legacy_to_yaml_format(entry_data, validation_test = nil)
           yaml_data = { 'accounts' => {} }
 
           # Preserve encryption_mode if present in entries
           encryption_mode = entry_data.first&.[](:encryption_mode) || :plaintext
           yaml_data['encryption_mode'] = encryption_mode.to_s
+
+          # Preserve master_password_validation_test if provided
+          yaml_data['master_password_validation_test'] = validation_test
 
           entry_data.each do |entry|
             # Normalize account name to UPCASE for consistent storage

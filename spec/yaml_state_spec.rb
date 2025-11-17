@@ -331,6 +331,164 @@ RSpec.describe Lich::Common::GUI::YamlState do
     end
   end
 
+  describe '.convert_legacy_to_yaml_format' do
+    let(:entry_data) do
+      [
+        {
+          user_id: 'TestUser',
+          password: 'encrypted_password_1',
+          char_name: 'Char1',
+          game_code: 'GS',
+          game_name: 'GemStone III',
+          frontend: 'stormfront',
+          custom_launch: nil,
+          custom_launch_dir: nil,
+          is_favorite: false,
+          encryption_mode: :enhanced
+        },
+        {
+          user_id: 'TestUser',
+          password: 'encrypted_password_1',
+          char_name: 'Char2',
+          game_code: 'DR',
+          game_name: 'DragonRealms',
+          frontend: 'wizard',
+          custom_launch: nil,
+          custom_launch_dir: nil,
+          is_favorite: false,
+          encryption_mode: :enhanced
+        }
+      ]
+    end
+
+    let(:validation_test) do
+      {
+        'validation_salt' => Base64.strict_encode64(SecureRandom.random_bytes(16)),
+        'validation_hash' => Base64.strict_encode64(SecureRandom.random_bytes(32)),
+        'validation_version' => 1
+      }
+    end
+
+    context 'without validation_test parameter' do
+      it 'creates YAML structure with encryption_mode and nil validation_test' do
+        result = described_class.send(:convert_legacy_to_yaml_format, entry_data)
+
+        expect(result['encryption_mode']).to eq('enhanced')
+        expect(result['master_password_validation_test']).to be_nil
+        expect(result['accounts']).to have_key('TESTUSER')
+      end
+    end
+
+    context 'with validation_test parameter' do
+      it 'preserves validation_test in converted YAML structure' do
+        result = described_class.send(:convert_legacy_to_yaml_format, entry_data, validation_test)
+
+        expect(result['encryption_mode']).to eq('enhanced')
+        expect(result['master_password_validation_test']).to eq(validation_test)
+        expect(result['accounts']).to have_key('TESTUSER')
+      end
+
+      it 'maintains account and character data while preserving validation_test' do
+        result = described_class.send(:convert_legacy_to_yaml_format, entry_data, validation_test)
+
+        testuser_data = result['accounts']['TESTUSER']
+        expect(testuser_data['characters'].size).to eq(2)
+        expect(testuser_data['characters'][0]['char_name']).to eq('Char1')
+        expect(testuser_data['characters'][1]['char_name']).to eq('Char2')
+        expect(result['master_password_validation_test']).to eq(validation_test)
+      end
+    end
+
+    context 'with empty entry_data' do
+      it 'still preserves validation_test' do
+        result = described_class.send(:convert_legacy_to_yaml_format, [], validation_test)
+
+        expect(result['accounts']).to eq({})
+        expect(result['master_password_validation_test']).to eq(validation_test)
+        expect(result['encryption_mode']).to eq('plaintext')
+      end
+    end
+  end
+
+  describe '.save_entries with validation_test preservation' do
+    let(:data_dir) { Dir.mktmpdir }
+
+    let(:entry_data) do
+      [
+        {
+          user_id: 'TestUser',
+          password: 'test_password',
+          char_name: 'TestChar',
+          game_code: 'GS',
+          game_name: 'GemStone III',
+          frontend: 'stormfront',
+          custom_launch: nil,
+          custom_launch_dir: nil,
+          is_favorite: false,
+          encryption_mode: :enhanced
+        }
+      ]
+    end
+
+    let(:validation_test) do
+      {
+        'validation_salt' => Base64.strict_encode64(SecureRandom.random_bytes(16)),
+        'validation_hash' => Base64.strict_encode64(SecureRandom.random_bytes(32)),
+        'validation_version' => 1
+      }
+    end
+
+    after do
+      FileUtils.rm_rf(data_dir)
+    end
+
+    context 'when saving entries with existing validation_test' do
+      before do
+        # Setup existing YAML with validation test
+        yaml_file = described_class.yaml_file_path(data_dir)
+        yaml_data = {
+          'accounts' => { 'TESTUSER' => { 'password' => 'old_password', 'characters' => [] } },
+          'encryption_mode' => 'enhanced',
+          'master_password_validation_test' => validation_test
+        }
+        File.write(yaml_file, YAML.dump(yaml_data))
+      end
+
+      it 'preserves validation_test during round-trip conversion' do
+        # Save entries (which will load original YAML, convert to legacy, then back to YAML)
+        described_class.save_entries(data_dir, entry_data)
+
+        # Verify validation test is preserved
+        yaml_file = described_class.yaml_file_path(data_dir)
+        result = YAML.load_file(yaml_file)
+        expect(result['master_password_validation_test']).to eq(validation_test)
+      end
+
+      it 'preserves encryption_mode during round-trip conversion' do
+        # Save entries
+        described_class.save_entries(data_dir, entry_data)
+
+        # Verify encryption mode is preserved
+        yaml_file = described_class.yaml_file_path(data_dir)
+        result = YAML.load_file(yaml_file)
+        expect(result['encryption_mode']).to eq('enhanced')
+      end
+    end
+
+    context 'when saving entries without existing validation_test' do
+      it 'creates YAML with nil validation_test' do
+        # Save entries (no existing YAML)
+        described_class.save_entries(data_dir, entry_data)
+
+        # Verify structure
+        yaml_file = described_class.yaml_file_path(data_dir)
+        result = YAML.load_file(yaml_file)
+        expect(result['master_password_validation_test']).to be_nil
+        expect(result['encryption_mode']).to eq('enhanced')
+      end
+    end
+  end
+
   # Integration tests skipped - require full infrastructure setup
   # describe 'integration: full master_password conversion flow' do
   #   Requires complete infrastructure including actual encryption, Keychain, etc.
