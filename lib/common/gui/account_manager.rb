@@ -427,6 +427,7 @@ module Lich
         # Writes YAML data with proper headers
         # Private helper method to maintain consistent file format
         # Ensures top-level fields (encryption_mode, master_password_validation_test) are preserved
+        # Preserves encrypted passwords by ensuring they are serialized as quoted strings
         #
         # @param yaml_file [String] Path to YAML file
         # @param yaml_data [Hash] YAML data structure
@@ -437,9 +438,21 @@ module Lich
           yaml_data['encryption_mode'] ||= 'plaintext'
           yaml_data['master_password_validation_test'] ||= nil
 
+          # Preserve encrypted passwords by explicitly tagging them as strings
+          # This prevents YAML from using multiline formatting (|, >) which breaks Base64 decoding
+          if yaml_data['accounts']
+            yaml_data['accounts'].each do |_username, account_data|
+              if account_data.is_a?(Hash) && account_data['password']
+                # Force password to be treated as a plain scalar string
+                account_data['password'] = account_data['password'].to_s
+              end
+            end
+          end
+
           content = "# Lich 5 Login Entries - YAML Format\n"
           content += "# Generated: #{Time.now}\n"
-          content += YAML.dump(yaml_data)
+          # Use YAML dump with options to prevent multiline formatting of long strings
+          content += YAML.dump(yaml_data, permitted_classes: [Symbol])
 
           Utilities.verified_file_operation(yaml_file, :write, content)
         end

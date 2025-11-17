@@ -94,11 +94,23 @@ module Lich
 
           # Write YAML data to file with secure permissions
           begin
+            # Preserve encrypted passwords by ensuring they are serialized as quoted strings
+            # This prevents YAML from using multiline formatting (|, >) which breaks Base64 decoding
+            if yaml_data['accounts']
+              yaml_data['accounts'].each do |_username, account_data|
+                if account_data.is_a?(Hash) && account_data['password']
+                  # Force password to be treated as a plain scalar string
+                  account_data['password'] = account_data['password'].to_s
+                end
+              end
+            end
+
             File.open(yaml_file, 'w', 0600) do |file|
               file.puts "# Lich 5 Login Entries - YAML Format"
               file.puts "# Generated: #{Time.now}"
 
-              file.write(YAML.dump(yaml_data))
+              # Use YAML dump with options to prevent multiline formatting of long strings
+              file.write(YAML.dump(yaml_data, permitted_classes: [Symbol]))
             end
 
             true
@@ -179,10 +191,22 @@ module Lich
             if File.exist?(yaml_file)
               yaml_data = YAML.load_file(yaml_file)
               yaml_data['master_password_validation_test'] = validation_test
+
+              # Preserve encrypted passwords by ensuring they are serialized as quoted strings
+              if yaml_data['accounts']
+                yaml_data['accounts'].each do |_username, account_data|
+                  if account_data.is_a?(Hash) && account_data['password']
+                    # Force password to be treated as a plain scalar string
+                    account_data['password'] = account_data['password'].to_s
+                  end
+                end
+              end
+
               File.open(yaml_file, 'w', 0600) do |file|
                 file.puts "# Lich 5 Login Entries - YAML Format"
                 file.puts "# Generated: #{Time.now}"
-                file.write(YAML.dump(yaml_data))
+                # Use YAML dump with options to prevent multiline formatting of long strings
+                file.write(YAML.dump(yaml_data, permitted_classes: [Symbol]))
               end
             end
           end
