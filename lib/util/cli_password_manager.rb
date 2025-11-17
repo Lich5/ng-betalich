@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'yaml'
+require File.join(LIB_DIR, 'common', 'gui', 'yaml_state.rb')
 
 module Lich
   module Util
@@ -47,8 +48,8 @@ module Lich
                         when :standard
                           Lich::Common::GUI::PasswordCipher.encrypt(
                             new_password,
-                            account,
-                            mode: :standard
+                            mode: :standard,
+                            account_name: account
                           )
                         when :enhanced
                           master_password = Lich::Common::GUI::MasterPasswordManager.retrieve_master_password
@@ -59,8 +60,8 @@ module Lich
                           end
                           Lich::Common::GUI::PasswordCipher.encrypt(
                             new_password,
-                            account,
                             mode: :enhanced,
+                            account_name: account,
                             master_password: master_password
                           )
                         else
@@ -70,11 +71,7 @@ module Lich
                         end
 
             # Update account password
-            if encryption_mode == :plaintext
-              yaml_data['accounts'][account]['password'] = encrypted
-            else
-              yaml_data['accounts'][account]['password_encrypted'] = encrypted
-            end
+            yaml_data['accounts'][account]['password'] = encrypted
 
             # Save YAML
             File.open(yaml_file, 'w', 0o600) do |file|
@@ -188,11 +185,12 @@ module Lich
 
         # Changes master password and re-encrypts all accounts
         # Only works in Enhanced encryption mode
-        # Prompts for new password confirmation
+        # Prompts for new password if not provided
         #
         # @param old_password [String] Current master password
+        # @param new_password [String, nil] New master password (optional, will prompt if nil)
         # @return [Integer] Exit code (0=success, 1=error, 3=wrong mode)
-        def self.change_master_password(old_password)
+        def self.change_master_password(old_password, new_password = nil)
           data_dir = Lich.datadir
           yaml_file = Lich::Common::GUI::YamlState.yaml_file_path(data_dir)
 
@@ -215,7 +213,7 @@ module Lich
             Lich.log "info: Starting CLI master password change"
 
             # Validate old password
-            validation_test = yaml_data['master_password_test']
+            validation_test = yaml_data['master_password_validation_test']
             unless Lich::Common::GUI::MasterPasswordManager.validate_master_password(old_password, validation_test)
               puts 'error: Current master password incorrect'
               Lich.log 'error: CLI change master password failed - incorrect current password'
@@ -224,31 +222,33 @@ module Lich
 
             Lich.log "info: Current master password validated successfully"
 
-            # Prompt for new password
-            print "Enter new master password: "
-            input = $stdin.gets
-            if input.nil?
-              puts 'error: Unable to read password from STDIN / terminal'
-              puts 'Please run this command interactively (not in a pipe or automated script without input)'
-              Lich.log 'error: CLI change master password failed - stdin unavailable'
-              return 1
-            end
-            new_password = input.strip
+            # Use provided password or prompt for new password
+            if new_password.nil?
+              print "Enter new master password: "
+              input = $stdin.gets
+              if input.nil?
+                puts 'error: Unable to read password from STDIN / terminal'
+                puts 'Please run this command interactively (not in a pipe or automated script without input)'
+                Lich.log 'error: CLI change master password failed - stdin unavailable'
+                return 1
+              end
+              new_password = input.strip
 
-            print "Confirm new master password: "
-            input = $stdin.gets
-            if input.nil?
-              puts 'error: Unable to read password from STDIN / terminal'
-              puts 'Please run this command interactively (not in a pipe or automated script without input)'
-              Lich.log 'error: CLI change master password failed - stdin unavailable'
-              return 1
-            end
-            confirm_password = input.strip
+              print "Confirm new master password: "
+              input = $stdin.gets
+              if input.nil?
+                puts 'error: Unable to read password from STDIN / terminal'
+                puts 'Please run this command interactively (not in a pipe or automated script without input)'
+                Lich.log 'error: CLI change master password failed - stdin unavailable'
+                return 1
+              end
+              confirm_password = input.strip
 
-            unless new_password == confirm_password
-              puts "error: Passwords do not match"
-              Lich.log "error: CLI change master password failed - password confirmation mismatch"
-              return 1
+              unless new_password == confirm_password
+                puts "error: Passwords do not match"
+                Lich.log "error: CLI change master password failed - password confirmation mismatch"
+                return 1
+              end
             end
 
             if new_password.length < 8
@@ -261,11 +261,10 @@ module Lich
             Lich.log "info: Re-encrypting #{account_count} account(s) with new master password"
 
             # Re-encrypt all accounts
-            yaml_data['accounts'].each do |username, account_data|
+            yaml_data['accounts'].each do |_username, account_data|
               # Decrypt with old password
               plaintext = Lich::Common::GUI::PasswordCipher.decrypt(
-                account_data['password_encrypted'],
-                username,
+                account_data['password'],
                 mode: :enhanced,
                 master_password: old_password
               )
@@ -273,17 +272,16 @@ module Lich
               # Encrypt with new password
               new_encrypted = Lich::Common::GUI::PasswordCipher.encrypt(
                 plaintext,
-                username,
                 mode: :enhanced,
                 master_password: new_password
               )
 
-              account_data['password_encrypted'] = new_encrypted
+              account_data['password'] = new_encrypted
             end
 
             # Update validation test
             new_validation = Lich::Common::GUI::MasterPasswordManager.create_validation_test(new_password)
-            yaml_data['master_password_test'] = new_validation
+            yaml_data['master_password_validation_test'] = new_validation
 
             # Update keychain
             unless Lich::Common::GUI::MasterPasswordManager.store_master_password(new_password)
