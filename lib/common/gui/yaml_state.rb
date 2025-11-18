@@ -282,6 +282,7 @@ module Lich
                     message: "Incorrect Password"
                   )
                   error_dialog.secondary_text = "The password you entered is incorrect. Please try again."
+                  error_dialog.keep_above = true
                   error_dialog.run
                   error_dialog.destroy
                 end
