@@ -284,7 +284,7 @@ module Lich
             if !continue_session
               Lich.log "info: User chose to close application after password recovery"
               # Exit the application gracefully
-              exit(0)
+              Gtk.main_quit
             end
 
             # Retry decryption with recovered password
