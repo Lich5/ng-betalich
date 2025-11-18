@@ -399,11 +399,19 @@ module Lich
                 next
               elsif entered_password != confirm_password
                 show_error_dialog("Passwords do not match")
+                # Clear fields and refocus on first password field
+                password_entry.text = ""
+                confirm_entry.text = ""
+                password_entry.grab_focus
                 next
               elsif validation_test && !validation_test.empty?
                 # Validate password correctness if validation_test provided
                 unless MasterPasswordManager.validate_master_password(entered_password, validation_test)
                   show_error_dialog("Incorrect Password", "The password you entered is incorrect. Please try again.")
+                  # Clear fields and refocus on first password field
+                  password_entry.text = ""
+                  confirm_entry.text = ""
+                  password_entry.grab_focus
                   next
                 end
               end
