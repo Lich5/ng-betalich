@@ -229,7 +229,7 @@ module Lich
         def self.decrypt_password(encrypted_password, mode:, account_name: nil, master_password: nil)
           return encrypted_password if mode == :plaintext || mode.to_sym == :plaintext
 
-          # For master_password mode: auto-retrieve from Keychain if not provided
+          # For enhanced mode: auto-retrieve from Keychain if not provided
           if mode.to_sym == :enhanced && master_password.nil?
             master_password = MasterPasswordManager.retrieve_master_password
             raise StandardError, "Master password not found in Keychain - cannot decrypt" if master_password.nil?
@@ -239,6 +239,61 @@ module Lich
         rescue StandardError => e
           Lich.log "error: decrypt_password failed - #{e.class}: #{e.message}"
           raise
+        end
+
+        # Decrypts password with recovery mechanism for missing master password
+        # If master password is missing from Keychain but validation test exists,
+        # prompts user to re-enter master password, validates it, and saves to Keychain
+        #
+        # @param encrypted_password [String] Encrypted password to decrypt
+        # @param mode [Symbol] Encryption mode (:plaintext, :account_name, :enhanced)
+        # @param account_name [String] Account name for account_name mode
+        # @param master_password [String, nil] Master password if already known
+        # @param validation_test [Hash, nil] Validation test hash from YAML (optional)
+        # @return [String] Decrypted password
+        # @raise [StandardError] If decryption fails and cannot be recovered
+        def self.decrypt_password_with_recovery(encrypted_password, mode:, account_name: nil, master_password: nil, validation_test: nil)
+          # Try normal decryption first
+          return decrypt_password(encrypted_password, mode: mode, account_name: account_name, master_password: master_password)
+        rescue StandardError => e
+          # Only attempt recovery for enhanced mode with missing master password
+          if mode.to_sym == :enhanced && e.message.include?("Master password not found") && validation_test && !validation_test.empty?
+            Lich.log "info: Master password missing from Keychain, attempting recovery via user prompt"
+
+            # Show recovery dialog with full validation and success confirmation
+            recovery_result = MasterPasswordPromptUI.show_recovery_dialog(validation_test)
+
+            if recovery_result.nil? || recovery_result[:password].nil?
+              Lich.log "info: User cancelled master password recovery"
+              Gtk.main_quit
+              return nil
+            end
+
+            recovered_password = recovery_result[:password]
+            continue_session = recovery_result[:continue_session]
+
+            # Password was validated by the UI layer, proceed with recovery
+            Lich.log "info: Master password recovered and validated, storing to Keychain"
+
+            # Save recovered password to Keychain for future use
+            unless MasterPasswordManager.store_master_password(recovered_password)
+              Lich.log "warning: Failed to store recovered master password to Keychain"
+              # Continue anyway - decryption will still work with in-memory password
+            end
+
+            # Handle session continuation decision
+            if !continue_session
+              Lich.log "info: User chose to close application after password recovery"
+              # Exit the application gracefully
+              Gtk.main_quit
+            end
+
+            # Retry decryption with recovered password
+            return decrypt_password(encrypted_password, mode: mode, account_name: account_name, master_password: recovered_password)
+          else
+            # Re-raise if not recoverable
+            raise
+          end
         end
 
         # Encrypts all passwords in yaml_data structure
@@ -489,14 +544,15 @@ module Lich
           yaml_data['accounts'].each do |username, account_data|
             next unless account_data['characters']
 
-            # Decrypt password if needed
+            # Decrypt password if needed (with recovery for missing master password)
             password = if encryption_mode == :plaintext
                          account_data['password']
                        else
-                         decrypt_password(
+                         decrypt_password_with_recovery(
                            account_data['password'],
                            mode: encryption_mode,
-                           account_name: username
+                           account_name: username,
+                           validation_test: yaml_data['master_password_validation_test']
                          )
                        end
 

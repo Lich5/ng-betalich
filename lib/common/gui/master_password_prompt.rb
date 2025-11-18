@@ -44,6 +44,26 @@ module Lich
           master_password
         end
 
+        # Shows dialog to enter existing master password for recovery
+        # Used when master password is missing from Keychain but encryption data exists
+        # User enters password which will be validated against stored validation test
+        #
+        # @param validation_test [Hash, nil] Validation test for password correctness
+        # @return [Hash, nil] Hash with password and continue_session, or nil if cancelled
+        #   { password: String, continue_session: Boolean } if successful
+        #   nil if user cancelled
+        def self.show_enter_master_password_dialog(validation_test = nil)
+          # Show recovery UI dialog to user
+          # Clearly indicates password recovery vs creation
+          result = MasterPasswordPromptUI.show_recovery_dialog(validation_test)
+
+          return nil if result.nil?
+
+          Lich.log "info: Master password entered and validated for recovery"
+
+          result
+        end
+
         # Validates an existing master password against stored validation test
         # Uses the one-time 100k iteration validation test
         #
