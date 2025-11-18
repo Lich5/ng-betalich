@@ -119,8 +119,16 @@ module Lich
         end
 
         # Notify via tab communicator that conversion refresh occurred
+        yaml_file = Lich::Common::GUI::YamlState.yaml_file_path(DATA_DIR)
+        encryption_mode = nil
+        if File.exist?(yaml_file)
+          yaml_data = YAML.load_file(yaml_file)
+          encryption_mode = yaml_data['encryption_mode']
+        end
+
         @tab_communicator.notify_data_changed(:conversion_complete, {
-          entries_count: @entry_data.length
+          entries_count: @entry_data.length,
+          encryption_mode: encryption_mode
         })
 
         Lich.log "info: Window refreshed after conversion with #{@entry_data.length} entries"
@@ -443,6 +451,9 @@ module Lich
       @account_manager_ui.create_accounts_tab(account_notebook)
       @account_manager_ui.create_add_character_tab(account_notebook)
       @account_manager_ui.create_add_account_tab(account_notebook)
+
+      # Register notification callback now that @notebook is set
+      @account_manager_ui.register_notification_callback
 
       # Add the notebook to the box
       @account_mgmt_tab.pack_start(account_notebook, expand: true, fill: true, padding: 0)

@@ -32,6 +32,8 @@ module Lich
           @data_dir = data_dir
           @msgbox = ->(message) { show_message_dialog(message) }
           @data_change_callback = nil
+          @tab_communicator = nil
+          @notifications_registered = false
         end
 
         # Sets the data change callback for cross-tab communication
@@ -43,18 +45,39 @@ module Lich
           @data_change_callback = callback
         end
 
-        # Registers with tab communicator to receive data change notifications
-        # Allows this UI to refresh when other tabs make changes
+        # Stores tab communicator for later registration when tab is selected
+        # Defers callback registration until @notebook exists
         #
         # @param tab_communicator [TabCommunicator] Tab communicator instance
         # @return [void]
         def register_for_notifications(tab_communicator)
           @tab_communicator = tab_communicator
           @accounts_store = nil # Will be set when accounts tab is created
+        end
+
+        # Registers the data change callback with the tab communicator
+        # Called when the accounts tab is selected to ensure @notebook exists
+        #
+        # @return [void]
+        def register_notification_callback
+          return if @notifications_registered || !@tab_communicator
+          return unless @notebook
+
+          @notifications_registered = true
 
           # Register callback to handle incoming notifications
           @tab_communicator.register_data_change_callback(->(change_type, data) {
             case change_type
+            when :conversion_complete
+              # Recreate accounts tab to show/hide button based on encryption mode from conversion
+              if @notebook && data && data[:encryption_mode]
+                @notebook.remove_page(0) # Remove accounts tab (first page)
+                create_accounts_tab(@notebook, data[:encryption_mode], 0) # Insert back at position 0
+                @notebook.show_all
+                # Defer setting current page to let GTK process the reorder first
+                Gtk.queue { @notebook.set_current_page(0) }
+              end
+              Lich.log "info: Account manager tab recreated for conversion completion"
             when :favorite_toggled
               # Refresh accounts view to reflect favorite changes
               refresh_accounts_display if @accounts_store
@@ -88,8 +111,13 @@ module Lich
         # Creates the accounts tab
         #
         # @param notebook [Gtk::Notebook] Notebook to add tab to
+        # @param encryption_mode [String, nil] Optional encryption mode from notification
+        # @param insert_at_position [Integer, nil] Position to insert tab (default: append)
         # @return [void]
-        def create_accounts_tab(notebook)
+        def create_accounts_tab(notebook, encryption_mode = nil, insert_at_position = nil)
+          # Store notebook reference for use in callbacks
+          @notebook = notebook
+
           # Create tab content
           accounts_box = Gtk::Box.new(:vertical, 10)
           accounts_box.border_width = 10
@@ -186,23 +214,42 @@ module Lich
 
           button_box.pack_start(change_password_button, expand: false, fill: false, padding: 0)
 
-          # Create change encryption password button
-          change_encryption_password_button = Gtk::Button.new(label: "Change Encryption Password")
-          change_encryption_password_button.sensitive = false
+          # Create change encryption password button only if Enhanced encryption mode is active
+          has_keychain = MasterPasswordManager.keychain_available?
 
-          # Set accessible properties for screen readers
-          Accessibility.make_button_accessible(
-            change_encryption_password_button,
-            "Change Encryption Password Button",
-            "Change the encryption password for Enhanced encryption mode"
-          )
+          # Use passed encryption_mode from notification if available, otherwise read from YAML
+          mode = encryption_mode
+          unless mode
+            yaml_file = YamlState.yaml_file_path(@data_dir)
+            if File.exist?(yaml_file)
+              yaml_data = YAML.load_file(yaml_file)
+              mode = yaml_data['encryption_mode']
+            end
+          end
 
-          button_box.pack_start(change_encryption_password_button, expand: false, fill: false, padding: 0)
+          if has_keychain && mode == 'enhanced'
+            @change_encryption_password_button = Gtk::Button.new(label: "Change Encryption Password")
+            @change_encryption_password_button.sensitive = false
+
+            # Set accessible properties for screen readers
+            Accessibility.make_button_accessible(
+              @change_encryption_password_button,
+              "Change Encryption Password Button",
+              "Change the encryption password for Enhanced encryption mode"
+            )
+
+            button_box.pack_start(@change_encryption_password_button, expand: false, fill: false, padding: 0)
+          end
 
           accounts_box.pack_start(button_box, expand: false, fill: false, padding: 0)
 
           # Add tab to notebook
           notebook.append_page(accounts_box, Gtk::Label.new("Accounts"))
+
+          # If recreating, move tab back to position 0
+          if !insert_at_position.nil?
+            notebook.reorder_child(accounts_box, insert_at_position)
+          end
 
           # Set up refresh button handler
           refresh_button.signal_connect('clicked') do
@@ -329,16 +376,18 @@ module Lich
             end
           end
 
-          # Set up change encryption password button handler
-          change_encryption_password_button.signal_connect('clicked') do
-            success = MasterPasswordChange.show_change_master_password_dialog(@window, @data_dir)
-            populate_accounts_view(accounts_store) if success
-            update_encryption_password_button_state(change_encryption_password_button)
+          # Set up change encryption password button handler (only if button was created)
+          if @change_encryption_password_button
+            @change_encryption_password_button.signal_connect('clicked') do
+              success = MasterPasswordChange.show_change_master_password_dialog(@window, @data_dir)
+              populate_accounts_view(accounts_store) if success
+              update_encryption_password_button_state(@change_encryption_password_button)
+            end
           end
 
-          # Populate accounts view
+          # Populate accounts view and update button state (only if button exists)
           populate_accounts_view(accounts_store)
-          update_encryption_password_button_state(change_encryption_password_button)
+          update_encryption_password_button_state(@change_encryption_password_button) if @change_encryption_password_button
         end
 
         # Creates the add character tab
@@ -1127,31 +1176,44 @@ module Lich
         end
 
         # Updates the state of the change encryption password button
-        # Button is hidden if keychain not available, disabled if no Enhanced accounts
-        # or no master password in keychain
+        # Button is hidden unless Enhanced encryption mode is active and keychain available
+        # Disabled if Enhanced mode but no master password in keychain
         #
         # @param button [Gtk::Button] The change encryption password button
         # @return [void]
         def update_encryption_password_button_state(button)
           # Hide button if OS keychain not available (feature unavailable)
           has_keychain = MasterPasswordManager.keychain_available?
-          button.visible = has_keychain
+          unless has_keychain
+            button.visible = false
+            button.sensitive = false
+            return
+          end
 
-          # Disable button if keychain available but encryption mode is not Enhanced or no master password
-          if has_keychain
-            yaml_file = YamlState.yaml_file_path(@data_dir)
-            if File.exist?(yaml_file)
-              yaml_data = YAML.load_file(yaml_file)
-              has_enhanced = yaml_data['encryption_mode'] == 'enhanced'
-              has_password = MasterPasswordManager.retrieve_master_password
+          # Check YAML file and encryption mode
+          yaml_file = YamlState.yaml_file_path(@data_dir)
+          unless File.exist?(yaml_file)
+            button.visible = false
+            button.sensitive = false
+            return
+          end
 
-              button.sensitive = has_enhanced && has_password
-            else
-              button.sensitive = false
-            end
+          yaml_data = YAML.load_file(yaml_file)
+          has_enhanced = yaml_data['encryption_mode'] == 'enhanced'
+
+          # Hide button if not Enhanced mode
+          button.visible = has_enhanced
+
+          # Only sensitive if visible AND has master password
+          if has_enhanced
+            has_password = MasterPasswordManager.retrieve_master_password
+            button.sensitive = has_password
+          else
+            button.sensitive = false
           end
         rescue StandardError => e
           Lich.log "error: Error updating encryption password button state: #{e.message}"
+          button.visible = false
           button.sensitive = false
         end
 
@@ -1180,15 +1242,15 @@ module Lich
           @window.set_default_size(800, 600)
           @window.border_width = 10
 
-          # Create notebook for tabs
-          notebook = Gtk::Notebook.new
+          # Create notebook for tabs (store as instance variable for tab recreation)
+          @notebook = Gtk::Notebook.new
 
           # Create tabs
-          create_accounts_tab(notebook)
-          create_add_character_tab(notebook)
-          create_add_account_tab(notebook)
+          create_accounts_tab(@notebook)
+          create_add_character_tab(@notebook)
+          create_add_account_tab(@notebook)
 
-          @window.add(notebook)
+          @window.add(@notebook)
           @window.show_all
 
           # Handle window close
