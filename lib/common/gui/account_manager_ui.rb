@@ -262,10 +262,11 @@ module Lich
           accounts_box.pack_start(button_box, expand: false, fill: false, padding: 0)
 
           # Add tab to notebook
-          if insert_at_position.nil?
-            notebook.append_page(accounts_box, Gtk::Label.new("Accounts"))
-          else
-            notebook.insert_page(insert_at_position, accounts_box, Gtk::Label.new("Accounts"))
+          notebook.append_page(accounts_box, Gtk::Label.new("Accounts"))
+
+          # If recreating, move tab back to position 0
+          if !insert_at_position.nil?
+            notebook.reorder_child(accounts_box, insert_at_position)
           end
 
           # Set up refresh button handler
