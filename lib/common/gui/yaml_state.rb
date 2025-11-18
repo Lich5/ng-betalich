@@ -272,20 +272,18 @@ module Lich
               # Validate the recovered password against validation test
               unless MasterPasswordManager.validate_master_password(recovered_password, validation_test)
                 Lich.log "error: Entered master password failed validation - prompting user to retry"
-                # Show error dialog and retry
-                Gtk.queue do
-                  error_dialog = Gtk::MessageDialog.new(
-                    parent: nil,
-                    flags: :modal,
-                    type: :error,
-                    buttons: :ok,
-                    message: "Incorrect Password"
-                  )
-                  error_dialog.secondary_text = "The password you entered is incorrect. Please try again."
-                  error_dialog.keep_above = true
-                  error_dialog.run
-                  error_dialog.destroy
-                end
+                # Show error dialog synchronously
+                error_dialog = Gtk::MessageDialog.new(
+                  parent: nil,
+                  flags: :modal,
+                  type: :error,
+                  buttons: :ok,
+                  message: "Incorrect Password"
+                )
+                error_dialog.secondary_text = "The password you entered is incorrect. Please try again."
+                error_dialog.show_all
+                error_dialog.run
+                error_dialog.destroy
                 next # Loop back to show recovery dialog again
               end
 
