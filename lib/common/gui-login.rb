@@ -452,17 +452,14 @@ module Lich
       @account_manager_ui.create_add_character_tab(account_notebook)
       @account_manager_ui.create_add_account_tab(account_notebook)
 
+      # Register notification callback now that @notebook is set
+      @account_manager_ui.register_notification_callback
+
       # Add the notebook to the box
       @account_mgmt_tab.pack_start(account_notebook, expand: true, fill: true, padding: 0)
 
       # Add the account management tab to the main notebook
       @notebook.append_page(@account_mgmt_tab, Gtk::Label.new('Account Management'))
-
-      # Register notification callback when account management tab is selected
-      # This defers callback registration until @notebook exists and is fully initialized
-      @notebook.signal_connect('switch-page') do |_notebook, _page, page_num|
-        @account_manager_ui.register_notification_callback if page_num == 2
-      end
 
       # Set tab position
       @notebook.set_tab_pos(:top)

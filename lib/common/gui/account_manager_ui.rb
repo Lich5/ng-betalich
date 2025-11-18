@@ -119,6 +119,10 @@ module Lich
         # @param encryption_mode [String, nil] Optional encryption mode from notification
         # @return [void]
         def create_accounts_tab(notebook, encryption_mode = nil)
+          # Store notebook reference for use in callbacks
+          @notebook = notebook
+          Lich.log "debug: @notebook stored in create_accounts_tab, ready for callback use"
+
           # Create tab content
           accounts_box = Gtk::Box.new(:vertical, 10)
           accounts_box.border_width = 10
