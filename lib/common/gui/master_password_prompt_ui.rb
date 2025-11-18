@@ -52,6 +52,30 @@ module Lich
           result
         end
 
+        # Shows the master password recovery success confirmation dialog
+        # Displays message that password was saved to Keychain and offers Continue/Close options
+        # Called after password validation succeeds
+        #
+        # @return [Hash]
+        #   { password: String, continue_session: Boolean }
+        #     - continue_session: true if user clicked [Continue] to resume session
+        #     - continue_session: false if user clicked [Close] after recovery (exit application)
+        def self.show_recovery_success_dialog
+          # Block until dialog completes, using condition variable for sync
+          result = nil
+          mutex = Mutex.new
+          condition = ConditionVariable.new
+
+          Gtk.queue do
+            result = new.create_recovery_success_dialog
+            mutex.synchronize { condition.signal }
+          end
+
+          # Wait for dialog to complete on main thread
+          mutex.synchronize { condition.wait(mutex) }
+          result
+        end
+
         def create_dialog
           # Create modal dialog for master password creation
           dialog = Gtk::Dialog.new(
@@ -323,13 +347,6 @@ module Lich
           content_box.pack_start(show_password_check, expand: false)
 
           # ====================================================================
-          # SECTION 6: Success Status (initially hidden)
-          # ====================================================================
-          success_status = Gtk::Label.new("")
-          success_status.justify = :left
-          content_box.pack_start(success_status, expand: false)
-
-          # ====================================================================
           # Real-time password matching feedback
           # ====================================================================
           # Helper to update password match status
@@ -365,7 +382,6 @@ module Lich
           # Dialog Response Handling
           # ====================================================================
           password = nil
-          continue_session = false
 
           loop do
             response = dialog.run
@@ -381,38 +397,8 @@ module Lich
                 show_error_dialog("Passwords do not match")
                 next
               else
-                # Passwords match and validated - show success confirmation
+                # Passwords match - return password for validation
                 password = entered_password
-                success_status.markup = "<span foreground='#44ff44'><b>✓ Password saved to Keychain</b></span>"
-
-                # Schedule button replacement after 1 second delay to prevent accidental clicks
-                GLib::Timeout.add(1000) do
-                  # Remove old buttons
-                  dialog.action_area.children.each(&:destroy)
-
-                  # Add new buttons
-                  continue_button = Gtk::Button.new(label: "Continue")
-                  close_button = Gtk::Button.new(label: "Close")
-
-                  dialog.action_area.pack_start(close_button, expand: false, fill: false, padding: 5)
-                  dialog.action_area.pack_start(continue_button, expand: false, fill: false, padding: 5)
-                  dialog.action_area.show_all
-
-                  # Set up button handlers
-                  continue_button.signal_connect('clicked') do
-                    continue_session = true
-                    dialog.destroy
-                  end
-
-                  close_button.signal_connect('clicked') do
-                    continue_session = false
-                    dialog.destroy
-                  end
-
-                  false # Don't repeat the timeout
-                end
-
-                # Break the loop - dialog will be destroyed by button click
                 break
               end
             elsif response == Gtk::ResponseType::CANCEL
@@ -421,8 +407,71 @@ module Lich
             end
           end
 
-          # Return hash with password and session continuation flag
-          { password: password, continue_session: continue_session }
+          dialog.destroy
+          password
+        end
+
+        def create_recovery_success_dialog
+          # Create modal dialog for master password recovery success confirmation
+          dialog = Gtk::Dialog.new(
+            title: "Password Recovered",
+            parent: nil,
+            flags: :modal,
+            buttons: []
+          )
+
+          dialog.set_default_size(400, 250)
+
+          content_box = Gtk::Box.new(:vertical, 12)
+          content_box.border_width = 12
+
+          # ====================================================================
+          # Success Message
+          # ====================================================================
+          success_message = Gtk::Label.new
+          success_message.markup = "<b>✓ Password Successfully Saved</b>\n\n" +
+                                   "Your master password has been restored to your system Keychain.\n" +
+                                   "You can now access your encrypted credentials."
+          success_message.wrap = true
+          success_message.justify = :center
+          content_box.pack_start(success_message, expand: false)
+
+          # Set content area
+          dialog.child.add(content_box)
+          dialog.show_all
+
+          # ====================================================================
+          # Button Setup with 1-second delay to prevent accidental clicks
+          # ====================================================================
+          continue_session = nil
+
+          GLib::Timeout.add(1000) do
+            # Add Continue and Close buttons
+            continue_button = Gtk::Button.new(label: "Continue")
+            close_button = Gtk::Button.new(label: "Close")
+
+            dialog.action_area.pack_start(close_button, expand: false, fill: false, padding: 5)
+            dialog.action_area.pack_start(continue_button, expand: false, fill: false, padding: 5)
+            dialog.action_area.show_all
+
+            # Set up button handlers
+            continue_button.signal_connect('clicked') do
+              continue_session = true
+              dialog.destroy
+            end
+
+            close_button.signal_connect('clicked') do
+              continue_session = false
+              dialog.destroy
+            end
+
+            false # Don't repeat the timeout
+          end
+
+          # Wait for dialog to be destroyed by button click
+          dialog.run
+
+          { continue_session: continue_session }
         end
 
         private

@@ -263,6 +263,42 @@ RSpec.describe Lich::Common::GUI::MasterPasswordPrompt do
     end
   end
 
+  describe '.show_enter_master_password_dialog' do
+    context 'when user enters valid password' do
+      it 'returns the password' do
+        allow(Lich::Common::GUI::MasterPasswordPromptUI).to receive(:show_recovery_dialog)
+          .and_return('RecoveredPassword123')
+
+        result = described_class.show_enter_master_password_dialog
+
+        expect(result).to eq('RecoveredPassword123')
+      end
+    end
+
+    context 'when user cancels dialog' do
+      it 'returns nil' do
+        allow(Lich::Common::GUI::MasterPasswordPromptUI).to receive(:show_recovery_dialog)
+          .and_return(nil)
+
+        result = described_class.show_enter_master_password_dialog
+
+        expect(result).to be_nil
+      end
+    end
+
+    context 'logging' do
+      it 'logs when password is entered for recovery' do
+        allow(Lich::Common::GUI::MasterPasswordPromptUI).to receive(:show_recovery_dialog)
+          .and_return('RecoveredPassword123')
+
+        expect(Lich).to receive(:log)
+          .with(/Master password entered for recovery validation/)
+
+        described_class.show_enter_master_password_dialog
+      end
+    end
+  end
+
   # GTK-dependent tests skipped in CI/CD environments without GTK tools
   # describe '.show_warning_dialog (private)' do
   #   Gtk::MessageDialog tests removed for CI/CD compatibility

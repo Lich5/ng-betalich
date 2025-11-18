@@ -263,19 +263,28 @@ module Lich
             # Loop until password is valid or user cancels
             loop do
               # Prompt user to enter master password
-              recovery_result = MasterPasswordPrompt.show_enter_master_password_dialog
-              if recovery_result.nil?
+              recovered_password = MasterPasswordPromptUI.show_recovery_dialog
+              if recovered_password.nil?
                 Lich.log "info: User cancelled master password recovery prompt"
                 raise StandardError, "Master password recovery cancelled by user"
               end
 
-              recovered_password = recovery_result[:password]
-              continue_session = recovery_result[:continue_session]
-
               # Validate the recovered password against validation test
               unless MasterPasswordManager.validate_master_password(recovered_password, validation_test)
                 Lich.log "error: Entered master password failed validation - prompting user to retry"
-                show_error_dialog("Incorrect Password", "The password you entered is incorrect. Please try again.")
+                # Show error dialog and retry
+                Gtk.queue do
+                  error_dialog = Gtk::MessageDialog.new(
+                    parent: nil,
+                    flags: :modal,
+                    type: :error,
+                    buttons: :ok,
+                    message: "Incorrect Password"
+                  )
+                  error_dialog.secondary_text = "The password you entered is incorrect. Please try again."
+                  error_dialog.run
+                  error_dialog.destroy
+                end
                 next # Loop back to show recovery dialog again
               end
 
@@ -287,6 +296,10 @@ module Lich
                 Lich.log "warning: Failed to store recovered master password to Keychain"
                 # Continue anyway - decryption will still work with in-memory password
               end
+
+              # Show success confirmation dialog with Continue/Close buttons
+              success_result = MasterPasswordPromptUI.show_recovery_success_dialog
+              continue_session = success_result[:continue_session]
 
               # Handle session continuation decision
               if !continue_session
