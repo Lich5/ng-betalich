@@ -266,6 +266,7 @@ module Lich
             if recovery_result.nil? || recovery_result[:password].nil?
               Lich.log "info: User cancelled master password recovery"
               Gtk.main_quit
+              return nil
             end
 
             recovered_password = recovery_result[:password]
