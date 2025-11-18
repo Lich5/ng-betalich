@@ -260,39 +260,44 @@ module Lich
           if mode.to_sym == :enhanced && e.message.include?("Master password not found") && validation_test && !validation_test.empty?
             Lich.log "info: Master password missing from Keychain, attempting recovery via user prompt"
 
-            # Prompt user to enter master password
-            recovery_result = MasterPasswordPrompt.show_enter_master_password_dialog
-            if recovery_result.nil?
-              Lich.log "info: User cancelled master password recovery prompt"
-              raise StandardError, "Master password recovery cancelled by user"
+            # Loop until password is valid or user cancels
+            loop do
+              # Prompt user to enter master password
+              recovery_result = MasterPasswordPrompt.show_enter_master_password_dialog
+              if recovery_result.nil?
+                Lich.log "info: User cancelled master password recovery prompt"
+                raise StandardError, "Master password recovery cancelled by user"
+              end
+
+              recovered_password = recovery_result[:password]
+              continue_session = recovery_result[:continue_session]
+
+              # Validate the recovered password against validation test
+              unless MasterPasswordManager.validate_master_password(recovered_password, validation_test)
+                Lich.log "error: Entered master password failed validation - prompting user to retry"
+                show_error_dialog("Incorrect Password", "The password you entered is incorrect. Please try again.")
+                next # Loop back to show recovery dialog again
+              end
+
+              # Password is valid - proceed with recovery
+              Lich.log "info: Master password recovered and validated, storing to Keychain"
+
+              # Save recovered password to Keychain for future use
+              unless MasterPasswordManager.store_master_password(recovered_password)
+                Lich.log "warning: Failed to store recovered master password to Keychain"
+                # Continue anyway - decryption will still work with in-memory password
+              end
+
+              # Handle session continuation decision
+              if !continue_session
+                Lich.log "info: User chose to close application after password recovery"
+                # Exit the application gracefully
+                exit(0)
+              end
+
+              # Retry decryption with recovered password
+              return decrypt_password(encrypted_password, mode: mode, account_name: account_name, master_password: recovered_password)
             end
-
-            recovered_password = recovery_result[:password]
-            continue_session = recovery_result[:continue_session]
-
-            # Validate the recovered password against validation test
-            unless MasterPasswordManager.validate_master_password(recovered_password, validation_test)
-              Lich.log "error: Entered master password failed validation"
-              raise StandardError, "Master password validation failed - incorrect password entered"
-            end
-
-            Lich.log "info: Master password recovered and validated, storing to Keychain"
-
-            # Save recovered password to Keychain for future use
-            unless MasterPasswordManager.store_master_password(recovered_password)
-              Lich.log "warning: Failed to store recovered master password to Keychain"
-              # Continue anyway - decryption will still work with in-memory password
-            end
-
-            # Handle session continuation decision
-            if !continue_session
-              Lich.log "info: User chose to close application after password recovery"
-              # Exit the application gracefully
-              exit(0)
-            end
-
-            # Retry decryption with recovered password
-            decrypt_password(encrypted_password, mode: mode, account_name: account_name, master_password: recovered_password)
           else
             # Re-raise if not recoverable
             raise
