@@ -77,6 +77,7 @@ module Lich
                 Lich.log "debug: Removing page 0 and recreating accounts tab with encryption_mode: #{data[:encryption_mode]}"
                 @notebook.remove_page(0) # Remove accounts tab (first page)
                 create_accounts_tab(@notebook, data[:encryption_mode], 0) # Insert back at position 0
+                @notebook.set_current_page(0) # Make Accounts tab active
                 @notebook.show_all
                 Lich.log "debug: Tab recreated and shown at position 0"
               else
