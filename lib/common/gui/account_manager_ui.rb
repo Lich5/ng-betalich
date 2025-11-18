@@ -56,9 +56,12 @@ module Lich
           @tab_communicator.register_data_change_callback(->(change_type, data) {
             case change_type
             when :conversion_complete
-              # Update button state and refresh accounts view after conversion
+              # Refresh accounts view and button state after conversion
+              # Note: Button may not exist if converting to Standard/Plaintext from Enhanced
               refresh_accounts_display if @accounts_store
-              update_encryption_password_button_state(@change_encryption_password_button) if @change_encryption_password_button
+              if @change_encryption_password_button
+                update_encryption_password_button_state(@change_encryption_password_button)
+              end
               Lich.log "info: Account manager refreshed for conversion completion"
             when :favorite_toggled
               # Refresh accounts view to reflect favorite changes
@@ -191,18 +194,26 @@ module Lich
 
           button_box.pack_start(change_password_button, expand: false, fill: false, padding: 0)
 
-          # Create change encryption password button
-          @change_encryption_password_button = Gtk::Button.new(label: "Change Encryption Password")
-          @change_encryption_password_button.sensitive = false
+          # Create change encryption password button only if Enhanced encryption mode is active
+          yaml_file = YamlState.yaml_file_path(@data_dir)
+          has_keychain = MasterPasswordManager.keychain_available?
 
-          # Set accessible properties for screen readers
-          Accessibility.make_button_accessible(
-            @change_encryption_password_button,
-            "Change Encryption Password Button",
-            "Change the encryption password for Enhanced encryption mode"
-          )
+          if File.exist?(yaml_file) && has_keychain
+            yaml_data = YAML.load_file(yaml_file)
+            if yaml_data['encryption_mode'] == 'enhanced'
+              @change_encryption_password_button = Gtk::Button.new(label: "Change Encryption Password")
+              @change_encryption_password_button.sensitive = false
 
-          button_box.pack_start(@change_encryption_password_button, expand: false, fill: false, padding: 0)
+              # Set accessible properties for screen readers
+              Accessibility.make_button_accessible(
+                @change_encryption_password_button,
+                "Change Encryption Password Button",
+                "Change the encryption password for Enhanced encryption mode"
+              )
+
+              button_box.pack_start(@change_encryption_password_button, expand: false, fill: false, padding: 0)
+            end
+          end
 
           accounts_box.pack_start(button_box, expand: false, fill: false, padding: 0)
 
@@ -334,16 +345,18 @@ module Lich
             end
           end
 
-          # Set up change encryption password button handler
-          @change_encryption_password_button.signal_connect('clicked') do
-            success = MasterPasswordChange.show_change_master_password_dialog(@window, @data_dir)
-            populate_accounts_view(accounts_store) if success
-            update_encryption_password_button_state(@change_encryption_password_button)
+          # Set up change encryption password button handler (only if button was created)
+          if @change_encryption_password_button
+            @change_encryption_password_button.signal_connect('clicked') do
+              success = MasterPasswordChange.show_change_master_password_dialog(@window, @data_dir)
+              populate_accounts_view(accounts_store) if success
+              update_encryption_password_button_state(@change_encryption_password_button)
+            end
           end
 
-          # Populate accounts view
+          # Populate accounts view and update button state (only if button exists)
           populate_accounts_view(accounts_store)
-          update_encryption_password_button_state(@change_encryption_password_button)
+          update_encryption_password_button_state(@change_encryption_password_button) if @change_encryption_password_button
         end
 
         # Creates the add character tab
