@@ -458,6 +458,12 @@ module Lich
       # Add the account management tab to the main notebook
       @notebook.append_page(@account_mgmt_tab, Gtk::Label.new('Account Management'))
 
+      # Register notification callback when account management tab is selected
+      # This defers callback registration until @notebook exists and is fully initialized
+      @notebook.signal_connect('switch-page') do |_notebook, _page, page_num|
+        @account_manager_ui.register_notification_callback if page_num == 2
+      end
+
       # Set tab position
       @notebook.set_tab_pos(:top)
 

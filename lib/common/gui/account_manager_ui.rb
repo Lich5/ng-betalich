@@ -32,6 +32,8 @@ module Lich
           @data_dir = data_dir
           @msgbox = ->(message) { show_message_dialog(message) }
           @data_change_callback = nil
+          @tab_communicator = nil
+          @notifications_registered = false
         end
 
         # Sets the data change callback for cross-tab communication
@@ -43,14 +45,27 @@ module Lich
           @data_change_callback = callback
         end
 
-        # Registers with tab communicator to receive data change notifications
-        # Allows this UI to refresh when other tabs make changes
+        # Stores tab communicator for later registration when tab is selected
+        # Defers callback registration until @notebook exists
         #
         # @param tab_communicator [TabCommunicator] Tab communicator instance
         # @return [void]
         def register_for_notifications(tab_communicator)
           @tab_communicator = tab_communicator
           @accounts_store = nil # Will be set when accounts tab is created
+          Lich.log "debug: Tab communicator stored, callback registration deferred until tab selection"
+        end
+
+        # Registers the data change callback with the tab communicator
+        # Called when the accounts tab is selected to ensure @notebook exists
+        #
+        # @return [void]
+        def register_notification_callback
+          return if @notifications_registered || !@tab_communicator
+          return unless @notebook
+
+          @notifications_registered = true
+          Lich.log "debug: Registering notification callback now that @notebook exists"
 
           # Register callback to handle incoming notifications
           @tab_communicator.register_data_change_callback(->(change_type, data) {
