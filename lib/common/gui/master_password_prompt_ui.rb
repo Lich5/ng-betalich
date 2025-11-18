@@ -386,7 +386,7 @@ module Lich
                 success_status.markup = "<span foreground='#44ff44'><b>✓ Password saved to Keychain</b></span>"
 
                 # Schedule button replacement after 1 second delay to prevent accidental clicks
-                GLib.timeout_add(1000) do
+                GLib::Timeout.add(1000) do
                   # Remove old buttons
                   dialog.action_area.children.each(&:destroy)
 
