@@ -56,8 +56,8 @@ module Lich
           @tab_communicator.register_data_change_callback(->(change_type, data) {
             case change_type
             when :conversion_complete
-              # Recreate accounts tab to show/hide button based on new encryption mode
-              if @notebook
+              # Recreate accounts tab to show/hide button based on encryption mode from conversion
+              if @notebook && data && data[:encryption_mode]
                 @notebook.remove_page(0) # Remove accounts tab (first page)
                 create_accounts_tab(@notebook)
                 @notebook.show_all
