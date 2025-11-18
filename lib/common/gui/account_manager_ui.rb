@@ -57,10 +57,15 @@ module Lich
             case change_type
             when :conversion_complete
               # Recreate accounts tab to show/hide button based on encryption mode from conversion
+              Lich.log "debug: conversion_complete notification received, data: #{data.inspect}"
               if @notebook && data && data[:encryption_mode]
+                Lich.log "debug: Removing page 0 and recreating accounts tab with encryption_mode: #{data[:encryption_mode]}"
                 @notebook.remove_page(0) # Remove accounts tab (first page)
                 create_accounts_tab(@notebook, data[:encryption_mode])
                 @notebook.show_all
+                Lich.log "debug: Tab recreated and shown"
+              else
+                Lich.log "debug: Skipped tab recreation - @notebook=#{@notebook.inspect}, data=#{data.inspect}"
               end
               Lich.log "info: Account manager tab recreated for conversion completion"
             when :favorite_toggled
@@ -197,6 +202,7 @@ module Lich
 
           # Create change encryption password button only if Enhanced encryption mode is active
           has_keychain = MasterPasswordManager.keychain_available?
+          Lich.log "debug: Button creation check - has_keychain=#{has_keychain}, passed_encryption_mode=#{encryption_mode.inspect}"
 
           # Use passed encryption_mode from notification if available, otherwise read from YAML
           mode = encryption_mode
@@ -205,10 +211,18 @@ module Lich
             if File.exist?(yaml_file)
               yaml_data = YAML.load_file(yaml_file)
               mode = yaml_data['encryption_mode']
+              Lich.log "debug: Read encryption_mode from YAML: #{mode.inspect}"
+            else
+              Lich.log "debug: YAML file not found at #{yaml_file}"
             end
+          else
+            Lich.log "debug: Using passed encryption_mode: #{mode.inspect}"
           end
 
+          Lich.log "debug: Final button creation decision - has_keychain=#{has_keychain}, mode=#{mode.inspect}, will_create=#{has_keychain && mode == 'enhanced'}"
+
           if has_keychain && mode == 'enhanced'
+            Lich.log "debug: Creating Change Encryption Password button"
             @change_encryption_password_button = Gtk::Button.new(label: "Change Encryption Password")
             @change_encryption_password_button.sensitive = false
 
@@ -220,6 +234,9 @@ module Lich
             )
 
             button_box.pack_start(@change_encryption_password_button, expand: false, fill: false, padding: 0)
+            Lich.log "debug: Change Encryption Password button created and packed into button_box"
+          else
+            Lich.log "debug: Skipping button creation - has_keychain=#{has_keychain}, mode=#{mode.inspect}"
           end
 
           accounts_box.pack_start(button_box, expand: false, fill: false, padding: 0)
