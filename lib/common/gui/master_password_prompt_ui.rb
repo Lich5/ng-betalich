@@ -29,9 +29,11 @@ module Lich
 
         # Shows the master password recovery dialog
         # Used when master password is missing from Keychain but encryption data exists
-        # Returns the entered password string, or nil if cancelled
+        # Returns a hash with password and session continuation flag
         #
-        # @return [String, nil] Master password entered by user, or nil if cancelled
+        # @return [Hash, nil] Hash with :password and :continue_session keys, or nil if cancelled
+        #   { password: String, continue_session: Boolean } if successful
+        #   nil if user cancelled
         def self.show_recovery_dialog
           # Block until dialog completes, using condition variable for sync
           result = nil
