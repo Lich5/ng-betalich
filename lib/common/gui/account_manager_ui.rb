@@ -59,7 +59,7 @@ module Lich
               # Recreate accounts tab to show/hide button based on encryption mode from conversion
               if @notebook && data && data[:encryption_mode]
                 @notebook.remove_page(0) # Remove accounts tab (first page)
-                create_accounts_tab(@notebook)
+                create_accounts_tab(@notebook, data[:encryption_mode])
                 @notebook.show_all
               end
               Lich.log "info: Account manager tab recreated for conversion completion"
@@ -96,8 +96,9 @@ module Lich
         # Creates the accounts tab
         #
         # @param notebook [Gtk::Notebook] Notebook to add tab to
+        # @param encryption_mode [String, nil] Optional encryption mode from notification
         # @return [void]
-        def create_accounts_tab(notebook)
+        def create_accounts_tab(notebook, encryption_mode = nil)
           # Create tab content
           accounts_box = Gtk::Box.new(:vertical, 10)
           accounts_box.border_width = 10
@@ -195,24 +196,30 @@ module Lich
           button_box.pack_start(change_password_button, expand: false, fill: false, padding: 0)
 
           # Create change encryption password button only if Enhanced encryption mode is active
-          yaml_file = YamlState.yaml_file_path(@data_dir)
           has_keychain = MasterPasswordManager.keychain_available?
 
-          if File.exist?(yaml_file) && has_keychain
-            yaml_data = YAML.load_file(yaml_file)
-            if yaml_data['encryption_mode'] == 'enhanced'
-              @change_encryption_password_button = Gtk::Button.new(label: "Change Encryption Password")
-              @change_encryption_password_button.sensitive = false
-
-              # Set accessible properties for screen readers
-              Accessibility.make_button_accessible(
-                @change_encryption_password_button,
-                "Change Encryption Password Button",
-                "Change the encryption password for Enhanced encryption mode"
-              )
-
-              button_box.pack_start(@change_encryption_password_button, expand: false, fill: false, padding: 0)
+          # Use passed encryption_mode from notification if available, otherwise read from YAML
+          mode = encryption_mode
+          unless mode
+            yaml_file = YamlState.yaml_file_path(@data_dir)
+            if File.exist?(yaml_file)
+              yaml_data = YAML.load_file(yaml_file)
+              mode = yaml_data['encryption_mode']
             end
+          end
+
+          if has_keychain && mode == 'enhanced'
+            @change_encryption_password_button = Gtk::Button.new(label: "Change Encryption Password")
+            @change_encryption_password_button.sensitive = false
+
+            # Set accessible properties for screen readers
+            Accessibility.make_button_accessible(
+              @change_encryption_password_button,
+              "Change Encryption Password Button",
+              "Change the encryption password for Enhanced encryption mode"
+            )
+
+            button_box.pack_start(@change_encryption_password_button, expand: false, fill: false, padding: 0)
           end
 
           accounts_box.pack_start(button_box, expand: false, fill: false, padding: 0)
