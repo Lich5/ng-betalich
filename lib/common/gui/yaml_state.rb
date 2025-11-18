@@ -264,8 +264,8 @@ module Lich
             recovery_result = MasterPasswordPromptUI.show_recovery_dialog(validation_test)
 
             if recovery_result.nil? || recovery_result[:password].nil?
-              Lich.log "info: User cancelled master password recovery prompt"
-              raise StandardError, "Master password recovery cancelled by user"
+              Lich.log "info: User cancelled master password recovery"
+              Gtk.main_quit
             end
 
             recovered_password = recovery_result[:password]
