@@ -56,13 +56,13 @@ module Lich
           @tab_communicator.register_data_change_callback(->(change_type, data) {
             case change_type
             when :conversion_complete
-              # Refresh accounts view and button state after conversion
-              # Note: Button may not exist if converting to Standard/Plaintext from Enhanced
-              refresh_accounts_display if @accounts_store
-              if @change_encryption_password_button
-                update_encryption_password_button_state(@change_encryption_password_button)
+              # Recreate accounts tab to show/hide button based on new encryption mode
+              if @notebook
+                @notebook.remove_page(0) # Remove accounts tab (first page)
+                create_accounts_tab(@notebook)
+                @notebook.show_all
               end
-              Lich.log "info: Account manager refreshed for conversion completion"
+              Lich.log "info: Account manager tab recreated for conversion completion"
             when :favorite_toggled
               # Refresh accounts view to reflect favorite changes
               refresh_accounts_display if @accounts_store
@@ -1211,15 +1211,15 @@ module Lich
           @window.set_default_size(800, 600)
           @window.border_width = 10
 
-          # Create notebook for tabs
-          notebook = Gtk::Notebook.new
+          # Create notebook for tabs (store as instance variable for tab recreation)
+          @notebook = Gtk::Notebook.new
 
           # Create tabs
-          create_accounts_tab(notebook)
-          create_add_character_tab(notebook)
-          create_add_account_tab(notebook)
+          create_accounts_tab(@notebook)
+          create_add_character_tab(@notebook)
+          create_add_account_tab(@notebook)
 
-          @window.add(notebook)
+          @window.add(@notebook)
           @window.show_all
 
           # Handle window close
