@@ -260,57 +260,35 @@ module Lich
           if mode.to_sym == :enhanced && e.message.include?("Master password not found") && validation_test && !validation_test.empty?
             Lich.log "info: Master password missing from Keychain, attempting recovery via user prompt"
 
-            # Loop until password is valid or user cancels
-            loop do
-              # Prompt user to enter master password
-              recovered_password = MasterPasswordPromptUI.show_recovery_dialog
-              if recovered_password.nil?
-                Lich.log "info: User cancelled master password recovery prompt"
-                raise StandardError, "Master password recovery cancelled by user"
-              end
+            # Show recovery dialog with full validation and success confirmation
+            recovery_result = MasterPasswordPromptUI.show_recovery_dialog(validation_test)
 
-              # Validate the recovered password against validation test
-              unless MasterPasswordManager.validate_master_password(recovered_password, validation_test)
-                Lich.log "error: Entered master password failed validation - prompting user to retry"
-                # Show error dialog in GTK thread with blocking
-                Gtk.queue do
-                  error_dialog = Gtk::MessageDialog.new(
-                    parent: nil,
-                    flags: :modal,
-                    type: :error,
-                    buttons: :ok,
-                    message: "Incorrect Password"
-                  )
-                  error_dialog.secondary_text = "The password you entered is incorrect. Please try again."
-                  error_dialog.run
-                  error_dialog.destroy
-                end
-                next # Loop back to show recovery dialog again
-              end
-
-              # Password is valid - proceed with recovery
-              Lich.log "info: Master password recovered and validated, storing to Keychain"
-
-              # Save recovered password to Keychain for future use
-              unless MasterPasswordManager.store_master_password(recovered_password)
-                Lich.log "warning: Failed to store recovered master password to Keychain"
-                # Continue anyway - decryption will still work with in-memory password
-              end
-
-              # Show success confirmation dialog with Continue/Close buttons
-              success_result = MasterPasswordPromptUI.show_recovery_success_dialog
-              continue_session = success_result[:continue_session]
-
-              # Handle session continuation decision
-              if !continue_session
-                Lich.log "info: User chose to close application after password recovery"
-                # Exit the application gracefully
-                exit(0)
-              end
-
-              # Retry decryption with recovered password
-              return decrypt_password(encrypted_password, mode: mode, account_name: account_name, master_password: recovered_password)
+            if recovery_result.nil?
+              Lich.log "info: User cancelled master password recovery prompt"
+              raise StandardError, "Master password recovery cancelled by user"
             end
+
+            recovered_password = recovery_result[:password]
+            continue_session = recovery_result[:continue_session]
+
+            # Password was validated by the UI layer, proceed with recovery
+            Lich.log "info: Master password recovered and validated, storing to Keychain"
+
+            # Save recovered password to Keychain for future use
+            unless MasterPasswordManager.store_master_password(recovered_password)
+              Lich.log "warning: Failed to store recovered master password to Keychain"
+              # Continue anyway - decryption will still work with in-memory password
+            end
+
+            # Handle session continuation decision
+            if !continue_session
+              Lich.log "info: User chose to close application after password recovery"
+              # Exit the application gracefully
+              exit(0)
+            end
+
+            # Retry decryption with recovered password
+            return decrypt_password(encrypted_password, mode: mode, account_name: account_name, master_password: recovered_password)
           else
             # Re-raise if not recoverable
             raise

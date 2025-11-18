@@ -265,13 +265,13 @@ RSpec.describe Lich::Common::GUI::MasterPasswordPrompt do
 
   describe '.show_enter_master_password_dialog' do
     context 'when user enters valid password' do
-      it 'returns the password' do
+      it 'returns hash with password and continue_session' do
         allow(Lich::Common::GUI::MasterPasswordPromptUI).to receive(:show_recovery_dialog)
-          .and_return('RecoveredPassword123')
+          .and_return({ password: 'RecoveredPassword123', continue_session: true })
 
         result = described_class.show_enter_master_password_dialog
 
-        expect(result).to eq('RecoveredPassword123')
+        expect(result).to eq({ password: 'RecoveredPassword123', continue_session: true })
       end
     end
 
@@ -289,10 +289,10 @@ RSpec.describe Lich::Common::GUI::MasterPasswordPrompt do
     context 'logging' do
       it 'logs when password is entered for recovery' do
         allow(Lich::Common::GUI::MasterPasswordPromptUI).to receive(:show_recovery_dialog)
-          .and_return('RecoveredPassword123')
+          .and_return({ password: 'RecoveredPassword123', continue_session: true })
 
         expect(Lich).to receive(:log)
-          .with(/Master password entered for recovery validation/)
+          .with(/Master password entered and validated for recovery/)
 
         described_class.show_enter_master_password_dialog
       end

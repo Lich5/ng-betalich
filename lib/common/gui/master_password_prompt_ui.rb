@@ -29,21 +29,23 @@ module Lich
 
         # Shows the master password recovery dialog
         # Used when master password is missing from Keychain but encryption data exists
+        # Handles both password matching validation and password correctness validation
         # Returns a hash with password and session continuation flag after successful recovery
         #
+        # @param validation_test [Hash, nil] Validation test hash for password correctness check
         # @return [Hash, nil]
         #   { password: String, continue_session: Boolean } if password successfully recovered
         #     - continue_session: true if user clicked [Continue] to resume session
         #     - continue_session: false if user clicked [Close] after recovery (exit application)
         #   nil only if user cancelled the initial dialog (before password validation)
-        def self.show_recovery_dialog
+        def self.show_recovery_dialog(validation_test = nil)
           # Block until dialog completes, using condition variable for sync
           result = nil
           mutex = Mutex.new
           condition = ConditionVariable.new
 
           Gtk.queue do
-            result = new.create_recovery_dialog
+            result = new.create_recovery_dialog(validation_test)
             mutex.synchronize { condition.signal }
           end
 
@@ -282,8 +284,9 @@ module Lich
           password
         end
 
-        def create_recovery_dialog
+        def create_recovery_dialog(validation_test = nil)
           # Create modal dialog for master password recovery
+          # Validates both password matching and password correctness (if validation_test provided)
           dialog = Gtk::Dialog.new(
             title: "Recover Master Password",
             parent: nil,
@@ -379,9 +382,10 @@ module Lich
           dialog.show_all
 
           # ====================================================================
-          # Dialog Response Handling
+          # Dialog Response Handling with Validation
           # ====================================================================
           password = nil
+          continue_session = false
 
           loop do
             response = dialog.run
@@ -396,11 +400,21 @@ module Lich
               elsif entered_password != confirm_password
                 show_error_dialog("Passwords do not match")
                 next
-              else
-                # Passwords match - return password for validation
-                password = entered_password
-                break
+              elsif validation_test && !validation_test.empty?
+                # Validate password correctness if validation_test provided
+                unless MasterPasswordManager.validate_master_password(entered_password, validation_test)
+                  show_error_dialog("Incorrect Password", "The password you entered is incorrect. Please try again.")
+                  next
+                end
               end
+
+              # All validations passed - password is correct
+              password = entered_password
+
+              # Show success confirmation with Continue/Close buttons
+              success_result = create_recovery_success_dialog
+              continue_session = success_result[:continue_session]
+              break
             elsif response == Gtk::ResponseType::CANCEL
               password = nil
               break
@@ -408,7 +422,7 @@ module Lich
           end
 
           dialog.destroy
-          password
+          { password: password, continue_session: continue_session }
         end
 
         def create_recovery_success_dialog
@@ -528,16 +542,16 @@ module Lich
           end
         end
 
-        def show_error_dialog(message)
+        def show_error_dialog(message, secondary_message = nil)
           Gtk.queue do
             dialog = Gtk::MessageDialog.new(
               parent: nil,
               flags: :modal,
               type: :error,
               buttons: :ok,
-              message: "Error"
+              message: message
             )
-            dialog.secondary_text = message
+            dialog.secondary_text = secondary_message if secondary_message
             dialog.run
             dialog.destroy
           end
