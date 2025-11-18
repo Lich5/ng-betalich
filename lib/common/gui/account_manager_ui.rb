@@ -53,7 +53,6 @@ module Lich
         def register_for_notifications(tab_communicator)
           @tab_communicator = tab_communicator
           @accounts_store = nil # Will be set when accounts tab is created
-          Lich.log "debug: Tab communicator stored, callback registration deferred until tab selection"
         end
 
         # Registers the data change callback with the tab communicator
@@ -65,24 +64,18 @@ module Lich
           return unless @notebook
 
           @notifications_registered = true
-          Lich.log "debug: Registering notification callback now that @notebook exists"
 
           # Register callback to handle incoming notifications
           @tab_communicator.register_data_change_callback(->(change_type, data) {
             case change_type
             when :conversion_complete
               # Recreate accounts tab to show/hide button based on encryption mode from conversion
-              Lich.log "debug: conversion_complete notification received, data: #{data.inspect}"
               if @notebook && data && data[:encryption_mode]
-                Lich.log "debug: Removing page 0 and recreating accounts tab with encryption_mode: #{data[:encryption_mode]}"
                 @notebook.remove_page(0) # Remove accounts tab (first page)
                 create_accounts_tab(@notebook, data[:encryption_mode], 0) # Insert back at position 0
                 @notebook.show_all
                 # Defer setting current page to let GTK process the reorder first
                 Gtk.queue { @notebook.set_current_page(0) }
-                Lich.log "debug: Tab recreated and shown at position 0"
-              else
-                Lich.log "debug: Skipped tab recreation - @notebook=#{@notebook.inspect}, data=#{data.inspect}"
               end
               Lich.log "info: Account manager tab recreated for conversion completion"
             when :favorite_toggled
@@ -124,7 +117,6 @@ module Lich
         def create_accounts_tab(notebook, encryption_mode = nil, insert_at_position = nil)
           # Store notebook reference for use in callbacks
           @notebook = notebook
-          Lich.log "debug: @notebook stored in create_accounts_tab, ready for callback use"
 
           # Create tab content
           accounts_box = Gtk::Box.new(:vertical, 10)
@@ -224,7 +216,6 @@ module Lich
 
           # Create change encryption password button only if Enhanced encryption mode is active
           has_keychain = MasterPasswordManager.keychain_available?
-          Lich.log "debug: Button creation check - has_keychain=#{has_keychain}, passed_encryption_mode=#{encryption_mode.inspect}"
 
           # Use passed encryption_mode from notification if available, otherwise read from YAML
           mode = encryption_mode
@@ -233,18 +224,10 @@ module Lich
             if File.exist?(yaml_file)
               yaml_data = YAML.load_file(yaml_file)
               mode = yaml_data['encryption_mode']
-              Lich.log "debug: Read encryption_mode from YAML: #{mode.inspect}"
-            else
-              Lich.log "debug: YAML file not found at #{yaml_file}"
             end
-          else
-            Lich.log "debug: Using passed encryption_mode: #{mode.inspect}"
           end
 
-          Lich.log "debug: Final button creation decision - has_keychain=#{has_keychain}, mode=#{mode.inspect}, will_create=#{has_keychain && mode == 'enhanced'}"
-
           if has_keychain && mode == 'enhanced'
-            Lich.log "debug: Creating Change Encryption Password button"
             @change_encryption_password_button = Gtk::Button.new(label: "Change Encryption Password")
             @change_encryption_password_button.sensitive = false
 
@@ -256,9 +239,6 @@ module Lich
             )
 
             button_box.pack_start(@change_encryption_password_button, expand: false, fill: false, padding: 0)
-            Lich.log "debug: Change Encryption Password button created and packed into button_box"
-          else
-            Lich.log "debug: Skipping button creation - has_keychain=#{has_keychain}, mode=#{mode.inspect}"
           end
 
           accounts_box.pack_start(button_box, expand: false, fill: false, padding: 0)
