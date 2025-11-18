@@ -27,6 +27,27 @@ module Lich
           result
         end
 
+        # Shows the master password recovery dialog
+        # Used when master password is missing from Keychain but encryption data exists
+        # Returns the entered password string, or nil if cancelled
+        #
+        # @return [String, nil] Master password entered by user, or nil if cancelled
+        def self.show_recovery_dialog
+          # Block until dialog completes, using condition variable for sync
+          result = nil
+          mutex = Mutex.new
+          condition = ConditionVariable.new
+
+          Gtk.queue do
+            result = new.create_recovery_dialog
+            mutex.synchronize { condition.signal }
+          end
+
+          # Wait for dialog to complete on main thread
+          mutex.synchronize { condition.wait(mutex) }
+          result
+        end
+
         def create_dialog
           # Create modal dialog for master password creation
           dialog = Gtk::Dialog.new(
@@ -231,6 +252,169 @@ module Lich
 
           dialog.destroy
           password
+        end
+
+        def create_recovery_dialog
+          # Create modal dialog for master password recovery
+          dialog = Gtk::Dialog.new(
+            title: "Recover Master Password",
+            parent: nil,
+            flags: :modal,
+            buttons: [
+              [Gtk::Stock::OK, Gtk::ResponseType::OK],
+              [Gtk::Stock::CANCEL, Gtk::ResponseType::CANCEL]
+            ]
+          )
+
+          dialog.set_default_size(500, 350)
+
+          content_box = Gtk::Box.new(:vertical, 12)
+          content_box.border_width = 12
+
+          # ====================================================================
+          # SECTION 1: Recovery Instructions
+          # ====================================================================
+          instructions = Gtk::Label.new
+          instructions.markup = "<b>Recover Master Password</b>\n\n" +
+                                "Your master password was removed from your system Keychain.\n\n" +
+                                "Enter your existing master password to restore access to your encrypted credentials."
+          instructions.wrap = true
+          instructions.justify = :left
+          content_box.pack_start(instructions, expand: false)
+
+          # ====================================================================
+          # SECTION 2: Password Input
+          # ====================================================================
+          password_label = Gtk::Label.new("Enter Master Password:")
+          content_box.pack_start(password_label, expand: false)
+
+          password_entry = Gtk::Entry.new
+          password_entry.visibility = false
+          password_entry.placeholder_text = "Enter your master password"
+          content_box.pack_start(password_entry, expand: false)
+
+          # ====================================================================
+          # SECTION 3: Confirmation Password
+          # ====================================================================
+          confirm_label = Gtk::Label.new("Confirm Master Password:")
+          content_box.pack_start(confirm_label, expand: false)
+
+          confirm_entry = Gtk::Entry.new
+          confirm_entry.visibility = false
+          confirm_entry.placeholder_text = "Re-enter password to confirm"
+          content_box.pack_start(confirm_entry, expand: false)
+
+          # ====================================================================
+          # SECTION 4: Password Match Status
+          # ====================================================================
+          match_status = Gtk::Label.new("")
+          match_status.justify = :left
+          content_box.pack_start(match_status, expand: false)
+
+          # ====================================================================
+          # SECTION 5: Show Password Checkbox
+          # ====================================================================
+          show_password_check = Gtk::CheckButton.new("Show password")
+          show_password_check.active = false
+          content_box.pack_start(show_password_check, expand: false)
+
+          # ====================================================================
+          # SECTION 6: Success Status (initially hidden)
+          # ====================================================================
+          success_status = Gtk::Label.new("")
+          success_status.justify = :left
+          content_box.pack_start(success_status, expand: false)
+
+          # ====================================================================
+          # Real-time password matching feedback
+          # ====================================================================
+          # Helper to update password match status
+          update_match_status = lambda do
+            if password_entry.text.empty? && confirm_entry.text.empty?
+              match_status.markup = ""
+            elsif password_entry.text == confirm_entry.text && !password_entry.text.empty?
+              match_status.markup = "<span foreground='#44ff44'>✓ Passwords match</span>"
+            else
+              match_status.markup = "<span foreground='#ff4444'>✗ Passwords do not match</span>"
+            end
+          end
+
+          password_entry.signal_connect('changed') do
+            update_match_status.call
+          end
+
+          confirm_entry.signal_connect('changed') do
+            update_match_status.call
+          end
+
+          show_password_check.signal_connect('toggled') do |_widget|
+            # Toggle visibility for both password entries
+            password_entry.visibility = show_password_check.active?
+            confirm_entry.visibility = show_password_check.active?
+          end
+
+          # Set content area
+          dialog.child.add(content_box)
+          dialog.show_all
+
+          # ====================================================================
+          # Dialog Response Handling
+          # ====================================================================
+          password = nil
+          continue_session = false
+
+          loop do
+            response = dialog.run
+
+            if response == Gtk::ResponseType::OK
+              entered_password = password_entry.text
+              confirm_password = confirm_entry.text
+
+              if entered_password.empty?
+                show_error_dialog("Password cannot be empty")
+                next
+              elsif entered_password != confirm_password
+                show_error_dialog("Passwords do not match")
+                next
+              else
+                # Passwords match and validated - show success confirmation
+                password = entered_password
+                success_status.markup = "<span foreground='#44ff44'><b>✓ Password saved to Keychain</b></span>"
+
+                # Replace dialog buttons with Continue/Close
+                # Remove old buttons
+                dialog.action_area.children.each(&:destroy)
+
+                # Add new buttons
+                continue_button = Gtk::Button.new(label: "Continue")
+                close_button = Gtk::Button.new(label: "Close")
+
+                dialog.action_area.pack_start(close_button, expand: false, fill: false, padding: 5)
+                dialog.action_area.pack_start(continue_button, expand: false, fill: false, padding: 5)
+                dialog.action_area.show_all
+
+                # Set up button handlers
+                continue_button.signal_connect('clicked') do
+                  continue_session = true
+                  dialog.destroy
+                end
+
+                close_button.signal_connect('clicked') do
+                  continue_session = false
+                  dialog.destroy
+                end
+
+                # Break the loop - dialog will be destroyed by button click
+                break
+              end
+            elsif response == Gtk::ResponseType::CANCEL
+              password = nil
+              break
+            end
+          end
+
+          # Return hash with password and session continuation flag
+          { password: password, continue_session: continue_session }
         end
 
         private

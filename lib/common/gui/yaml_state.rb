@@ -261,11 +261,14 @@ module Lich
             Lich.log "info: Master password missing from Keychain, attempting recovery via user prompt"
 
             # Prompt user to enter master password
-            recovered_password = MasterPasswordPrompt.show_enter_master_password_dialog
-            if recovered_password.nil?
+            recovery_result = MasterPasswordPrompt.show_enter_master_password_dialog
+            if recovery_result.nil?
               Lich.log "info: User cancelled master password recovery prompt"
               raise StandardError, "Master password recovery cancelled by user"
             end
+
+            recovered_password = recovery_result[:password]
+            continue_session = recovery_result[:continue_session]
 
             # Validate the recovered password against validation test
             unless MasterPasswordManager.validate_master_password(recovered_password, validation_test)
@@ -279,6 +282,13 @@ module Lich
             unless MasterPasswordManager.store_master_password(recovered_password)
               Lich.log "warning: Failed to store recovered master password to Keychain"
               # Continue anyway - decryption will still work with in-memory password
+            end
+
+            # Handle session continuation decision
+            if !continue_session
+              Lich.log "info: User chose to close application after password recovery"
+              # Exit the application gracefully
+              exit(0)
             end
 
             # Retry decryption with recovered password
