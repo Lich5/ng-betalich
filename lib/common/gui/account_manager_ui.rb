@@ -76,9 +76,9 @@ module Lich
               if @notebook && data && data[:encryption_mode]
                 Lich.log "debug: Removing page 0 and recreating accounts tab with encryption_mode: #{data[:encryption_mode]}"
                 @notebook.remove_page(0) # Remove accounts tab (first page)
-                create_accounts_tab(@notebook, data[:encryption_mode])
+                create_accounts_tab(@notebook, data[:encryption_mode], 0) # Insert back at position 0
                 @notebook.show_all
-                Lich.log "debug: Tab recreated and shown"
+                Lich.log "debug: Tab recreated and shown at position 0"
               else
                 Lich.log "debug: Skipped tab recreation - @notebook=#{@notebook.inspect}, data=#{data.inspect}"
               end
@@ -117,8 +117,9 @@ module Lich
         #
         # @param notebook [Gtk::Notebook] Notebook to add tab to
         # @param encryption_mode [String, nil] Optional encryption mode from notification
+        # @param insert_at_position [Integer, nil] Position to insert tab (default: append)
         # @return [void]
-        def create_accounts_tab(notebook, encryption_mode = nil)
+        def create_accounts_tab(notebook, encryption_mode = nil, insert_at_position = nil)
           # Store notebook reference for use in callbacks
           @notebook = notebook
           Lich.log "debug: @notebook stored in create_accounts_tab, ready for callback use"
@@ -261,7 +262,11 @@ module Lich
           accounts_box.pack_start(button_box, expand: false, fill: false, padding: 0)
 
           # Add tab to notebook
-          notebook.append_page(accounts_box, Gtk::Label.new("Accounts"))
+          if insert_at_position.nil?
+            notebook.append_page(accounts_box, Gtk::Label.new("Accounts"))
+          else
+            notebook.insert_page(insert_at_position, accounts_box, Gtk::Label.new("Accounts"))
+          end
 
           # Set up refresh button handler
           refresh_button.signal_connect('clicked') do
