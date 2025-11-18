@@ -55,6 +55,11 @@ module Lich
           # Register callback to handle incoming notifications
           @tab_communicator.register_data_change_callback(->(change_type, data) {
             case change_type
+            when :conversion_complete
+              # Update button state and refresh accounts view after conversion
+              refresh_accounts_display if @accounts_store
+              update_encryption_password_button_state(@change_encryption_password_button) if @change_encryption_password_button
+              Lich.log "info: Account manager refreshed for conversion completion"
             when :favorite_toggled
               # Refresh accounts view to reflect favorite changes
               refresh_accounts_display if @accounts_store
@@ -187,17 +192,17 @@ module Lich
           button_box.pack_start(change_password_button, expand: false, fill: false, padding: 0)
 
           # Create change encryption password button
-          change_encryption_password_button = Gtk::Button.new(label: "Change Encryption Password")
-          change_encryption_password_button.sensitive = false
+          @change_encryption_password_button = Gtk::Button.new(label: "Change Encryption Password")
+          @change_encryption_password_button.sensitive = false
 
           # Set accessible properties for screen readers
           Accessibility.make_button_accessible(
-            change_encryption_password_button,
+            @change_encryption_password_button,
             "Change Encryption Password Button",
             "Change the encryption password for Enhanced encryption mode"
           )
 
-          button_box.pack_start(change_encryption_password_button, expand: false, fill: false, padding: 0)
+          button_box.pack_start(@change_encryption_password_button, expand: false, fill: false, padding: 0)
 
           accounts_box.pack_start(button_box, expand: false, fill: false, padding: 0)
 
@@ -330,15 +335,15 @@ module Lich
           end
 
           # Set up change encryption password button handler
-          change_encryption_password_button.signal_connect('clicked') do
+          @change_encryption_password_button.signal_connect('clicked') do
             success = MasterPasswordChange.show_change_master_password_dialog(@window, @data_dir)
             populate_accounts_view(accounts_store) if success
-            update_encryption_password_button_state(change_encryption_password_button)
+            update_encryption_password_button_state(@change_encryption_password_button)
           end
 
           # Populate accounts view
           populate_accounts_view(accounts_store)
-          update_encryption_password_button_state(change_encryption_password_button)
+          update_encryption_password_button_state(@change_encryption_password_button)
         end
 
         # Creates the add character tab
