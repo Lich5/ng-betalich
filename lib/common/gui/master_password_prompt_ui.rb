@@ -385,27 +385,31 @@ module Lich
                 password = entered_password
                 success_status.markup = "<span foreground='#44ff44'><b>✓ Password saved to Keychain</b></span>"
 
-                # Replace dialog buttons with Continue/Close
-                # Remove old buttons
-                dialog.action_area.children.each(&:destroy)
+                # Schedule button replacement after 1 second delay to prevent accidental clicks
+                GLib.timeout_add(1000) do
+                  # Remove old buttons
+                  dialog.action_area.children.each(&:destroy)
 
-                # Add new buttons
-                continue_button = Gtk::Button.new(label: "Continue")
-                close_button = Gtk::Button.new(label: "Close")
+                  # Add new buttons
+                  continue_button = Gtk::Button.new(label: "Continue")
+                  close_button = Gtk::Button.new(label: "Close")
 
-                dialog.action_area.pack_start(close_button, expand: false, fill: false, padding: 5)
-                dialog.action_area.pack_start(continue_button, expand: false, fill: false, padding: 5)
-                dialog.action_area.show_all
+                  dialog.action_area.pack_start(close_button, expand: false, fill: false, padding: 5)
+                  dialog.action_area.pack_start(continue_button, expand: false, fill: false, padding: 5)
+                  dialog.action_area.show_all
 
-                # Set up button handlers
-                continue_button.signal_connect('clicked') do
-                  continue_session = true
-                  dialog.destroy
-                end
+                  # Set up button handlers
+                  continue_button.signal_connect('clicked') do
+                    continue_session = true
+                    dialog.destroy
+                  end
 
-                close_button.signal_connect('clicked') do
-                  continue_session = false
-                  dialog.destroy
+                  close_button.signal_connect('clicked') do
+                    continue_session = false
+                    dialog.destroy
+                  end
+
+                  false # Don't repeat the timeout
                 end
 
                 # Break the loop - dialog will be destroyed by button click
