@@ -1132,31 +1132,44 @@ module Lich
         end
 
         # Updates the state of the change encryption password button
-        # Button is hidden if keychain not available, disabled if no Enhanced accounts
-        # or no master password in keychain
+        # Button is hidden unless Enhanced encryption mode is active and keychain available
+        # Disabled if Enhanced mode but no master password in keychain
         #
         # @param button [Gtk::Button] The change encryption password button
         # @return [void]
         def update_encryption_password_button_state(button)
           # Hide button if OS keychain not available (feature unavailable)
           has_keychain = MasterPasswordManager.keychain_available?
-          button.visible = has_keychain
+          unless has_keychain
+            button.visible = false
+            button.sensitive = false
+            return
+          end
 
-          # Disable button if keychain available but encryption mode is not Enhanced or no master password
-          if has_keychain
-            yaml_file = YamlState.yaml_file_path(@data_dir)
-            if File.exist?(yaml_file)
-              yaml_data = YAML.load_file(yaml_file)
-              has_enhanced = yaml_data['encryption_mode'] == 'enhanced'
-              has_password = MasterPasswordManager.retrieve_master_password
+          # Check YAML file and encryption mode
+          yaml_file = YamlState.yaml_file_path(@data_dir)
+          unless File.exist?(yaml_file)
+            button.visible = false
+            button.sensitive = false
+            return
+          end
 
-              button.sensitive = has_enhanced && has_password
-            else
-              button.sensitive = false
-            end
+          yaml_data = YAML.load_file(yaml_file)
+          has_enhanced = yaml_data['encryption_mode'] == 'enhanced'
+
+          # Hide button if not Enhanced mode
+          button.visible = has_enhanced
+
+          # Only sensitive if visible AND has master password
+          if has_enhanced
+            has_password = MasterPasswordManager.retrieve_master_password
+            button.sensitive = has_password
+          else
+            button.sensitive = false
           end
         rescue StandardError => e
           Lich.log "error: Error updating encryption password button state: #{e.message}"
+          button.visible = false
           button.sensitive = false
         end
 
