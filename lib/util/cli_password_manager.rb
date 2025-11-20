@@ -371,14 +371,15 @@ module Lich
         end
 
         # Validates if master password is available in keychain for enhanced mode
-        # Provides helpful error message if keychain is missing
+        # Checks: YAML exists, validation test present, keychain available with password
         #
-        # @return [Boolean] true if master password available or not needed, false if missing
+        # @return [Boolean] true if ready for operations, false if issues found
         def self.validate_master_password_available
           data_dir = DATA_DIR
           yaml_file = Lich::Common::GUI::YamlState.yaml_file_path(data_dir)
 
           unless File.exist?(yaml_file)
+            puts "error: entry.yaml not found"
             return false
           end
 
@@ -389,9 +390,21 @@ module Lich
             # Non-enhanced modes don't need master password
             return true unless encryption_mode == :enhanced
 
-            # Check if master password is in keychain
+            # Check if validation test exists (indicator of Enhanced mode setup)
+            unless yaml_data['master_password_validation_test']
+              puts "error: No validation test found in entry.yaml"
+              puts "Master password recovery may be needed"
+              return false
+            end
+
+            # Check if keychain is available and has the password
+            unless Lich::Common::GUI::MasterPasswordManager.keychain_available?
+              puts "error: Keychain not available on this system"
+              return false
+            end
+
             master_password = Lich::Common::GUI::MasterPasswordManager.retrieve_master_password
-            if master_password.nil?
+            if master_password.nil? || master_password.empty?
               puts "error: Master password not found in keychain"
               puts "Use: lich --recover-master-password"
               puts "     to restore the master password from your accounts"
@@ -508,7 +521,7 @@ module Lich
 
             # Create new validation test
             new_validation = Lich::Common::GUI::MasterPasswordManager.create_validation_test(new_password)
-            yaml_data['master_password_test'] = new_validation
+            yaml_data['master_password_validation_test'] = new_validation
 
             # Update keychain
             unless Lich::Common::GUI::MasterPasswordManager.store_master_password(new_password)
