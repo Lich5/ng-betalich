@@ -47,20 +47,10 @@ reconnect_if_wanted = proc {
 
   if ARGV.include?('--login')
     # CLI login flow: character authentication via saved entries
-    require File.join(LIB_DIR, 'common', 'gui', 'yaml_state')
     require File.join(LIB_DIR, 'common', 'cli', 'cli_login')
-    require File.join(LIB_DIR, 'util', 'login_helpers')
-    require File.join(LIB_DIR, 'util', 'cli_password_manager')
 
     # Extract character name from --login argument
     requested_character = ARGV[ARGV.index('--login') + 1].capitalize
-
-    # Validate master password availability before attempting login (required for Enhanced encryption mode)
-    unless Lich::Util::CLI::PasswordManager.validate_master_password_available
-      $stdout.puts "error: Cannot proceed with login"
-      Lich.log "error: Master password validation failed during CLI login"
-      exit 1
-    end
 
     # Parse game code and frontend from remaining arguments
     modifiers = ARGV.dup

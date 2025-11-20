@@ -1,5 +1,10 @@
 # frozen_string_literal: true
 
+require_relative '../gui/yaml_state'
+require_relative '../gui/authentication'
+require_relative '../../util/login_helpers'
+require_relative 'cli_password_manager'
+
 module Lich
   module Common
     module CLI
@@ -27,6 +32,12 @@ module Lich
           # Validate inputs
           unless character_name && !character_name.empty?
             Lich.log "error: Character name is required"
+            return nil
+          end
+
+          # Validate master password availability before attempting login (required for Enhanced encryption mode)
+          unless PasswordManager.validate_master_password_available
+            Lich.log "error: Master password validation failed during CLI login"
             return nil
           end
 

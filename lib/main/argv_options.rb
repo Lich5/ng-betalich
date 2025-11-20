@@ -8,7 +8,7 @@
 
 require File.join(LIB_DIR, 'util', 'opts.rb')
 require File.join(LIB_DIR, 'util', 'cli_options_registry.rb')
-require File.join(LIB_DIR, 'util', 'cli_password_manager.rb')
+require File.join(LIB_DIR, 'common', 'cli', 'cli_password_manager.rb')
 
 module Lich
   module Main
@@ -44,7 +44,7 @@ module Lich
             exit 1
           end
 
-          exit Lich::Util::CLI::PasswordManager.change_account_password(account, new_password)
+          exit Lich::Common::CLI::PasswordManager.change_account_password(account, new_password)
         end
 
         def self.handle_add_account
@@ -60,7 +60,7 @@ module Lich
           end
 
           frontend = ARGV[ARGV.index('--frontend') + 1] if ARGV.include?('--frontend')
-          exit Lich::Util::CLI::PasswordManager.add_account(account, password, frontend)
+          exit Lich::Common::CLI::PasswordManager.add_account(account, password, frontend)
         end
 
         def self.handle_change_master_password
@@ -76,7 +76,7 @@ module Lich
             exit 1
           end
 
-          exit Lich::Util::CLI::PasswordManager.change_master_password(old_password, new_password)
+          exit Lich::Common::CLI::PasswordManager.change_master_password(old_password, new_password)
         end
 
         def self.handle_recover_master_password
@@ -84,7 +84,7 @@ module Lich
           new_password = ARGV[idx + 1]
 
           # new_password is optional - if not provided, user will be prompted interactively
-          exit Lich::Util::CLI::PasswordManager.recover_master_password(new_password)
+          exit Lich::Common::CLI::PasswordManager.recover_master_password(new_password)
         end
       end
 

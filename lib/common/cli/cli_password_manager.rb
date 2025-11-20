@@ -4,14 +4,14 @@ require 'yaml'
 require File.join(LIB_DIR, 'common', 'gui', 'yaml_state.rb')
 
 module Lich
-  module Util
-    # Headless password management operations for CLI execution
-    # Thin wrapper around YamlState and PasswordCipher
-    # Handles: change account password, add account, change master password
-    #
-    # @example
-    #   Lich::Util::CLI::PasswordManager.change_account_password('DOUG', 'NewPass123')
+  module Common
     module CLI
+      # Headless password management operations for CLI execution
+      # Thin wrapper around YamlState and PasswordCipher
+      # Handles: change account password, add account, change master password
+      #
+      # @example
+      #   Lich::Common::CLI::PasswordManager.change_account_password('DOUG', 'NewPass123')
       module PasswordManager
         # Changes account password in entry.yaml
         # Handles all encryption modes (plaintext, standard, enhanced)
