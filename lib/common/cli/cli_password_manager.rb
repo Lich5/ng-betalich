@@ -4,14 +4,14 @@ require 'yaml'
 require File.join(LIB_DIR, 'common', 'gui', 'yaml_state.rb')
 
 module Lich
-  module Util
-    # Headless password management operations for CLI execution
-    # Thin wrapper around YamlState and PasswordCipher
-    # Handles: change account password, add account, change master password
-    #
-    # @example
-    #   Lich::Util::CLI::PasswordManager.change_account_password('DOUG', 'NewPass123')
+  module Common
     module CLI
+      # Headless password management operations for CLI execution
+      # Thin wrapper around YamlState and PasswordCipher
+      # Handles: change account password, add account, change master password
+      #
+      # @example
+      #   Lich::Common::CLI::PasswordManager.change_account_password('DOUG', 'NewPass123')
       module PasswordManager
         # Changes account password in entry.yaml
         # Handles all encryption modes (plaintext, standard, enhanced)
@@ -20,6 +20,11 @@ module Lich
         # @param new_password [String] New plaintext password
         # @return [Integer] Exit code (0=success, 1=error, 2=not found)
         def self.change_account_password(account, new_password)
+          # Validate master password availability before attempting change
+          unless validate_master_password_available
+            return 1
+          end
+
           data_dir = DATA_DIR
           yaml_file = Lich::Common::GUI::YamlState.yaml_file_path(data_dir)
 
@@ -98,6 +103,11 @@ module Lich
         # @param frontend [String, nil] Frontend (wizard, stormfront, avalon, or nil)
         # @return [Integer] Exit code (0=success, 1=error, 2=auth failed)
         def self.add_account(account, password, frontend = nil)
+          # Validate master password availability before attempting add
+          unless validate_master_password_available
+            return 1
+          end
+
           data_dir = DATA_DIR
           yaml_file = Lich::Common::GUI::YamlState.yaml_file_path(data_dir)
 
@@ -357,6 +367,138 @@ module Lich
           else
             puts "Invalid choice, skipping frontend selection"
             nil
+          end
+        end
+
+        # Validates if master password is available in keychain for enhanced mode
+        # Checks: YAML exists, validation test present, keychain available with password
+        #
+        # @return [Boolean] true if ready for operations, false if issues found
+        def self.validate_master_password_available
+          data_dir = DATA_DIR
+          yaml_file = Lich::Common::GUI::YamlState.yaml_file_path(data_dir)
+
+          unless File.exist?(yaml_file)
+            puts "error: entry.yaml not found"
+            return false
+          end
+
+          begin
+            yaml_data = YAML.load_file(yaml_file)
+            encryption_mode = (yaml_data['encryption_mode'] || 'plaintext').to_sym
+
+            # Non-enhanced modes don't need master password
+            return true unless encryption_mode == :enhanced
+
+            # Check if validation test exists (indicator of Enhanced mode setup)
+            unless yaml_data['master_password_validation_test']
+              puts "error: No validation test found in entry.yaml"
+              puts "Master password recovery may be needed"
+              return false
+            end
+
+            # Check if keychain is available and has the password
+            unless Lich::Common::GUI::MasterPasswordManager.keychain_available?
+              puts "error: Keychain not available on this system"
+              return false
+            end
+
+            master_password = Lich::Common::GUI::MasterPasswordManager.retrieve_master_password
+            if master_password.nil? || master_password.empty?
+              puts "error: Master password not found in keychain"
+              puts "Use: lich --recover-master-password"
+              puts "     to restore the master password from your accounts"
+              Lich.log "info: Master password validation failed - keychain missing, user can recover"
+              return false
+            end
+
+            true
+          rescue StandardError => e
+            Lich.log "error: Master password validation failed: #{e.message}"
+            false
+          end
+        end
+
+        # Recovers access to keychain by validating and restoring original master password
+        # User re-enters original master password which is validated against validation_test
+        # Account passwords remain unchanged (already encrypted with original password)
+        # Only works in Enhanced encryption mode when validation test exists
+        #
+        # @param master_password [String, nil] Original master password (optional, will prompt if nil)
+        # @return [Integer] Exit code (0=success, 1=error, 2=not found, 3=wrong mode)
+        def self.recover_master_password(master_password = nil)
+          data_dir = DATA_DIR
+          yaml_file = Lich::Common::GUI::YamlState.yaml_file_path(data_dir)
+
+          unless File.exist?(yaml_file)
+            puts "error: entry.yaml not found at #{yaml_file}"
+            return 2
+          end
+
+          begin
+            yaml_data = YAML.load_file(yaml_file)
+            encryption_mode = (yaml_data['encryption_mode'] || 'plaintext').to_sym
+
+            unless encryption_mode == :enhanced
+              puts "error: Master password recovery only works in Enhanced encryption mode"
+              puts "Current mode: #{encryption_mode}"
+              Lich.log "error: CLI recover master password failed - wrong encryption mode: #{encryption_mode}"
+              return 3
+            end
+
+            # Must have validation test to validate password
+            validation_test = yaml_data['master_password_validation_test']
+            unless validation_test
+              puts "error: No validation test found - cannot recover master password"
+              Lich.log "error: CLI recover master password failed - no validation test"
+              return 1
+            end
+
+            Lich.log "info: Starting master password recovery"
+
+            # Get password to validate
+            if master_password.nil?
+              print "Enter master password: "
+              input = $stdin.gets
+              if input.nil?
+                puts 'error: Unable to read password from STDIN / terminal'
+                puts 'Please run this command interactively (not in a pipe or automated script without input)'
+                Lich.log 'error: CLI recover master password failed - stdin unavailable'
+                return 1
+              end
+              master_password = input.strip
+            end
+
+            if master_password.length < 8
+              puts "error: Password must be at least 8 characters"
+              Lich.log "error: CLI recover master password failed - password too short"
+              return 1
+            end
+
+            # Validate password against validation test
+            unless Lich::Common::GUI::MasterPasswordManager.validate_master_password(master_password, validation_test)
+              puts "error: Password validation failed"
+              Lich.log "error: CLI recover master password failed - password validation failed"
+              return 1
+            end
+
+            Lich.log "info: Password validated successfully"
+
+            # Store validated password in keychain
+            unless Lich::Common::GUI::MasterPasswordManager.store_master_password(master_password)
+              puts 'error: Failed to store master password in keychain'
+              Lich.log 'error: CLI recover master password failed - keychain storage failed'
+              return 1
+            end
+
+            puts 'success: Master password recovered and restored to keychain'
+            Lich.log 'info: Master password recovered successfully via CLI'
+            0
+          rescue StandardError => e
+            # CRITICAL: Only log e.message, NEVER log password values
+            puts "error: #{e.message}"
+            Lich.log "error: CLI recover master password failed: #{e.message}"
+            1
           end
         end
       end
