@@ -48,6 +48,7 @@ reconnect_if_wanted = proc {
   if ARGV.include?('--login')
     require File.join(LIB_DIR, 'common', 'gui', 'yaml_state')
     require File.join(LIB_DIR, 'util', 'login_helpers')
+    require File.join(LIB_DIR, 'util', 'cli_password_manager')
     requested_character = ARGV[ARGV.index('--login') + 1].capitalize
     if File.exist?(Lich::Common::GUI::YamlState.yaml_file_path(DATA_DIR))
       data_to_convert = YAML.load_file(Lich::Common::GUI::YamlState.yaml_file_path(DATA_DIR))
@@ -55,6 +56,13 @@ reconnect_if_wanted = proc {
     else
       $stdout.puts "error: no saved entries YAML file found"
       Lich.log "error: no saved entries YAML file found"
+    end
+
+    # Validate master password availability before attempting login (required for Enhanced encryption mode)
+    unless Lich::Util::CLI::PasswordManager.validate_master_password_available
+      $stdout.puts "error: Cannot proceed with login"
+      Lich.log "error: Master password validation failed during CLI login"
+      exit 1
     end
 
     # previous realm / game instance detection modernized to support YAML / elogin efforts
