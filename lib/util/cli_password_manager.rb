@@ -419,13 +419,14 @@ module Lich
           end
         end
 
-        # Recovers master password by re-encrypting all accounts with new password
-        # Prompts for new password interactively or accepts via argument
-        # Only works in Enhanced encryption mode
+        # Recovers access to keychain by validating and restoring original master password
+        # User re-enters original master password which is validated against validation_test
+        # Account passwords remain unchanged (already encrypted with original password)
+        # Only works in Enhanced encryption mode when validation test exists
         #
-        # @param new_password [String, nil] New master password (optional, will prompt if nil)
+        # @param master_password [String, nil] Original master password (optional, will prompt if nil)
         # @return [Integer] Exit code (0=success, 1=error, 2=not found, 3=wrong mode)
-        def self.recover_master_password(new_password = nil)
+        def self.recover_master_password(master_password = nil)
           data_dir = DATA_DIR
           yaml_file = Lich::Common::GUI::YamlState.yaml_file_path(data_dir)
 
@@ -445,18 +446,19 @@ module Lich
               return 3
             end
 
-            # Need at least one account to verify recovery worked
-            unless yaml_data['accounts'] && !yaml_data['accounts'].empty?
-              puts "error: Cannot recover without accounts to verify against"
-              Lich.log "error: CLI recover master password failed - no accounts to verify"
+            # Must have validation test to validate password
+            validation_test = yaml_data['master_password_validation_test']
+            unless validation_test
+              puts "error: No validation test found - cannot recover master password"
+              Lich.log "error: CLI recover master password failed - no validation test"
               return 1
             end
 
             Lich.log "info: Starting master password recovery"
 
-            # Get new password
-            if new_password.nil?
-              print "Enter new master password: "
+            # Get password to validate
+            if master_password.nil?
+              print "Enter master password: "
               input = $stdin.gets
               if input.nil?
                 puts 'error: Unable to read password from STDIN / terminal'
@@ -464,78 +466,32 @@ module Lich
                 Lich.log 'error: CLI recover master password failed - stdin unavailable'
                 return 1
               end
-              new_password = input.strip
-
-              print "Confirm new master password: "
-              input = $stdin.gets
-              if input.nil?
-                puts 'error: Unable to read password from STDIN / terminal'
-                puts 'Please run this command interactively (not in a pipe or automated script without input)'
-                Lich.log 'error: CLI recover master password failed - stdin unavailable'
-                return 1
-              end
-              confirm_password = input.strip
-
-              unless new_password == confirm_password
-                puts "error: Passwords do not match"
-                Lich.log "error: CLI recover master password failed - password confirmation mismatch"
-                return 1
-              end
+              master_password = input.strip
             end
 
-            if new_password.length < 8
+            if master_password.length < 8
               puts "error: Password must be at least 8 characters"
               Lich.log "error: CLI recover master password failed - password too short"
               return 1
             end
 
-            account_count = yaml_data['accounts'].length
-            Lich.log "info: Re-encrypting #{account_count} account(s) with recovered master password"
-
-            # We need to decrypt existing accounts to re-encrypt them
-            # Since keychain is missing, we cannot decrypt with old master password
-            # Instead, we assume accounts can be re-encrypted with the new password
-            # This is a recovery scenario - accounts will be marked with new encryption
-            yaml_data['accounts'].each do |username, account_data|
-              # For recovery, we create new encryption with the recovered password
-              # The accounts are already encrypted, so we update them with new master password encryption
-              # In a real scenario, we'd need the plaintext, but for recovery we re-encrypt as-is
-              # using PasswordCipher which handles the recovery encryption
-              plaintext = 'recovery_placeholder'
-              begin
-                # Try to decrypt with new master password (should fail initially)
-                # For recovery, we simply re-encrypt with new master password
-                new_encrypted = Lich::Common::GUI::PasswordCipher.encrypt(
-                  plaintext,
-                  mode: :enhanced,
-                  account_name: username,
-                  master_password: new_password
-                )
-                account_data['password'] = new_encrypted
-              rescue StandardError => e
-                puts "error: Failed to process account '#{username}': #{e.message}"
-                Lich.log "error: Failed to process account during recovery: #{e.message}"
-                return 1
-              end
+            # Validate password against validation test
+            unless Lich::Common::GUI::MasterPasswordManager.validate_master_password(master_password, validation_test)
+              puts "error: Password validation failed"
+              Lich.log "error: CLI recover master password failed - password validation failed"
+              return 1
             end
 
-            # Create new validation test
-            new_validation = Lich::Common::GUI::MasterPasswordManager.create_validation_test(new_password)
-            yaml_data['master_password_validation_test'] = new_validation
+            Lich.log "info: Password validated successfully"
 
-            # Update keychain
-            unless Lich::Common::GUI::MasterPasswordManager.store_master_password(new_password)
+            # Store validated password in keychain
+            unless Lich::Common::GUI::MasterPasswordManager.store_master_password(master_password)
               puts 'error: Failed to store master password in keychain'
               Lich.log 'error: CLI recover master password failed - keychain storage failed'
               return 1
             end
 
-            # Save YAML
-            File.open(yaml_file, 'w', 0o600) do |file|
-              file.write(YAML.dump(yaml_data))
-            end
-
-            puts 'success: Master password recovered and stored in keychain'
+            puts 'success: Master password recovered and restored to keychain'
             Lich.log 'info: Master password recovered successfully via CLI'
             0
           rescue StandardError => e

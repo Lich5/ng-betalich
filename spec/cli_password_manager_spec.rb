@@ -684,63 +684,45 @@ RSpec.describe Lich::Util::CLI::PasswordManager do
         expect(exit_code).to eq(1)
       end
 
-      it 're-encrypts all accounts with recovered master password' do
-        allow($stdin).to receive(:gets).and_return("newpassword\n", "newpassword\n")
-        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:create_validation_test)
-          .and_return({ 'validation_salt' => 'salt', 'validation_hash' => 'hash' })
+      it 'validates password against validation test' do
+        allow($stdin).to receive(:gets).and_return("master_password\n")
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:validate_master_password)
+          .and_return(true)
         allow(Lich::Common::GUI::MasterPasswordManager).to receive(:store_master_password)
           .and_return(true)
-        allow(Lich::Common::GUI::PasswordCipher).to receive(:decrypt)
-          .and_return('plaintext_pass')
-        allow(Lich::Common::GUI::PasswordCipher).to receive(:encrypt)
-          .and_return('encrypted_new')
-
-        exit_code = Lich::Util::CLI::PasswordManager.recover_master_password
-        expect(exit_code).to eq(0)
-
-        # Verify accounts were re-encrypted
-        yaml_data = YAML.load_file(yaml_file)
-        expect(yaml_data['accounts']['DOUG']['password']).to eq('encrypted_new')
-      end
-
-      it 'updates validation test with new password' do
-        allow($stdin).to receive(:gets).and_return("newpassword\n", "newpassword\n")
-        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:create_validation_test)
-          .and_return({ 'validation_salt' => 'newsalt', 'validation_hash' => 'newhash' })
-        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:store_master_password)
-          .and_return(true)
-        allow(Lich::Common::GUI::PasswordCipher).to receive(:decrypt)
-          .and_return('plaintext_pass')
-        allow(Lich::Common::GUI::PasswordCipher).to receive(:encrypt)
-          .and_return('encrypted_new')
 
         Lich::Util::CLI::PasswordManager.recover_master_password
 
-        yaml_data = YAML.load_file(yaml_file)
-        expect(yaml_data['master_password_validation_test']).to eq({ 'validation_salt' => 'newsalt', 'validation_hash' => 'newhash' })
+        expect(Lich::Common::GUI::MasterPasswordManager).to have_received(:validate_master_password)
+          .with('master_password', kind_of(Hash))
       end
 
-      it 'stores master password in keychain' do
-        allow($stdin).to receive(:gets).and_return("newpassword\n", "newpassword\n")
-        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:create_validation_test)
-          .and_return({})
+      it 'stores master password in keychain after validation' do
+        allow($stdin).to receive(:gets).and_return("master_password\n")
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:validate_master_password)
+          .and_return(true)
         allow(Lich::Common::GUI::MasterPasswordManager).to receive(:store_master_password)
           .and_return(true)
-        allow(Lich::Common::GUI::PasswordCipher).to receive(:decrypt)
-          .and_return('plaintext_pass')
-        allow(Lich::Common::GUI::PasswordCipher).to receive(:encrypt)
-          .and_return('encrypted_new')
 
         Lich::Util::CLI::PasswordManager.recover_master_password
 
         expect(Lich::Common::GUI::MasterPasswordManager).to have_received(:store_master_password)
-          .with('newpassword')
+          .with('master_password')
+      end
+
+      it 'returns 1 when password validation fails' do
+        allow($stdin).to receive(:gets).and_return("wrong_password\n")
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:validate_master_password)
+          .and_return(false)
+
+        exit_code = Lich::Util::CLI::PasswordManager.recover_master_password
+        expect(exit_code).to eq(1)
       end
 
       it 'returns 1 when keychain storage fails' do
-        allow($stdin).to receive(:gets).and_return("newpassword\n", "newpassword\n")
-        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:create_validation_test)
-          .and_return({})
+        allow($stdin).to receive(:gets).and_return("master_password\n")
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:validate_master_password)
+          .and_return(true)
         allow(Lich::Common::GUI::MasterPasswordManager).to receive(:store_master_password)
           .and_return(false)
 
@@ -749,15 +731,11 @@ RSpec.describe Lich::Util::CLI::PasswordManager do
       end
 
       it 'returns 0 on successful recovery' do
-        allow($stdin).to receive(:gets).and_return("newpassword\n", "newpassword\n")
-        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:create_validation_test)
-          .and_return({})
+        allow($stdin).to receive(:gets).and_return("master_password\n")
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:validate_master_password)
+          .and_return(true)
         allow(Lich::Common::GUI::MasterPasswordManager).to receive(:store_master_password)
           .and_return(true)
-        allow(Lich::Common::GUI::PasswordCipher).to receive(:decrypt)
-          .and_return('plaintext_pass')
-        allow(Lich::Common::GUI::PasswordCipher).to receive(:encrypt)
-          .and_return('encrypted_new')
 
         exit_code = Lich::Util::CLI::PasswordManager.recover_master_password
         expect(exit_code).to eq(0)
@@ -780,14 +758,10 @@ RSpec.describe Lich::Util::CLI::PasswordManager do
       end
 
       it 'accepts password as argument without prompting' do
-        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:create_validation_test)
-          .and_return({})
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:validate_master_password)
+          .and_return(true)
         allow(Lich::Common::GUI::MasterPasswordManager).to receive(:store_master_password)
           .and_return(true)
-        allow(Lich::Common::GUI::PasswordCipher).to receive(:decrypt)
-          .and_return('plaintext_pass')
-        allow(Lich::Common::GUI::PasswordCipher).to receive(:encrypt)
-          .and_return('encrypted_new')
 
         expect($stdin).not_to receive(:gets)
 
@@ -800,14 +774,10 @@ RSpec.describe Lich::Util::CLI::PasswordManager do
       end
 
       it 'returns 0 with valid direct password' do
-        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:create_validation_test)
-          .and_return({})
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:validate_master_password)
+          .and_return(true)
         allow(Lich::Common::GUI::MasterPasswordManager).to receive(:store_master_password)
           .and_return(true)
-        allow(Lich::Common::GUI::PasswordCipher).to receive(:decrypt)
-          .and_return('plaintext_pass')
-        allow(Lich::Common::GUI::PasswordCipher).to receive(:encrypt)
-          .and_return('encrypted_new')
 
         exit_code = Lich::Util::CLI::PasswordManager.recover_master_password('validpassword12345')
         expect(exit_code).to eq(0)
