@@ -26,6 +26,8 @@ module Lich
               handle_add_account
             when /^--change-master-password$/, /^-cmp$/
               handle_change_master_password
+            when /^--recover-master-password$/, /^-rmp$/
+              handle_recover_master_password
             end
           end
         end
@@ -75,6 +77,14 @@ module Lich
           end
 
           exit Lich::Util::CLI::PasswordManager.change_master_password(old_password, new_password)
+        end
+
+        def self.handle_recover_master_password
+          idx = ARGV.index { |a| a =~ /^--recover-master-password$|^-rmp$/ }
+          new_password = ARGV[idx + 1]
+
+          # new_password is optional - if not provided, user will be prompted interactively
+          exit Lich::Util::CLI::PasswordManager.recover_master_password(new_password)
         end
       end
 

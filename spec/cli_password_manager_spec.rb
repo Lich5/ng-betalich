@@ -75,6 +75,8 @@ RSpec.describe Lich::Util::CLI::PasswordManager do
           }
         }
         File.write(yaml_file, YAML.dump(yaml_data))
+        # Mock validation to pass for non-recovery tests
+        allow(Lich::Util::CLI::PasswordManager).to receive(:validate_master_password_available).and_return(true)
       end
 
       it 'changes account password in plaintext mode' do
@@ -109,6 +111,8 @@ RSpec.describe Lich::Util::CLI::PasswordManager do
           }
         }
         File.write(yaml_file, YAML.dump(yaml_data))
+        # Mock validation to pass for non-recovery tests
+        allow(Lich::Util::CLI::PasswordManager).to receive(:validate_master_password_available).and_return(true)
       end
 
       it 'calls PasswordCipher.encrypt for standard mode' do
@@ -155,6 +159,8 @@ RSpec.describe Lich::Util::CLI::PasswordManager do
           }
         }
         File.write(yaml_file, YAML.dump(yaml_data))
+        # Mock validation to pass for non-recovery tests
+        allow(Lich::Util::CLI::PasswordManager).to receive(:validate_master_password_available).and_return(true)
       end
 
       it 'retrieves master password from keychain' do
@@ -200,6 +206,8 @@ RSpec.describe Lich::Util::CLI::PasswordManager do
           'accounts'        => { 'DOUG' => { 'password' => 'oldpassword' } }
         }
         File.write(yaml_file, YAML.dump(yaml_data))
+        # Mock validation to pass for non-recovery tests
+        allow(Lich::Util::CLI::PasswordManager).to receive(:validate_master_password_available).and_return(true)
       end
 
       it 'returns 1 on general error' do
@@ -224,6 +232,8 @@ RSpec.describe Lich::Util::CLI::PasswordManager do
         'accounts'        => {}
       }
       File.write(yaml_file, YAML.dump(yaml_data))
+      # Mock validation to pass for non-recovery tests
+      allow(Lich::Util::CLI::PasswordManager).to receive(:validate_master_password_available).and_return(true)
     end
 
     it 'returns 1 when account already exists' do
@@ -319,6 +329,8 @@ RSpec.describe Lich::Util::CLI::PasswordManager do
         }
       }
       File.write(yaml_file, YAML.dump(yaml_data))
+      # Mock validation to pass for non-recovery tests
+      allow(Lich::Util::CLI::PasswordManager).to receive(:validate_master_password_available).and_return(true)
     end
 
     it 'returns 2 when yaml file does not exist' do
@@ -502,6 +514,328 @@ RSpec.describe Lich::Util::CLI::PasswordManager do
       Lich::Util::CLI::PasswordManager.add_account('DOUG', 'password')
 
       # AccountManager should handle permissions, but verify
+    end
+  end
+
+  describe '.validate_master_password_available' do
+    context 'with enhanced encryption mode' do
+      before do
+        yaml_data = {
+          'encryption_mode' => 'enhanced',
+          'accounts'        => { 'DOUG' => { 'password' => 'encrypted_pass' } }
+        }
+        File.write(yaml_file, YAML.dump(yaml_data))
+      end
+
+      it 'returns true when master password is available in keychain' do
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:retrieve_master_password)
+          .and_return('master_password')
+
+        result = Lich::Util::CLI::PasswordManager.validate_master_password_available
+        expect(result).to eq(true)
+      end
+
+      it 'returns false when master password is missing from keychain' do
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:retrieve_master_password)
+          .and_return(nil)
+
+        result = Lich::Util::CLI::PasswordManager.validate_master_password_available
+        expect(result).to eq(false)
+      end
+
+      it 'prints helpful recovery message when keychain is missing' do
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:retrieve_master_password)
+          .and_return(nil)
+
+        # Just verify puts is called with recovery-related output
+        allow($stdout).to receive(:puts)
+        expect($stdout).to receive(:puts).with(include('recover'))
+
+        Lich::Util::CLI::PasswordManager.validate_master_password_available
+      end
+    end
+
+    context 'with non-enhanced encryption modes' do
+      before do
+        yaml_data = {
+          'encryption_mode' => 'plaintext',
+          'accounts'        => { 'DOUG' => { 'password' => 'plaintext_pass' } }
+        }
+        File.write(yaml_file, YAML.dump(yaml_data))
+      end
+
+      it 'returns true for plaintext mode (no keychain needed)' do
+        result = Lich::Util::CLI::PasswordManager.validate_master_password_available
+        expect(result).to eq(true)
+      end
+    end
+
+    context 'when yaml file does not exist' do
+      it 'returns false' do
+        File.delete(yaml_file) if File.exist?(yaml_file)
+
+        result = Lich::Util::CLI::PasswordManager.validate_master_password_available
+        expect(result).to eq(false)
+      end
+    end
+  end
+
+  describe '.recover_master_password' do
+    context 'when not in enhanced mode' do
+      before do
+        yaml_data = {
+          'encryption_mode' => 'plaintext',
+          'accounts'        => { 'DOUG' => { 'password' => 'oldpass' } }
+        }
+        File.write(yaml_file, YAML.dump(yaml_data))
+      end
+
+      it 'returns 3 when not in enhanced encryption mode' do
+        exit_code = Lich::Util::CLI::PasswordManager.recover_master_password
+        expect(exit_code).to eq(3)
+      end
+
+      it 'prints error message about wrong mode' do
+        expect($stdout).to receive(:puts).at_least(:once).with(/Enhanced|mode/)
+
+        Lich::Util::CLI::PasswordManager.recover_master_password
+      end
+    end
+
+    context 'when yaml file does not exist' do
+      it 'returns 2 when yaml file missing' do
+        File.delete(yaml_file) if File.exist?(yaml_file)
+
+        exit_code = Lich::Util::CLI::PasswordManager.recover_master_password
+        expect(exit_code).to eq(2)
+      end
+    end
+
+    context 'in enhanced mode with no accounts' do
+      before do
+        yaml_data = {
+          'encryption_mode'      => 'enhanced',
+          'master_password_test' => { 'validation_salt' => 'salt', 'validation_hash' => 'hash' },
+          'accounts'             => {}
+        }
+        File.write(yaml_file, YAML.dump(yaml_data))
+      end
+
+      it 'returns 1 when no accounts exist to verify with' do
+        allow($stdin).to receive(:gets).and_return("newpassword\n", "newpassword\n")
+
+        exit_code = Lich::Util::CLI::PasswordManager.recover_master_password
+        expect(exit_code).to eq(1)
+      end
+    end
+
+    context 'in enhanced mode with interactive password entry' do
+      before do
+        yaml_data = {
+          'encryption_mode'      => 'enhanced',
+          'master_password_test' => { 'validation_salt' => 'salt', 'validation_hash' => 'hash', 'validation_version' => 1 },
+          'accounts'             => {
+            'DOUG' => {
+              'password'   => 'encrypted_pass',
+              'characters' => []
+            }
+          }
+        }
+        File.write(yaml_file, YAML.dump(yaml_data))
+      end
+
+      it 'prompts for new master password interactively' do
+        allow($stdin).to receive(:gets).and_return("newpassword\n", "newpassword\n")
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:create_validation_test)
+          .and_return({ 'validation_salt' => 'salt', 'validation_hash' => 'hash' })
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:store_master_password)
+          .and_return(true)
+        allow(Lich::Common::GUI::PasswordCipher).to receive(:decrypt)
+          .and_return('plaintext_pass')
+        allow(Lich::Common::GUI::PasswordCipher).to receive(:encrypt)
+          .and_return('encrypted_new')
+
+        Lich::Util::CLI::PasswordManager.recover_master_password
+
+        expect($stdin).to have_received(:gets).at_least(:once)
+      end
+
+      it 'returns 1 when passwords do not match' do
+        allow($stdin).to receive(:gets).and_return("pass1\n", "pass2\n")
+
+        exit_code = Lich::Util::CLI::PasswordManager.recover_master_password
+        expect(exit_code).to eq(1)
+      end
+
+      it 'returns 1 when password is too short' do
+        allow($stdin).to receive(:gets).and_return("short\n", "short\n")
+
+        exit_code = Lich::Util::CLI::PasswordManager.recover_master_password
+        expect(exit_code).to eq(1)
+      end
+
+      it 'returns 1 when stdin is unavailable' do
+        allow($stdin).to receive(:gets).and_return(nil)
+
+        exit_code = Lich::Util::CLI::PasswordManager.recover_master_password
+        expect(exit_code).to eq(1)
+      end
+
+      it 're-encrypts all accounts with recovered master password' do
+        allow($stdin).to receive(:gets).and_return("newpassword\n", "newpassword\n")
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:create_validation_test)
+          .and_return({ 'validation_salt' => 'salt', 'validation_hash' => 'hash' })
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:store_master_password)
+          .and_return(true)
+        allow(Lich::Common::GUI::PasswordCipher).to receive(:decrypt)
+          .and_return('plaintext_pass')
+        allow(Lich::Common::GUI::PasswordCipher).to receive(:encrypt)
+          .and_return('encrypted_new')
+
+        exit_code = Lich::Util::CLI::PasswordManager.recover_master_password
+        expect(exit_code).to eq(0)
+
+        # Verify accounts were re-encrypted
+        yaml_data = YAML.load_file(yaml_file)
+        expect(yaml_data['accounts']['DOUG']['password']).to eq('encrypted_new')
+      end
+
+      it 'updates validation test with new password' do
+        allow($stdin).to receive(:gets).and_return("newpassword\n", "newpassword\n")
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:create_validation_test)
+          .and_return({ 'validation_salt' => 'newsalt', 'validation_hash' => 'newhash' })
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:store_master_password)
+          .and_return(true)
+        allow(Lich::Common::GUI::PasswordCipher).to receive(:decrypt)
+          .and_return('plaintext_pass')
+        allow(Lich::Common::GUI::PasswordCipher).to receive(:encrypt)
+          .and_return('encrypted_new')
+
+        Lich::Util::CLI::PasswordManager.recover_master_password
+
+        yaml_data = YAML.load_file(yaml_file)
+        expect(yaml_data['master_password_test']).to eq({ 'validation_salt' => 'newsalt', 'validation_hash' => 'newhash' })
+      end
+
+      it 'stores master password in keychain' do
+        allow($stdin).to receive(:gets).and_return("newpassword\n", "newpassword\n")
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:create_validation_test)
+          .and_return({})
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:store_master_password)
+          .and_return(true)
+        allow(Lich::Common::GUI::PasswordCipher).to receive(:decrypt)
+          .and_return('plaintext_pass')
+        allow(Lich::Common::GUI::PasswordCipher).to receive(:encrypt)
+          .and_return('encrypted_new')
+
+        Lich::Util::CLI::PasswordManager.recover_master_password
+
+        expect(Lich::Common::GUI::MasterPasswordManager).to have_received(:store_master_password)
+          .with('newpassword')
+      end
+
+      it 'returns 1 when keychain storage fails' do
+        allow($stdin).to receive(:gets).and_return("newpassword\n", "newpassword\n")
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:create_validation_test)
+          .and_return({})
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:store_master_password)
+          .and_return(false)
+
+        exit_code = Lich::Util::CLI::PasswordManager.recover_master_password
+        expect(exit_code).to eq(1)
+      end
+
+      it 'returns 0 on successful recovery' do
+        allow($stdin).to receive(:gets).and_return("newpassword\n", "newpassword\n")
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:create_validation_test)
+          .and_return({})
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:store_master_password)
+          .and_return(true)
+        allow(Lich::Common::GUI::PasswordCipher).to receive(:decrypt)
+          .and_return('plaintext_pass')
+        allow(Lich::Common::GUI::PasswordCipher).to receive(:encrypt)
+          .and_return('encrypted_new')
+
+        exit_code = Lich::Util::CLI::PasswordManager.recover_master_password
+        expect(exit_code).to eq(0)
+      end
+    end
+
+    context 'in enhanced mode with direct password argument' do
+      before do
+        yaml_data = {
+          'encryption_mode'      => 'enhanced',
+          'master_password_test' => { 'validation_salt' => 'salt', 'validation_hash' => 'hash', 'validation_version' => 1 },
+          'accounts'             => {
+            'DOUG' => {
+              'password'   => 'encrypted_pass',
+              'characters' => []
+            }
+          }
+        }
+        File.write(yaml_file, YAML.dump(yaml_data))
+      end
+
+      it 'accepts password as argument without prompting' do
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:create_validation_test)
+          .and_return({})
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:store_master_password)
+          .and_return(true)
+        allow(Lich::Common::GUI::PasswordCipher).to receive(:decrypt)
+          .and_return('plaintext_pass')
+        allow(Lich::Common::GUI::PasswordCipher).to receive(:encrypt)
+          .and_return('encrypted_new')
+
+        expect($stdin).not_to receive(:gets)
+
+        Lich::Util::CLI::PasswordManager.recover_master_password('directpassword')
+      end
+
+      it 'returns 1 when direct password is too short' do
+        exit_code = Lich::Util::CLI::PasswordManager.recover_master_password('short')
+        expect(exit_code).to eq(1)
+      end
+
+      it 'returns 0 with valid direct password' do
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:create_validation_test)
+          .and_return({})
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:store_master_password)
+          .and_return(true)
+        allow(Lich::Common::GUI::PasswordCipher).to receive(:decrypt)
+          .and_return('plaintext_pass')
+        allow(Lich::Common::GUI::PasswordCipher).to receive(:encrypt)
+          .and_return('encrypted_new')
+
+        exit_code = Lich::Util::CLI::PasswordManager.recover_master_password('validpassword12345')
+        expect(exit_code).to eq(0)
+      end
+    end
+
+    context 'security concerns for recovery' do
+      before do
+        yaml_data = {
+          'encryption_mode'      => 'enhanced',
+          'master_password_test' => { 'validation_salt' => 'salt', 'validation_hash' => 'hash' },
+          'accounts'             => { 'DOUG' => { 'password' => 'encrypted_pass' } }
+        }
+        File.write(yaml_file, YAML.dump(yaml_data))
+      end
+
+      it 'does not log master password values' do
+        allow($stdin).to receive(:gets).and_return("newpassword\n", "newpassword\n")
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:create_validation_test)
+          .and_return({})
+        allow(Lich::Common::GUI::MasterPasswordManager).to receive(:store_master_password)
+          .and_return(true)
+        allow(Lich::Common::GUI::PasswordCipher).to receive(:decrypt)
+          .and_return('plaintext_pass')
+        allow(Lich::Common::GUI::PasswordCipher).to receive(:encrypt)
+          .and_return('encrypted_new')
+
+        expect(Lich).not_to receive(:log).with(/newpassword/)
+
+        Lich::Util::CLI::PasswordManager.recover_master_password
+      end
     end
   end
 end
