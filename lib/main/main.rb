@@ -46,17 +46,14 @@ reconnect_if_wanted = proc {
   require File.join(LIB_DIR, 'common', 'eaccess.rb')
 
   if ARGV.include?('--login')
+    # CLI login flow: character authentication via saved entries
     require File.join(LIB_DIR, 'common', 'gui', 'yaml_state')
+    require File.join(LIB_DIR, 'common', 'cli', 'cli_login')
     require File.join(LIB_DIR, 'util', 'login_helpers')
     require File.join(LIB_DIR, 'util', 'cli_password_manager')
+
+    # Extract character name from --login argument
     requested_character = ARGV[ARGV.index('--login') + 1].capitalize
-    if File.exist?(Lich::Common::GUI::YamlState.yaml_file_path(DATA_DIR))
-      data_to_convert = YAML.load_file(Lich::Common::GUI::YamlState.yaml_file_path(DATA_DIR))
-      entry_data = Lich::Util::LoginHelpers.symbolize_keys(data_to_convert)
-    else
-      $stdout.puts "error: no saved entries YAML file found"
-      Lich.log "error: no saved entries YAML file found"
-    end
 
     # Validate master password availability before attempting login (required for Enhanced encryption mode)
     unless Lich::Util::CLI::PasswordManager.validate_master_password_available
@@ -65,42 +62,25 @@ reconnect_if_wanted = proc {
       exit 1
     end
 
-    # previous realm / game instance detection modernized to support YAML / elogin efforts
+    # Parse game code and frontend from remaining arguments
     modifiers = ARGV.dup
     requested_instance, requested_fe = Lich::Util::LoginHelpers.resolve_login_args(modifiers)
 
-    # cast broadest possible net for requested character saved info, convenience method assigns nil to any missing parameters
-    # receives [Array<Hash>] Array of all characters with the specified name
-    char_data_sets = Lich::Util::LoginHelpers.find_character_by_name_game_and_frontend(entry_data, requested_character, requested_instance, requested_fe)
-    # filter based on provided information to select best match
-    # receives [Hash, nil] The best matching character hash, or nil if the input array is nil or empty.
-    char_data = Lich::Util::LoginHelpers.select_best_fit(char_data_sets: char_data_sets, requested_character: requested_character, requested_instance: requested_instance, requested_fe: requested_fe)
+    # Execute CLI login flow and get launch data
+    launch_data_array = Lich::Common::CLI::CLILogin.execute(
+      requested_character,
+      game_code: requested_instance,
+      frontend: requested_fe,
+      data_dir: DATA_DIR
+    )
 
-    unless char_data.nil?
-      Lich.log "info: using quick game entry settings for #{requested_character}"
-
-      launch_data_hash = EAccess.auth(
-        account: char_data[:username],
-        password: char_data[:password],
-        character: char_data[:char_name],
-        game_code: char_data[:game_code]
-      )
-
-      @launch_data = launch_data_hash.map { |k, v| "#{k.upcase}=#{v}" }
-      if char_data[:frontend] == 'wizard'
-        @launch_data.collect! { |line| line.sub(/GAMEFILE=.+/, 'GAMEFILE=WIZARD.EXE').sub(/GAME=.+/, 'GAME=WIZ').sub(/FULLGAMENAME=.+/, 'FULLGAMENAME=Wizard Front End') }
-      elsif char_data[:frontend] == 'avalon'
-        @launch_data.collect! { |line| line.sub(/GAME=.+/, 'GAME=AVALON') } # TODO: Rationalize @launch_data for consistency (GAMEFILE=WRAYTH.EXE)
-      end
-      if char_data[:custom_launch]
-        @launch_data.push "CUSTOMLAUNCH=#{char_data[:custom_launch]}"
-        if char_data[:custom_launch_dir]
-          @launch_data.push "CUSTOMLAUNCHDIR=#{char_data[:custom_launch_dir]}"
-        end
-      end
+    if launch_data_array
+      Lich.log "info: CLI login successful for #{requested_character}"
+      @launch_data = launch_data_array
     else
-      $stdout.puts "error: failed to find login data for #{requested_character}"
-      Lich.log "error: failed to find login data for #{requested_character}"
+      $stdout.puts "error: failed to authenticate for #{requested_character}"
+      Lich.log "error: CLI login failed for #{requested_character}"
+      exit 1
     end
 
   ## GUI starts here
