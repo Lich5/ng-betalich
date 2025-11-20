@@ -317,13 +317,13 @@ RSpec.describe Lich::Common::CLI::PasswordManager do
   describe '.change_master_password' do
     before do
       yaml_data = {
-        'encryption_mode'                => 'enhanced',
+        'encryption_mode'                 => 'enhanced',
         'master_password_validation_test' => {
           'validation_salt'    => 'salt',
           'validation_hash'    => 'hash',
           'validation_version' => 1
         },
-        'accounts'                       => {
+        'accounts'                        => {
           'DOUG' => {
             'password' => 'encrypted_pass',
             'username' => 'DOUG'
@@ -523,9 +523,9 @@ RSpec.describe Lich::Common::CLI::PasswordManager do
     context 'with enhanced encryption mode' do
       before do
         yaml_data = {
-          'encryption_mode'                => 'enhanced',
+          'encryption_mode'                 => 'enhanced',
           'master_password_validation_test' => { 'validation_salt' => 'salt', 'validation_hash' => 'hash' },
-          'accounts'                       => { 'DOUG' => { 'password' => 'encrypted_pass' } }
+          'accounts'                        => { 'DOUG' => { 'password' => 'encrypted_pass' } }
         }
         File.write(yaml_file, YAML.dump(yaml_data))
       end
@@ -617,9 +617,9 @@ RSpec.describe Lich::Common::CLI::PasswordManager do
     context 'in enhanced mode with no accounts' do
       before do
         yaml_data = {
-          'encryption_mode'              => 'enhanced',
+          'encryption_mode'                 => 'enhanced',
           'master_password_validation_test' => { 'validation_salt' => 'salt', 'validation_hash' => 'hash' },
-          'accounts'                     => {}
+          'accounts'                        => {}
         }
         File.write(yaml_file, YAML.dump(yaml_data))
       end
@@ -635,9 +635,9 @@ RSpec.describe Lich::Common::CLI::PasswordManager do
     context 'in enhanced mode with interactive password entry' do
       before do
         yaml_data = {
-          'encryption_mode'                => 'enhanced',
+          'encryption_mode'                 => 'enhanced',
           'master_password_validation_test' => { 'validation_salt' => 'salt', 'validation_hash' => 'hash', 'validation_version' => 1 },
-          'accounts'                       => {
+          'accounts'                        => {
             'DOUG' => {
               'password'   => 'encrypted_pass',
               'characters' => []
@@ -745,9 +745,9 @@ RSpec.describe Lich::Common::CLI::PasswordManager do
     context 'in enhanced mode with direct password argument' do
       before do
         yaml_data = {
-          'encryption_mode'                => 'enhanced',
+          'encryption_mode'                 => 'enhanced',
           'master_password_validation_test' => { 'validation_salt' => 'salt', 'validation_hash' => 'hash', 'validation_version' => 1 },
-          'accounts'                       => {
+          'accounts'                        => {
             'DOUG' => {
               'password'   => 'encrypted_pass',
               'characters' => []
@@ -787,9 +787,9 @@ RSpec.describe Lich::Common::CLI::PasswordManager do
     context 'security concerns for recovery' do
       before do
         yaml_data = {
-          'encryption_mode'                => 'enhanced',
+          'encryption_mode'                 => 'enhanced',
           'master_password_validation_test' => { 'validation_salt' => 'salt', 'validation_hash' => 'hash' },
-          'accounts'                       => { 'DOUG' => { 'password' => 'encrypted_pass' } }
+          'accounts'                        => { 'DOUG' => { 'password' => 'encrypted_pass' } }
         }
         File.write(yaml_file, YAML.dump(yaml_data))
       end
