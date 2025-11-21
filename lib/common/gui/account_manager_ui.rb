@@ -722,13 +722,14 @@ module Lich
 
           @change_encryption_mode_button.signal_connect('clicked') do
             Gtk.queue do
-              success = EncryptionModeChange.show_change_mode_dialog(@window, @data_dir)
-              if success
+              # Pass callback to be invoked after mode change completes
+              on_completion = lambda do
                 populate_accounts_view(@accounts_store)
                 update_change_encryption_mode_button_state
                 # Notify that encryption mode has changed to refresh encryption management tab
                 notify_data_changed(:encryption_mode_changed, {})
               end
+              EncryptionModeChange.show_change_mode_dialog(@window, @data_dir, on_completion)
             end
           end
 

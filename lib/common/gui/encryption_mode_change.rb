@@ -17,8 +17,9 @@ module Lich
         #
         # @param parent [Gtk::Window] Parent window
         # @param data_dir [String] Directory containing account data
+        # @param on_completion [Proc, nil] Optional callback to call when mode change completes successfully
         # @return [Boolean] true if mode changed successfully, false if cancelled
-        def self.show_change_mode_dialog(parent, data_dir)
+        def self.show_change_mode_dialog(parent, data_dir, on_completion = nil)
           yaml_file = YamlState.yaml_file_path(data_dir)
 
           # Load current mode
@@ -262,6 +263,8 @@ module Lich
 
                       success_dialog.run
                       success_dialog.destroy
+                      # Call completion callback after mode change succeeds
+                      on_completion.call if on_completion
                     else
                       error_dialog = Gtk::MessageDialog.new(
                         parent: parent,
