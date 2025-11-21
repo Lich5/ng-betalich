@@ -114,6 +114,7 @@ module Lich
         # Shows password confirmation dialog for master password recovery
         # Context-specific wrapper with messaging appropriate to actual password recovery scenario
         # Used when password is genuinely missing from Keychain
+        # Shows recovery success dialog after validation
         #
         # @param validation_test [Hash, nil] Validation test hash for password correctness check
         # @return [Hash, nil] { password: String, continue_session: Boolean } if recovered, nil if cancelled
@@ -128,7 +129,8 @@ module Lich
               title: "Recover Master Password",
               instructions: "<b>Recover Master Password</b>\n\n" +
                            "Your master password was removed from your system Keychain.\n\n" +
-                           "Enter your existing master password to restore access to your encrypted credentials."
+                           "Enter your existing master password to restore access to your encrypted credentials.",
+              show_success_dialog: true
             )
             mutex.synchronize { condition.signal }
           end
@@ -354,8 +356,9 @@ module Lich
         # @param validation_test [Hash, nil] Validation test hash for password correctness check
         # @param title [String] Dialog title
         # @param instructions [String] Markup text for instructions/context
+        # @param show_success_dialog [Boolean] Whether to show recovery success dialog after validation
         # @return [Hash] { password: String, continue_session: Boolean }
-        def create_password_validation_dialog(validation_test = nil, title: "Validate Master Password", instructions: "Enter your master password:")
+        def create_password_validation_dialog(validation_test = nil, title: "Validate Master Password", instructions: "Enter your master password:", show_success_dialog: false)
           # Create modal dialog for password validation
           # Single password entry - validates against PBKDF2 test
           dialog = Gtk::Dialog.new(
@@ -443,9 +446,11 @@ module Lich
               # Validation passed - password is correct
               password = entered_password
 
-              # Show success confirmation with Continue/Close buttons
-              success_result = create_recovery_success_dialog
-              continue_session = success_result[:continue_session]
+              # Show success confirmation if appropriate for this context
+              if show_success_dialog
+                success_result = create_recovery_success_dialog
+                continue_session = success_result[:continue_session]
+              end
               break
             elsif response == Gtk::ResponseType::CANCEL
               password = nil
