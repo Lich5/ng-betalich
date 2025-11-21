@@ -183,12 +183,10 @@ module Lich
                 dlg.destroy
               else
                 dlg.destroy
-                # Defer validation/mode change to next GTK iteration
-                # This allows signal handler to complete before showing dialogs
-                GLib::Timeout.add(0) do
+                # Queue mode change to run on GTK thread after signal handler completes
+                Gtk.queue do
                   mode_changed = perform_mode_change(parent, data_dir, current_mode, selected_mode,
                                                      yaml_data['master_password_validation_test'])
-                  false
                 end
               end
             elsif response == Gtk::ResponseType::CANCEL
