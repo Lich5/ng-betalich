@@ -55,9 +55,10 @@ module Lich
           new_password = ARGV[idx + 2]
 
           if account.nil? || new_password.nil?
+            lich_script = File.join(LICH_DIR, 'lich.rbw')
             $stdout.puts 'error: Missing required arguments'
-            $stdout.puts 'Usage: ruby lich.rbw --change-account-password ACCOUNT NEWPASSWORD'
-            $stdout.puts '   or: ruby lich.rbw -cap ACCOUNT NEWPASSWORD'
+            $stdout.puts "Usage: ruby #{lich_script} --change-account-password ACCOUNT NEWPASSWORD"
+            $stdout.puts "   or: ruby #{lich_script} -cap ACCOUNT NEWPASSWORD"
             exit 1
           end
 
@@ -70,9 +71,10 @@ module Lich
           password = ARGV[idx + 2]
 
           if account.nil? || password.nil?
+            lich_script = File.join(LICH_DIR, 'lich.rbw')
             $stdout.puts 'error: Missing required arguments'
-            $stdout.puts 'Usage: ruby lich.rbw --add-account ACCOUNT PASSWORD [--frontend FRONTEND]'
-            $stdout.puts '   or: ruby lich.rbw -aa ACCOUNT PASSWORD [--frontend FRONTEND]'
+            $stdout.puts "Usage: ruby #{lich_script} --add-account ACCOUNT PASSWORD [--frontend FRONTEND]"
+            $stdout.puts "   or: ruby #{lich_script} -aa ACCOUNT PASSWORD [--frontend FRONTEND]"
             exit 1
           end
 
@@ -86,9 +88,10 @@ module Lich
           new_password = ARGV[idx + 2]
 
           if old_password.nil?
+            lich_script = File.join(LICH_DIR, 'lich.rbw')
             $stdout.puts 'error: Missing required arguments'
-            $stdout.puts 'Usage: ruby lich.rbw --change-master-password OLDPASSWORD [NEWPASSWORD]'
-            $stdout.puts '   or: ruby lich.rbw -cmp OLDPASSWORD [NEWPASSWORD]'
+            $stdout.puts "Usage: ruby #{lich_script} --change-master-password OLDPASSWORD [NEWPASSWORD]"
+            $stdout.puts "   or: ruby #{lich_script} -cmp OLDPASSWORD [NEWPASSWORD]"
             $stdout.puts 'Note: If NEWPASSWORD is not provided, you will be prompted for confirmation'
             exit 1
           end
@@ -108,8 +111,9 @@ module Lich
           encryption_mode_idx = ARGV.index('--encryption-mode')
 
           if encryption_mode_idx.nil?
+            lich_script = File.join(LICH_DIR, 'lich.rbw')
             $stdout.puts 'error: Missing required argument'
-            $stdout.puts 'Usage: ruby lich.rbw --convert-entries --encryption-mode [plaintext|standard|enhanced]'
+            $stdout.puts "Usage: ruby #{lich_script} --convert-entries --encryption-mode [plaintext|standard|enhanced]"
             exit 1
           end
 
@@ -159,9 +163,10 @@ module Lich
           mode_arg = ARGV[idx + 1]
 
           if mode_arg.nil?
+            lich_script = File.join(LICH_DIR, 'lich.rbw')
             $stdout.puts 'error: Missing encryption mode'
-            $stdout.puts 'Usage: ruby lich.rbw --change-encryption-mode MODE [--master-password PASSWORD]'
-            $stdout.puts '       ruby lich.rbw -cem MODE [-mp PASSWORD]'
+            $stdout.puts "Usage: ruby #{lich_script} --change-encryption-mode MODE [--master-password PASSWORD]"
+            $stdout.puts "       ruby #{lich_script} -cem MODE [-mp PASSWORD]"
             $stdout.puts 'Modes: plaintext, standard, enhanced'
             exit 1
           end

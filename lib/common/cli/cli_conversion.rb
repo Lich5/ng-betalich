@@ -63,6 +63,8 @@ module Lich
         # Prints helpful conversion message showing user how to run conversion
         # Called when conversion is detected and user tries to login without converting
         def self.print_conversion_help_message
+          lich_script = File.join(LICH_DIR, 'lich.rbw')
+
           $stdout.puts "\n" + '=' * 80
           $stdout.puts "Saved entries conversion required"
           $stdout.puts '=' * 80
@@ -70,13 +72,13 @@ module Lich
           $stdout.puts "\nRun one of these commands:\n\n"
 
           $stdout.puts "For no encryption (least secure):"
-          $stdout.puts "  ruby lich.rbw --convert-entries --encryption-mode plaintext\n\n"
+          $stdout.puts "  ruby #{lich_script} --convert-entries --encryption-mode plaintext\n\n"
 
           $stdout.puts "For account-based encryption (standard):"
-          $stdout.puts "  ruby lich.rbw --convert-entries --encryption-mode standard\n\n"
+          $stdout.puts "  ruby #{lich_script} --convert-entries --encryption-mode standard\n\n"
 
           $stdout.puts "For master-password encryption (recommended):"
-          $stdout.puts "  ruby lich.rbw --convert-entries --encryption-mode enhanced --change-master-password YOUR_MASTER_PASSWORD\n\n"
+          $stdout.puts "  ruby #{lich_script} --convert-entries --encryption-mode enhanced --change-master-password YOUR_MASTER_PASSWORD\n\n"
 
           $stdout.puts '=' * 80 + "\n"
         end
