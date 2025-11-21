@@ -22,43 +22,18 @@ module Lich
 
         # Performs conversion from entry.dat to entry.yaml
         # Delegates to YamlState.migrate_from_legacy for actual conversion
+        # For enhanced mode, user will be prompted to create a master password interactively
         #
         # @param data_dir [String] Directory containing entry data
         # @param encryption_mode [Symbol] Encryption mode (:plaintext, :standard, :enhanced)
-        # @param master_password [String, nil] Optional master password for enhanced mode
         # @return [Boolean] True if conversion was successful
-        def self.convert(data_dir, encryption_mode, master_password = nil)
+        def self.convert(data_dir, encryption_mode)
           # Normalize encryption_mode to symbol if string is passed
           mode = encryption_mode.to_sym
 
-          # For enhanced mode with provided master password, we need to handle this specially
-          # YamlState.migrate_from_legacy will prompt for password if not provided in enhanced mode
-          # But we want to pass the provided master password directly
-          if mode == :enhanced && !master_password.nil?
-            # Call the migration with the provided master password
-            # Note: migrate_from_legacy expects the password to be validated separately
-            # We'll need to integrate this with the master password manager
-            result = Lich::Common::GUI::YamlState.migrate_from_legacy(data_dir, encryption_mode: mode)
-
-            if result && master_password
-              # If migration succeeded and we have a master password, store it in keychain
-              # This handles the one-shot conversion with master password setup
-              require_relative 'cli_password_manager'
-              begin
-                # The migration created a validation test, now store the password
-                Lich::Common::CLI::PasswordManager.store_master_password_to_keychain(master_password, data_dir)
-                return true
-              rescue StandardError => e
-                Lich.log "error: Failed to store master password to keychain: #{e.message}"
-                return false
-              end
-            end
-
-            return result
-          else
-            # For other modes, just call migrate_from_legacy directly
-            Lich::Common::GUI::YamlState.migrate_from_legacy(data_dir, encryption_mode: mode)
-          end
+          # Delegate to YamlState for the actual conversion
+          # For enhanced mode, migrate_from_legacy will prompt user to create master password
+          Lich::Common::GUI::YamlState.migrate_from_legacy(data_dir, encryption_mode: mode)
         end
 
         # Prints helpful conversion message showing user how to run conversion

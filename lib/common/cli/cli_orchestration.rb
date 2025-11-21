@@ -103,17 +103,14 @@ module Lich
 
         def self.handle_convert_entries
           encryption_mode_idx = ARGV.index('--encryption-mode')
-          cmp_idx = ARGV.index('--change-master-password') || ARGV.index('-cmp')
 
           if encryption_mode_idx.nil?
             $stdout.puts 'error: Missing required argument'
             $stdout.puts 'Usage: ruby lich.rbw --convert-entries --encryption-mode [plaintext|standard|enhanced]'
-            $stdout.puts '   or: ruby lich.rbw --convert-entries --encryption-mode [plaintext|standard|enhanced] --change-master-password PASSWORD'
             exit 1
           end
 
           encryption_mode_str = ARGV[encryption_mode_idx + 1]
-          master_password = nil
 
           unless %w[plaintext standard enhanced].include?(encryption_mode_str)
             $stdout.puts "error: Invalid encryption mode: #{encryption_mode_str}"
@@ -121,20 +118,10 @@ module Lich
             exit 1
           end
 
-          # Get master password if provided with -cmp flag
-          if !cmp_idx.nil?
-            master_password = ARGV[cmp_idx + 1]
-            if master_password.nil?
-              $stdout.puts 'error: Missing password argument for --change-master-password'
-              exit 1
-            end
-          end
-
           # Perform conversion
           success = Lich::Common::CLI::CLIConversion.convert(
             DATA_DIR,
-            encryption_mode_str,
-            master_password
+            encryption_mode_str
           )
 
           if success

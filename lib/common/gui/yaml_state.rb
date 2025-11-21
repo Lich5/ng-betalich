@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative 'state'
 require_relative 'password_cipher'
 require_relative 'master_password_manager'
 require_relative 'master_password_prompt'
