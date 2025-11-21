@@ -87,12 +87,6 @@ module Lich
               # Refresh accounts view for structural changes
               refresh_accounts_display if @accounts_store
               Lich.log "info: Account manager refreshed for data change: #{change_type}"
-            when :encryption_mode_changed
-              # Update encryption password button state when encryption mode changes
-              if @change_encryption_password_button
-                update_encryption_password_button_state(@change_encryption_password_button)
-              end
-              Lich.log "info: Encryption management tab updated for mode change"
             end
           })
         end
@@ -720,7 +714,7 @@ module Lich
           end
 
           # Add "Change Encryption Mode" button (always visible)
-          @change_encryption_mode_button = Gtk::Button.new(label: "Change Encryption Mode")
+          @change_encryption_mode_button = Gtk::Button.new(label: "Change Encryption Mode...")
           @change_encryption_mode_button.sensitive = false
 
           Accessibility.make_button_accessible(
@@ -732,12 +726,8 @@ module Lich
           @change_encryption_mode_button.signal_connect('clicked') do
             Gtk.queue do
               success = EncryptionModeChange.show_change_mode_dialog(@window, @data_dir)
-              if success
-                populate_accounts_view(@accounts_store)
-                update_change_encryption_mode_button_state
-                # Notify that encryption mode has changed so encryption management tab can refresh
-                notify_data_changed(:encryption_mode_changed, {})
-              end
+              populate_accounts_view(@accounts_store) if success
+              update_change_encryption_mode_button_state
             end
           end
 
