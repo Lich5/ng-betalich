@@ -704,7 +704,7 @@ module Lich
 
             @change_encryption_password_button.signal_connect('clicked') do
               Gtk.queue do
-                success = PasswordChange.show_change_master_password_dialog(@window, @data_dir)
+                success = MasterPasswordChange.show_change_master_password_dialog(@window, @data_dir)
                 populate_accounts_view(@accounts_store) if success
                 update_change_encryption_password_button_state
               end
