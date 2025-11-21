@@ -560,7 +560,7 @@ module Lich
                 return if selected_frontend.nil? # User cancelled
 
                 # Convert character data to the format expected by YAML storage
-                character_list = convert_auth_data_to_characters(auth_data, selected_frontend)
+                character_list = Lich::Common::GUI::AccountManager.convert_auth_data_to_characters(auth_data, selected_frontend)
 
                 # Step 4: Save account and characters to entry.yml file
                 if AccountManager.add_or_update_account(@data_dir, username, password, character_list)
@@ -934,33 +934,6 @@ module Lich
             Lich.log "error: Error checking if account exists: #{e.message}"
             false
           end
-        end
-
-        # Converts authentication data to character format for YAML storage
-        #
-        # @param auth_data [Array] Array of character hashes from authentication
-        # @param frontend [String] Selected frontend for all characters
-        # @return [Array] Array of character data hashes formatted for YAML storage
-        def convert_auth_data_to_characters(auth_data, frontend = 'stormfront')
-          characters = []
-          return characters unless auth_data.is_a?(Array)
-
-          auth_data.each do |char_data|
-            # Ensure we have the required fields with symbol keys (as returned by authentication)
-            next unless char_data.is_a?(Hash) &&
-                        char_data.key?(:char_name) &&
-                        char_data.key?(:game_name) &&
-                        char_data.key?(:game_code)
-
-            characters << {
-              char_name: char_data[:char_name],
-              game_code: char_data[:game_code],
-              game_name: char_data[:game_name],
-              frontend: frontend
-            }
-          end
-
-          characters
         end
 
         # Shows a frontend selection dialog similar to manual login

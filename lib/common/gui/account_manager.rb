@@ -336,6 +336,35 @@ module Lich
           end
         end
 
+        # Converts authentication response data to character format for storage
+        # Validates and filters character data, transforming from authentication response
+        # format (symbol keys) to storage format (symbol keys with validation)
+        #
+        # @param auth_data [Array] Array of character hashes from authentication
+        # @param frontend [String] Selected frontend for all characters
+        # @return [Array] Array of character data hashes formatted for storage
+        def self.convert_auth_data_to_characters(auth_data, frontend = 'stormfront')
+          characters = []
+          return characters unless auth_data.is_a?(Array)
+
+          auth_data.each do |char_data|
+            # Ensure we have the required fields with symbol keys (as returned by authentication)
+            next unless char_data.is_a?(Hash) &&
+                        char_data.key?(:char_name) &&
+                        char_data.key?(:game_name) &&
+                        char_data.key?(:game_code)
+
+            characters << {
+              char_name: char_data[:char_name],
+              game_code: char_data[:game_code],
+              game_name: char_data[:game_name],
+              frontend: frontend
+            }
+          end
+
+          characters
+        end
+
         # Gets all accounts
         #
         # @param data_dir [String] Directory containing entry data

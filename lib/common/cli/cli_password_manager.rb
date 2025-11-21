@@ -163,15 +163,10 @@ module Lich
                                 end
 
             # Convert authentication data to character list
-            character_list = auth_data.map do |char_data|
-              {
-                'char_name'   => char_data[:char_name],
-                'game_code'   => char_data[:game_code],
-                'game_name'   => char_data[:game_name],
-                'frontend'    => selected_frontend || '',
-                'is_favorite' => false
-              }
-            end
+            character_list = Lich::Common::GUI::AccountManager.convert_auth_data_to_characters(
+              auth_data,
+              selected_frontend || 'stormfront'
+            )
 
             # Save account + characters using AccountManager
             if Lich::Common::GUI::AccountManager.add_or_update_account(data_dir, account, password, character_list)
