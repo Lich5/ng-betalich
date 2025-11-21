@@ -168,6 +168,7 @@ module Lich
 
           # Set up response handler
           dialog.signal_connect('response') do |dlg, response|
+            Lich.log "debug: change_encryption_mode response handler, response=#{response}"
             if response == Gtk::ResponseType::APPLY
               # Determine selected mode
               selected_mode = if plaintext_radio.active?
@@ -178,18 +179,25 @@ module Lich
                                 :enhanced
                               end
 
+              Lich.log "debug: selected_mode=#{selected_mode}, current_mode=#{current_mode}"
+
               # If mode didn't change, just close dialog
               if selected_mode == current_mode
+                Lich.log "debug: mode unchanged, closing"
                 dlg.destroy
               else
+                Lich.log "debug: mode change queuing"
                 dlg.destroy
-                # Queue mode change to run on GTK thread after signal handler completes
                 Gtk.queue do
+                  Lich.log "debug: in Gtk.queue, calling perform_mode_change"
                   mode_changed = perform_mode_change(parent, data_dir, current_mode, selected_mode,
                                                      yaml_data['master_password_validation_test'])
+                  Lich.log "debug: perform_mode_change returned #{mode_changed}"
                 end
+                Lich.log "debug: Gtk.queue called"
               end
             elsif response == Gtk::ResponseType::CANCEL
+              Lich.log "debug: mode change cancelled"
               dlg.destroy
             end
           end
@@ -208,37 +216,48 @@ module Lich
           # Called outside of signal handler to avoid deadlocks
           # Returns true if mode change was successful, false otherwise
           def perform_mode_change(parent, data_dir, current_mode, selected_mode, validation_test)
+            Lich.log "debug: perform_mode_change starting: #{current_mode} -> #{selected_mode}"
             new_master_password = nil
 
             # If leaving Enhanced, validate with recovery dialog
             if current_mode == :enhanced
+              Lich.log "debug: showing recovery dialog"
               recovery_result = MasterPasswordPromptUI.show_recovery_dialog(validation_test)
+              Lich.log "debug: recovery_result=#{recovery_result.inspect}"
               unless recovery_result && recovery_result[:password]
+                Lich.log "debug: recovery cancelled or failed"
                 return false # User cancelled validation
               end
             end
 
             # If entering Enhanced, get/create password
             if selected_mode == :enhanced
+              Lich.log "debug: showing password dialog"
               new_master_password = MasterPasswordPromptUI.show_dialog
+              Lich.log "debug: password entry done, password_nil?=#{new_master_password.nil?}"
               unless new_master_password
+                Lich.log "debug: password entry cancelled"
                 return false # User cancelled password entry
               end
             end
 
             # If entering Plaintext, confirm warning
             if selected_mode == :plaintext
+              Lich.log "debug: showing plaintext confirmation"
               unless confirm_plaintext_mode_dialog(parent)
+                Lich.log "debug: plaintext confirmation cancelled"
                 return false # User cancelled plaintext entry
               end
             end
 
             # Perform mode change
+            Lich.log "debug: calling YamlState.change_encryption_mode"
             success = YamlState.change_encryption_mode(
               data_dir,
               selected_mode,
               new_master_password
             )
+            Lich.log "debug: change_encryption_mode returned #{success}"
 
             if success
               success_dialog = Gtk::MessageDialog.new(
