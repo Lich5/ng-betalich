@@ -80,11 +80,11 @@ module Lich
             when :encryption_mode_changed
               # Recreate encryption management tab to update button visibility/state
               if @notebook
-                @notebook.remove_page(3) # Remove encryption management tab (4th page)
+                @notebook.remove_page(@tab_indices[:encryption_management])
                 create_encryption_management_tab(@notebook)
                 @notebook.show_all
                 # Return to encryption management tab after recreation
-                Gtk.queue { @notebook.set_current_page(3) }
+                Gtk.queue { @notebook.set_current_page(@tab_indices[:encryption_management]) }
                 Lich.log "info: Encryption management tab recreated for mode change"
               end
             end
@@ -216,8 +216,8 @@ module Lich
 
           accounts_box.pack_start(button_box, expand: false, fill: false, padding: 0)
 
-          # Add tab to notebook
-          notebook.append_page(accounts_box, Gtk::Label.new("Accounts"))
+          # Add tab to notebook and store index
+          @tab_indices[:accounts] = notebook.append_page(accounts_box, Gtk::Label.new("Accounts"))
 
           # If recreating, move tab back to position 0
           if !insert_at_position.nil?
@@ -437,13 +437,13 @@ module Lich
 
           add_box.pack_start(button_box, expand: false, fill: false, padding: 0)
 
-          # Add tab to notebook
-          notebook.append_page(add_box, Gtk::Label.new("Add Character"))
+          # Add tab to notebook and store index
+          @tab_indices[:add_character] = notebook.append_page(add_box, Gtk::Label.new("Add Character"))
 
           # Set up back button handler
           back_button.signal_connect('clicked') do
-            # Switch to Accounts tab (index 0)
-            notebook.set_page(0)
+            # Switch to Accounts tab
+            notebook.set_page(@tab_indices[:accounts])
           end
 
           # Set up event handlers
@@ -514,13 +514,13 @@ module Lich
 
           add_account_box.pack_start(button_box, expand: false, fill: false, padding: 0)
 
-          # Add tab to notebook
-          notebook.append_page(add_account_box, Gtk::Label.new("Add Account"))
+          # Add tab to notebook and store index
+          @tab_indices[:add_account] = notebook.append_page(add_account_box, Gtk::Label.new("Add Account"))
 
           # Set up back button handler
           back_button.signal_connect('clicked') do
-            # Switch to Accounts tab (index 0)
-            notebook.set_page(0)
+            # Switch to Accounts tab
+            notebook.set_page(@tab_indices[:accounts])
           end
 
           # Set up add button handler with automatic account information collection
@@ -743,8 +743,8 @@ module Lich
           spacer = Gtk::Label.new("")
           encryption_box.pack_start(spacer, expand: true, fill: true, padding: 0)
 
-          # Add tab to notebook
-          notebook.append_page(encryption_box, Gtk::Label.new("Encryption Management"))
+          # Add tab to notebook and store index
+          @tab_indices[:encryption_management] = notebook.append_page(encryption_box, Gtk::Label.new("Encryption Management"))
 
           # Update button states based on current encryption mode and accounts
           if @change_encryption_password_button
@@ -1354,6 +1354,7 @@ module Lich
 
           # Create notebook for tabs (store as instance variable for tab recreation)
           @notebook = Gtk::Notebook.new
+          @tab_indices = {} # Registry for tab indices to avoid hardcoding page numbers
 
           # Create tabs
           create_accounts_tab(@notebook)
