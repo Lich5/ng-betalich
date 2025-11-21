@@ -118,6 +118,24 @@ module Lich
             exit 1
           end
 
+          # For enhanced mode, prompt for master password and store in keychain before conversion
+          # This way migrate_from_legacy will find it in keychain and not try to show GUI dialog
+          if encryption_mode_str == 'enhanced'
+            master_password = Lich::Common::CLI::PasswordManager.prompt_and_confirm_password('Enter new master password for enhanced encryption')
+            if master_password.nil?
+              puts 'error: Master password creation cancelled'
+              exit 1
+            end
+
+            # Store password in keychain so ensure_master_password_exists finds it
+            require_relative '../../gui/master_password_manager'
+            stored = Lich::Common::GUI::MasterPasswordManager.store_master_password(master_password)
+            unless stored
+              puts 'error: Failed to store master password in keychain'
+              exit 1
+            end
+          end
+
           # Perform conversion
           success = Lich::Common::CLI::CLIConversion.convert(
             DATA_DIR,
