@@ -83,6 +83,8 @@ module Lich
                 @notebook.remove_page(3) # Remove encryption management tab (4th page)
                 create_encryption_management_tab(@notebook)
                 @notebook.show_all
+                # Return to encryption management tab after recreation
+                Gtk.queue { @notebook.set_current_page(3) }
                 Lich.log "info: Encryption management tab recreated for mode change"
               end
             end
