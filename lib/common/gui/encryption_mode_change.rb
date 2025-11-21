@@ -310,34 +310,45 @@ module Lich
           end
 
           # Confirms plaintext mode selection with warning
+          # Uses Gtk.queue for thread-safe dialog operations
           def confirm_plaintext_mode_dialog(parent)
-            dialog = Gtk::MessageDialog.new(
-              parent: parent,
-              flags: :modal,
-              type: :warning,
-              buttons: :none,
-              message: "Plaintext Mode Warning"
-            )
+            result = nil
+            mutex = Mutex.new
+            condition = ConditionVariable.new
 
-            dialog.secondary_text = "You are about to disable encryption.\n\n" \
-                                   "Plaintext mode stores passwords unencrypted.\n" \
-                                   "Anyone with access to your file system can read your passwords.\n\n" \
-                                   "This mode is provided for accessibility purposes.\n\n" \
-                                   "Continue with Plaintext mode?"
+            Gtk.queue do
+              dialog = Gtk::MessageDialog.new(
+                parent: parent,
+                flags: :modal,
+                type: :warning,
+                buttons: :none,
+                message: "Plaintext Mode Warning"
+              )
 
-            dialog.add_button("Yes, Disable Encryption", Gtk::ResponseType::YES)
-            dialog.add_button("Cancel", Gtk::ResponseType::CANCEL)
+              dialog.secondary_text = "You are about to disable encryption.\n\n" \
+                                     "Plaintext mode stores passwords unencrypted.\n" \
+                                     "Anyone with access to your file system can read your passwords.\n\n" \
+                                     "This mode is provided for accessibility purposes.\n\n" \
+                                     "Continue with Plaintext mode?"
 
-            Accessibility.make_window_accessible(
-              dialog,
-              "Plaintext Mode Warning",
-              "Warning about plaintext mode security implications"
-            )
+              dialog.add_button("Yes, Disable Encryption", Gtk::ResponseType::YES)
+              dialog.add_button("Cancel", Gtk::ResponseType::CANCEL)
 
-            response = dialog.run
-            dialog.destroy
+              Accessibility.make_window_accessible(
+                dialog,
+                "Plaintext Mode Warning",
+                "Warning about plaintext mode security implications"
+              )
 
-            response == Gtk::ResponseType::YES
+              response = dialog.run
+              dialog.destroy
+
+              result = response == Gtk::ResponseType::YES
+              mutex.synchronize { condition.signal }
+            end
+
+            mutex.synchronize { condition.wait(mutex) }
+            result
           end
 
           # Shows error dialog
