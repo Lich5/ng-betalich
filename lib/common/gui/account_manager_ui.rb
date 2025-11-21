@@ -112,10 +112,10 @@ module Lich
         # Creates the accounts tab
         #
         # @param notebook [Gtk::Notebook] Notebook to add tab to
-        # @param encryption_mode [String, nil] Optional encryption mode from notification
+        # @param _encryption_mode [String, nil] Optional encryption mode from notification (unused)
         # @param insert_at_position [Integer, nil] Position to insert tab (default: append)
         # @return [void]
-        def create_accounts_tab(notebook, encryption_mode = nil, insert_at_position = nil)
+        def create_accounts_tab(notebook, _encryption_mode = nil, insert_at_position = nil)
           # Store notebook reference for use in callbacks
           @notebook = notebook
 
