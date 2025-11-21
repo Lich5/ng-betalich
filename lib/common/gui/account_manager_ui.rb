@@ -705,7 +705,7 @@ module Lich
               Gtk.queue do
                 success = MasterPasswordChange.show_change_master_password_dialog(@window, @data_dir)
                 populate_accounts_view(@accounts_store) if success
-                update_change_encryption_password_button_state
+                update_encryption_password_button_state(@change_encryption_password_button)
               end
             end
 
