@@ -714,7 +714,7 @@ module Lich
           end
 
           # Add "Change Encryption Mode" button (always visible)
-          @change_encryption_mode_button = Gtk::Button.new(label: "Change Encryption Mode...")
+          @change_encryption_mode_button = Gtk::Button.new(label: "Change Encryption Mode")
           @change_encryption_mode_button.sensitive = false
 
           Accessibility.make_button_accessible(
