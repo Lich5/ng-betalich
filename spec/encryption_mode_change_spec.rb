@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require 'rspec'
+require 'tmpdir'
+require 'fileutils'
 require_relative 'login_spec_helper'
 require_relative '../lib/common/gui/encryption_mode_change'
 require_relative '../lib/common/gui/master_password_manager'
