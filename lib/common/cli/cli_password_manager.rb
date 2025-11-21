@@ -2,6 +2,7 @@
 
 require 'yaml'
 require File.join(LIB_DIR, 'common', 'gui', 'yaml_state.rb')
+require File.join(LIB_DIR, 'common', 'gui', 'utilities.rb')
 require File.join(LIB_DIR, 'common', 'gui', 'account_manager.rb')
 
 module Lich
