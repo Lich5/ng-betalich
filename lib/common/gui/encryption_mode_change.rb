@@ -38,8 +38,8 @@ module Lich
             parent: parent,
             flags: :modal,
             buttons: [
-              ["Cancel", Gtk::ResponseType::CANCEL],
-              ["Change Mode", Gtk::ResponseType::APPLY]
+              ["Change Mode", Gtk::ResponseType::APPLY],
+              ["Cancel", Gtk::ResponseType::CANCEL]
             ]
           )
 
