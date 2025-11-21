@@ -872,8 +872,13 @@ module Lich
           existing = MasterPasswordManager.retrieve_master_password
           return existing if !existing.nil? && !existing.empty?
 
-          # Show UI prompt to CREATE master password
-          master_password = MasterPasswordPrompt.show_create_master_password_dialog
+          # Show prompt to CREATE master password (GUI or CLI depending on context)
+          master_password = if defined?(Gtk)
+                              MasterPasswordPrompt.show_create_master_password_dialog
+                            else
+                              # CLI mode: use password manager's prompting helper
+                              Lich::Common::CLI::PasswordManager.prompt_and_confirm_password('Enter new master password for enhanced encryption')
+                            end
 
           if master_password.nil?
             Lich.log "info: User declined to create master password"
