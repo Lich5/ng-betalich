@@ -7,86 +7,15 @@
 #   - Layer 3 (CliPasswordManager): Domain-specific handlers
 
 require File.join(LIB_DIR, 'util', 'opts.rb')
-require File.join(LIB_DIR, 'util', 'cli_options_registry.rb')
-require File.join(LIB_DIR, 'common', 'cli', 'cli_password_manager.rb')
+require File.join(LIB_DIR, 'common', 'cli', 'cli_orchestration.rb')
 
 module Lich
   module Main
     # Orchestrates ARGV processing: parsing → validation → handler execution → side effects
     module ArgvOptions
-      # Handle early-exit CLI operations (password mgmt, SGE/SAL linking)
-      # These must run before normal argv_options processing
-      module CliOperations
-        def self.execute
-          ARGV.each do |arg|
-            case arg
-            when /^--change-account-password$/, /^-cap$/
-              handle_change_account_password
-            when /^--add-account$/, /^-aa$/
-              handle_add_account
-            when /^--change-master-password$/, /^-cmp$/
-              handle_change_master_password
-            when /^--recover-master-password$/, /^-rmp$/
-              handle_recover_master_password
-            end
-          end
-        end
-
-        def self.handle_change_account_password
-          idx = ARGV.index { |a| a =~ /^--change-account-password$|^-cap$/ }
-          account = ARGV[idx + 1]
-          new_password = ARGV[idx + 2]
-
-          if account.nil? || new_password.nil?
-            $stdout.puts 'error: Missing required arguments'
-            $stdout.puts 'Usage: ruby lich.rbw --change-account-password ACCOUNT NEWPASSWORD'
-            $stdout.puts '   or: ruby lich.rbw -cap ACCOUNT NEWPASSWORD'
-            exit 1
-          end
-
-          exit Lich::Common::CLI::PasswordManager.change_account_password(account, new_password)
-        end
-
-        def self.handle_add_account
-          idx = ARGV.index { |a| a =~ /^--add-account$|^-aa$/ }
-          account = ARGV[idx + 1]
-          password = ARGV[idx + 2]
-
-          if account.nil? || password.nil?
-            $stdout.puts 'error: Missing required arguments'
-            $stdout.puts 'Usage: ruby lich.rbw --add-account ACCOUNT PASSWORD [--frontend FRONTEND]'
-            $stdout.puts '   or: ruby lich.rbw -aa ACCOUNT PASSWORD [--frontend FRONTEND]'
-            exit 1
-          end
-
-          frontend = ARGV[ARGV.index('--frontend') + 1] if ARGV.include?('--frontend')
-          exit Lich::Common::CLI::PasswordManager.add_account(account, password, frontend)
-        end
-
-        def self.handle_change_master_password
-          idx = ARGV.index { |a| a =~ /^--change-master-password$|^-cmp$/ }
-          old_password = ARGV[idx + 1]
-          new_password = ARGV[idx + 2]
-
-          if old_password.nil?
-            $stdout.puts 'error: Missing required arguments'
-            $stdout.puts 'Usage: ruby lich.rbw --change-master-password OLDPASSWORD [NEWPASSWORD]'
-            $stdout.puts '   or: ruby lich.rbw -cmp OLDPASSWORD [NEWPASSWORD]'
-            $stdout.puts 'Note: If NEWPASSWORD is not provided, you will be prompted for confirmation'
-            exit 1
-          end
-
-          exit Lich::Common::CLI::PasswordManager.change_master_password(old_password, new_password)
-        end
-
-        def self.handle_recover_master_password
-          idx = ARGV.index { |a| a =~ /^--recover-master-password$|^-rmp$/ }
-          new_password = ARGV[idx + 1]
-
-          # new_password is optional - if not provided, user will be prompted interactively
-          exit Lich::Common::CLI::PasswordManager.recover_master_password(new_password)
-        end
-      end
+      # CLI operations are now handled by lib/common/cli/cli_orchestration.rb
+      # which handles early-exit operations (password mgmt, conversion)
+      # before normal argv_options processing
 
       # Parse ARGV and build @argv_options hash for backward compatibility
       module OptionParser
@@ -468,8 +397,8 @@ module Lich
         # Step 1: Clean launcher.exe
         ARGV.delete_if { |arg| arg =~ /launcher\.exe/i }
 
-        # Step 2: Handle early-exit CLI operations
-        ArgvOptions::CliOperations.execute
+        # Step 2: Handle early-exit CLI operations (now in lib/common/cli/cli_orchestration.rb)
+        Lich::Common::CLI::CLIOrchestration.execute
 
         # Step 3: Parse normal options and build @argv_options
         @argv_options = ArgvOptions::OptionParser.execute
