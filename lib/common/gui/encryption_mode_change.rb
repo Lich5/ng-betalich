@@ -112,8 +112,8 @@ module Lich
             :button
           )
 
-          standard_radio = Gtk::RadioButton.new_with_label_from_widget(plaintext_radio,
-                                                                       "Standard Encryption (Account Name)")
+          standard_radio = Gtk::RadioButton.new(member: plaintext_radio,
+                                                label: "Standard Encryption (Account Name)")
           standard_radio.tooltip_text = "Encrypt with account name"
 
           Accessibility.make_accessible(
@@ -123,8 +123,8 @@ module Lich
             :button
           )
 
-          enhanced_radio = Gtk::RadioButton.new_with_label_from_widget(plaintext_radio,
-                                                                       "Enhanced Encryption (Master Password)")
+          enhanced_radio = Gtk::RadioButton.new(member: plaintext_radio,
+                                                label: "Enhanced Encryption (Master Password)")
           enhanced_radio.tooltip_text = "Encrypt with master password (strongest security)"
 
           Accessibility.make_accessible(
