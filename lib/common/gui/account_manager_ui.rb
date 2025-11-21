@@ -741,6 +741,12 @@ module Lich
 
           # Add tab to notebook
           notebook.append_page(encryption_box, Gtk::Label.new("Encryption Management"))
+
+          # Update button states based on current encryption mode and accounts
+          if @change_encryption_password_button
+            update_encryption_password_button_state(@change_encryption_password_button)
+          end
+          update_change_encryption_mode_button_state
         end
 
         private
