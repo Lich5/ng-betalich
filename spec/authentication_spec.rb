@@ -10,13 +10,13 @@ RSpec.describe Lich::Common::GUI::Authentication do
   describe ".authenticate" do
     before do
       # Mock EAccess.auth to return test data
-      allow(EAccess).to receive(:auth).and_return(auth_data)
+      allow(Lich::Common::EAccess).to receive(:auth).and_return(auth_data)
     end
 
     context "with character and game_code" do
       it "calls EAccess.auth with character and game_code" do
         # Test that EAccess.auth is called with correct parameters
-        expect(EAccess).to receive(:auth).with(
+        expect(Lich::Common::EAccess).to receive(:auth).with(
           account: account,
           password: password,
           character: character,
@@ -37,7 +37,7 @@ RSpec.describe Lich::Common::GUI::Authentication do
     context "with legacy authentication" do
       it "calls EAccess.auth with legacy flag" do
         # Test that EAccess.auth is called with legacy flag
-        expect(EAccess).to receive(:auth).with(
+        expect(Lich::Common::EAccess).to receive(:auth).with(
           account: account,
           password: password,
           legacy: true
@@ -56,7 +56,7 @@ RSpec.describe Lich::Common::GUI::Authentication do
     context "with basic authentication" do
       it "calls EAccess.auth with account and password only" do
         # Test that EAccess.auth is called with account and password only
-        expect(EAccess).to receive(:auth).with(
+        expect(Lich::Common::EAccess).to receive(:auth).with(
           account: account,
           password: password
         )
