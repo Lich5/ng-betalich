@@ -61,12 +61,20 @@ module Lich
           header_label.set_markup(
             "<span size='x-large'>Saved Entries Data Conversion\n\n</span>"
           )
-          info_label.set_markup(
-            "<span size='large'>Your existing saved entries data will be converted to a new format. This is a one-time process and your original saved entries data will be retained unmodified.\n\n" +
-            "Existing:\t\t#{LIB_DIR}/entry.dat\n" +
-            "Converted:\t#{LIB_DIR}/entry.yaml\n\n" +
-            "entry.dat will no longer be used, and may be deleted at your convenience</span>"
-          )
+
+          # Build info text - only show entry.dat info if it still exists (not yet converted)
+          info_text = "<span size='large'>Your existing saved entries data will be converted to a new format. This is a one-time process and your original saved entries data will be retained unmodified."
+
+          # Only show entry.dat file info if conversion hasn't happened yet
+          unless File.exist?(Lich::Common::GUI::YamlState.yaml_file_path(LIB_DIR))
+            info_text += "\n\nExisting:\t\t#{LIB_DIR}/entry.dat\n" +
+                         "Converted:\t#{LIB_DIR}/entry.yaml\n\n" +
+                         "entry.dat will no longer be used, and may be deleted at your convenience"
+          end
+
+          info_text += "</span>"
+
+          info_label.set_markup(info_text)
           header_label.set_line_wrap(false)
           info_label.set_line_wrap(true)
           header_label.set_justify(:center)

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'master_password_manager'
+require_relative 'master_password_prompt_ui'
 require_relative 'password_cipher'
 require_relative 'yaml_state'
 require_relative 'accessibility'
@@ -25,8 +26,8 @@ module Lich
             parent: parent,
             flags: :modal,
             buttons: [
-              ["Cancel", Gtk::ResponseType::CANCEL],
-              ["Change Password", Gtk::ResponseType::APPLY]
+              ["Change Password", Gtk::ResponseType::APPLY],
+              ["Cancel", Gtk::ResponseType::CANCEL]
             ]
           )
 
@@ -124,6 +125,12 @@ module Lich
           )
 
           content_area.add(status_label)
+
+          # Add show password checkbox
+          MasterPasswordPromptUI.new.create_and_wire_show_password_checkbox(
+            content_area,
+            [current_password_entry, new_password_entry, confirm_password_entry]
+          )
 
           # Show all widgets
           dialog.show_all

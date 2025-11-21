@@ -5,6 +5,7 @@ dist/
 logs/
 maps/
 scripts/
+!.github/scripts/
 temp/
 jinxp
 .pre-commit-config.yaml
@@ -17,5 +18,18 @@ R4LGTK3.iss
 .DS_Store
 # handle symlinks since these are files on *nix
 data
-scripts
 .vscode
+# Bundler artifacts
+.bundle/
+bin/
+# Ignore .claude directory except for settings and commands
+.claude/*
+!.claude/settings.json
+!.claude/commands/
+!.claude/docs
+!.claude/hooks/
+!.claude/work-units
+# RSpec artifacts
+spec/.rspec_status
+# Debug logs
+debug-*.log

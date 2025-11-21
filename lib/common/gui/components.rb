@@ -73,8 +73,15 @@ module Lich
             notebook.style_context.add_provider(css_provider, Gtk::StyleProvider::PRIORITY_USER)
           end
 
+          # Track tab indices to avoid hardcoding page numbers
+          notebook.define_singleton_method(:tab_indices) do
+            @tab_indices ||= {}
+          end
+
           pages.each do |page|
-            notebook.append_page(page[:widget], Gtk::Label.new(page[:label]))
+            label = page[:label]
+            index = notebook.append_page(page[:widget], Gtk::Label.new(label))
+            notebook.tab_indices[label] = index
           end
 
           notebook

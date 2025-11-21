@@ -343,6 +343,7 @@ module Lich
           @account_book = Gtk::Notebook.new
           @account_book.set_tab_pos(:left)
           @account_book.show_border = true
+          @account_tabs = {} # Registry for account tabs to avoid hardcoding indices
 
           # Apply theme styling
           unless @ui_config.theme_state
@@ -378,8 +379,8 @@ module Lich
               create_character_entry(account_box, login_info)
             }
 
-            # Add account tab to notebook
-            @account_book.append_page(account_box, Gtk::Label.new(account.upcase))
+            # Add account tab to notebook and store index
+            @account_tabs[account] = @account_book.append_page(account_box, Gtk::Label.new(account.upcase))
             @account_book.set_tab_reorderable(account_box, true)
           }
 

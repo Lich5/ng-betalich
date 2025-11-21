@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.12.11](https://github.com/Lich5/ng-betalich/compare/v5.12.10...v5.12.11) (2025-10-29)
+
+
+### Bug Fixes
+
+* **gs:** add olib Container; ([#13](https://github.com/Lich5/ng-betalich/issues/13)) ([26626fb](https://github.com/Lich5/ng-betalich/commit/26626fb8204d221a021bd0a7f382d725a30bcf01))
+
 ## [5.12.10](https://github.com/elanthia-online/lich-5/compare/v5.12.9...v5.12.10) (2025-10-18)
 
 

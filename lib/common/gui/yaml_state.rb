@@ -95,17 +95,7 @@ module Lich
 
           # Write YAML data to file with secure permissions
           begin
-            # Prepare YAML with password preservation (clones to avoid mutation)
-            prepared_yaml = prepare_yaml_for_serialization(yaml_data)
-
-            File.open(yaml_file, 'w', 0600) do |file|
-              file.puts "# Lich 5 Login Entries - YAML Format"
-              file.puts "# Generated: #{Time.now}"
-
-              # Use YAML dump with options to prevent multiline formatting of long strings
-              file.write(YAML.dump(prepared_yaml, permitted_classes: [Symbol]))
-            end
-
+            write_yaml_file(yaml_file, yaml_data)
             true
           rescue StandardError => e
             Lich.log "error: Error saving YAML entry file: #{e.message}"
@@ -184,16 +174,7 @@ module Lich
             if File.exist?(yaml_file)
               yaml_data = YAML.load_file(yaml_file)
               yaml_data['master_password_validation_test'] = validation_test
-
-              # Prepare YAML with password preservation (clones to avoid mutation)
-              prepared_yaml = prepare_yaml_for_serialization(yaml_data)
-
-              File.open(yaml_file, 'w', 0600) do |file|
-                file.puts "# Lich 5 Login Entries - YAML Format"
-                file.puts "# Generated: #{Time.now}"
-                # Use YAML dump with options to prevent multiline formatting of long strings
-                file.write(YAML.dump(prepared_yaml, permitted_classes: [Symbol]))
-              end
+              write_yaml_file(yaml_file, yaml_data)
             end
           end
 
@@ -261,8 +242,8 @@ module Lich
           if mode.to_sym == :enhanced && e.message.include?("Master password not found") && validation_test && !validation_test.empty?
             Lich.log "info: Master password missing from Keychain, attempting recovery via user prompt"
 
-            # Show recovery dialog with full validation and success confirmation
-            recovery_result = MasterPasswordPromptUI.show_recovery_dialog(validation_test)
+            # Show appropriate dialog based on context - use data access for conversion, recovery for actual recovery
+            recovery_result = MasterPasswordPromptUI.show_password_for_data_access(validation_test)
 
             if recovery_result.nil? || recovery_result[:password].nil?
               Lich.log "info: User cancelled master password recovery"
@@ -319,6 +300,139 @@ module Lich
           end
 
           yaml_data
+        end
+
+        # Changes encryption mode for all accounts
+        # Re-encrypts all passwords from current mode to new mode
+        # Automatically retrieves old master password from keychain if leaving Enhanced mode
+        # Requires new_master_password if entering Enhanced mode (caller must check keychain first and prompt if needed)
+        #
+        # @param data_dir [String] Directory containing account data
+        # @param new_mode [Symbol] Target encryption mode (:plaintext, :standard, :enhanced)
+        # @param new_master_password [String, nil] New master password (required if entering Enhanced)
+        # @return [Boolean] true if successful, false on failure (errors logged to Lich.log)
+        def self.change_encryption_mode(data_dir, new_mode, new_master_password = nil)
+          yaml_file = yaml_file_path(data_dir)
+
+          # Load YAML
+          begin
+            yaml_data = YAML.load_file(yaml_file)
+          rescue StandardError => e
+            Lich.log "error: Failed to load YAML for encryption mode change: #{e.message}"
+            return false
+          end
+
+          current_mode = yaml_data['encryption_mode']&.to_sym || :plaintext
+
+          # If already in target mode, return success
+          if current_mode == new_mode
+            Lich.log "info: Already in #{new_mode} encryption mode"
+            return true
+          end
+
+          # Determine old_master_password
+          old_master_password = nil
+          if current_mode == :enhanced
+            # Auto-retrieve from keychain when leaving Enhanced
+            old_master_password = MasterPasswordManager.retrieve_master_password
+            if old_master_password.nil?
+              Lich.log "error: Master password not found in keychain for encryption mode change"
+              return false
+            end
+          end
+
+          # Validate new_master_password if entering Enhanced mode
+          if new_mode == :enhanced && new_master_password.nil?
+            Lich.log "error: New master password required for Enhanced mode encryption"
+            return false
+          end
+
+          # Create backup
+          backup_file = "#{yaml_file}.bak"
+          begin
+            FileUtils.cp(yaml_file, backup_file)
+            Lich.log "info: Backup created for encryption mode change: #{backup_file}"
+          rescue StandardError => e
+            Lich.log "error: Failed to create backup: #{e.message}"
+            return false
+          end
+
+          begin
+            # Re-encrypt all accounts
+            accounts = yaml_data['accounts'] || {}
+            accounts.each do |account_name, account_data|
+              # Decrypt with current mode
+              plaintext = decrypt_password(
+                account_data['password'],
+                mode: current_mode,
+                account_name: account_name,
+                master_password: old_master_password
+              )
+
+              if plaintext.nil?
+                Lich.log "error: Failed to decrypt password for #{account_name}"
+                return restore_backup_and_return_false(backup_file, yaml_file)
+              end
+
+              # Encrypt with new mode
+              encrypted = encrypt_password(
+                plaintext,
+                mode: new_mode,
+                account_name: account_name,
+                master_password: new_master_password
+              )
+
+              if encrypted.nil?
+                Lich.log "error: Failed to encrypt password for #{account_name}"
+                return restore_backup_and_return_false(backup_file, yaml_file)
+              end
+
+              account_data['password'] = encrypted
+            end
+
+            # Update encryption_mode
+            yaml_data['encryption_mode'] = new_mode.to_s
+
+            # Handle Enhanced mode metadata
+            if new_mode == :enhanced
+              # Create validation test
+              validation_test = MasterPasswordManager.create_validation_test(new_master_password)
+              yaml_data['master_password_validation_test'] = validation_test
+
+              # Store in keychain
+              unless MasterPasswordManager.store_master_password(new_master_password)
+                Lich.log "error: Failed to store master password in keychain"
+                return restore_backup_and_return_false(backup_file, yaml_file)
+              end
+            elsif current_mode == :enhanced
+              # Remove validation test and keychain when leaving Enhanced
+              yaml_data.delete('master_password_validation_test')
+              MasterPasswordManager.delete_master_password
+            end
+
+            # Save YAML with headers
+            write_yaml_file(yaml_file, yaml_data)
+
+            # Clean up backup on success
+            FileUtils.rm(backup_file) if File.exist?(backup_file)
+
+            Lich.log "info: Encryption mode changed successfully: #{current_mode} → #{new_mode}"
+            true
+          rescue StandardError => e
+            Lich.log "error: Encryption mode change failed: #{e.class}: #{e.message}"
+            restore_backup_and_return_false(backup_file, yaml_file)
+          end
+        end
+
+        # Restores backup and returns false
+        # @private
+        def self.restore_backup_and_return_false(backup_file, yaml_file)
+          if File.exist?(backup_file)
+            FileUtils.cp(backup_file, yaml_file)
+            FileUtils.rm(backup_file)
+            Lich.log "info: Backup restored after encryption mode change failure"
+          end
+          false
         end
 
         # Migrates YAML data to support encryption format
@@ -860,6 +974,22 @@ module Lich
                   + "# Generated: #{Time.now}\n" \
                   + YAML.dump(prepared_yaml, permitted_classes: [Symbol])
           return content
+        end
+
+        # Writes YAML data to file with standard headers and secure permissions
+        # Handles preparation and formatting of YAML data for all save operations
+        #
+        # @param yaml_file [String] Path to YAML file to write
+        # @param yaml_data [Hash] YAML data structure to save
+        # @return [void]
+        def self.write_yaml_file(yaml_file, yaml_data)
+          prepared_yaml = prepare_yaml_for_serialization(yaml_data)
+
+          File.open(yaml_file, 'w', 0o600) do |file|
+            file.puts "# Lich 5 Login Entries - YAML Format"
+            file.puts "# Generated: #{Time.now}"
+            file.write(YAML.dump(prepared_yaml, permitted_classes: [Symbol]))
+          end
         end
 
         # Ensures master password exists for master_password mode conversions

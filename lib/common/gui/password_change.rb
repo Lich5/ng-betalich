@@ -22,8 +22,8 @@ module Lich
             parent: parent,
             flags: :modal,
             buttons: [
-              ["Cancel", Gtk::ResponseType::CANCEL],
-              ["Change Password", Gtk::ResponseType::APPLY]
+              ["Change Password", Gtk::ResponseType::APPLY],
+              ["Cancel", Gtk::ResponseType::CANCEL]
             ]
           )
 

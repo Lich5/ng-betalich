@@ -65,18 +65,22 @@ module Lich
   end
 end
 
-# Mock EAccess module for authentication testing
-module EAccess
-  def self.auth(_options = {})
-    # Mock implementation for testing
-    {
-      "key"          => "test_key",
-      "server"       => "test.example.com",
-      "port"         => "8080",
-      "gamefile"     => "STORM.EXE",
-      "game"         => "STORM",
-      "fullgamename" => "StormFront"
-    }
+# Override EAccess mock in the correct namespace after requires
+module Lich
+  module Common
+    module EAccess
+      def self.auth(_options = {})
+        # Mock implementation for testing
+        {
+          "key"          => "test_key",
+          "server"       => "test.example.com",
+          "port"         => "8080",
+          "gamefile"     => "STORM.EXE",
+          "game"         => "STORM",
+          "fullgamename" => "StormFront"
+        }
+      end
+    end
   end
 end
 
