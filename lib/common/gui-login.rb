@@ -451,6 +451,7 @@ module Lich
       @account_manager_ui.create_accounts_tab(account_notebook)
       @account_manager_ui.create_add_character_tab(account_notebook)
       @account_manager_ui.create_add_account_tab(account_notebook)
+      @account_manager_ui.create_encryption_management_tab(account_notebook)
 
       # Register notification callback now that @notebook is set
       @account_manager_ui.register_notification_callback
