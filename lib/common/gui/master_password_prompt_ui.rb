@@ -274,9 +274,7 @@ module Lich
           # ====================================================================
           # SECTION 7: Show Password Checkbox
           # ====================================================================
-          show_password_check = Gtk::CheckButton.new("Show password")
-          show_password_check.active = false
-          content_box.pack_start(show_password_check, expand: false)
+          create_and_wire_show_password_checkbox(content_box, [password_entry, confirm_entry])
 
           # ====================================================================
           # Real-time strength updates and password matching
@@ -313,12 +311,6 @@ module Lich
           confirm_entry.signal_connect('changed') do
             # Update password match status
             update_match_status.call
-          end
-
-          show_password_check.signal_connect('toggled') do |_widget|
-            # Toggle visibility for both password entries
-            password_entry.visibility = show_password_check.active?
-            confirm_entry.visibility = show_password_check.active?
           end
 
           # Set content area
@@ -399,9 +391,7 @@ module Lich
           # ====================================================================
           # SECTION 3: Show Password Checkbox
           # ====================================================================
-          show_password_check = Gtk::CheckButton.new("Show password")
-          show_password_check.active = false
-          content_box.pack_start(show_password_check, expand: false)
+          create_and_wire_show_password_checkbox(content_box, [password_entry])
 
           # ====================================================================
           # Error Message Label
@@ -409,10 +399,6 @@ module Lich
           error_label = Gtk::Label.new("")
           error_label.justify = :left
           content_box.pack_start(error_label, expand: false)
-
-          show_password_check.signal_connect('toggled') do |_widget|
-            password_entry.visibility = show_password_check.active?
-          end
 
           # Set content area
           dialog.child.add(content_box)
@@ -603,6 +589,32 @@ module Lich
             dialog.run
             dialog.destroy
           end
+        end
+
+        # Creates and wires a "Show password" checkbox for password entry fields
+        # Sets up accessibility properties and signal handling for visibility toggle
+        #
+        # @param content_box [Gtk::Box] Container to pack the checkbox into
+        # @param entries_to_toggle [Array<Gtk::Entry>] Password entry fields to toggle visibility
+        # @return [Gtk::CheckButton] The created checkbox widget
+        def create_and_wire_show_password_checkbox(content_box, entries_to_toggle)
+          show_password_check = Gtk::CheckButton.new("Show password")
+          show_password_check.active = false
+
+          Accessibility.make_accessible(
+            show_password_check,
+            "Show Password Checkbox",
+            "Toggle to display password characters",
+            :check_button
+          )
+
+          content_box.pack_start(show_password_check, expand: false)
+
+          show_password_check.signal_connect('toggled') do |_widget|
+            entries_to_toggle.each { |entry| entry.visibility = show_password_check.active? }
+          end
+
+          show_password_check
         end
       end
     end
