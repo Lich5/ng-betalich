@@ -95,17 +95,7 @@ module Lich
 
           # Write YAML data to file with secure permissions
           begin
-            # Prepare YAML with password preservation (clones to avoid mutation)
-            prepared_yaml = prepare_yaml_for_serialization(yaml_data)
-
-            File.open(yaml_file, 'w', 0600) do |file|
-              file.puts "# Lich 5 Login Entries - YAML Format"
-              file.puts "# Generated: #{Time.now}"
-
-              # Use YAML dump with options to prevent multiline formatting of long strings
-              file.write(YAML.dump(prepared_yaml, permitted_classes: [Symbol]))
-            end
-
+            write_yaml_file(yaml_file, yaml_data)
             true
           rescue StandardError => e
             Lich.log "error: Error saving YAML entry file: #{e.message}"
@@ -184,16 +174,7 @@ module Lich
             if File.exist?(yaml_file)
               yaml_data = YAML.load_file(yaml_file)
               yaml_data['master_password_validation_test'] = validation_test
-
-              # Prepare YAML with password preservation (clones to avoid mutation)
-              prepared_yaml = prepare_yaml_for_serialization(yaml_data)
-
-              File.open(yaml_file, 'w', 0600) do |file|
-                file.puts "# Lich 5 Login Entries - YAML Format"
-                file.puts "# Generated: #{Time.now}"
-                # Use YAML dump with options to prevent multiline formatting of long strings
-                file.write(YAML.dump(prepared_yaml, permitted_classes: [Symbol]))
-              end
+              write_yaml_file(yaml_file, yaml_data)
             end
           end
 
@@ -429,10 +410,8 @@ module Lich
               MasterPasswordManager.delete_master_password
             end
 
-            # Save YAML
-            File.open(yaml_file, 'w', 0o600) do |file|
-              file.write(YAML.dump(yaml_data))
-            end
+            # Save YAML with headers
+            write_yaml_file(yaml_file, yaml_data)
 
             # Clean up backup on success
             FileUtils.rm(backup_file) if File.exist?(backup_file)
@@ -995,6 +974,22 @@ module Lich
                   + "# Generated: #{Time.now}\n" \
                   + YAML.dump(prepared_yaml, permitted_classes: [Symbol])
           return content
+        end
+
+        # Writes YAML data to file with standard headers and secure permissions
+        # Handles preparation and formatting of YAML data for all save operations
+        #
+        # @param yaml_file [String] Path to YAML file to write
+        # @param yaml_data [Hash] YAML data structure to save
+        # @return [void]
+        def self.write_yaml_file(yaml_file, yaml_data)
+          prepared_yaml = prepare_yaml_for_serialization(yaml_data)
+
+          File.open(yaml_file, 'w', 0o600) do |file|
+            file.puts "# Lich 5 Login Entries - YAML Format"
+            file.puts "# Generated: #{Time.now}"
+            file.write(YAML.dump(prepared_yaml, permitted_classes: [Symbol]))
+          end
         end
 
         # Ensures master password exists for master_password mode conversions
