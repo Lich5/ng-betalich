@@ -128,7 +128,7 @@ module Lich
             end
 
             # Store password in keychain so ensure_master_password_exists finds it
-            require_relative '../../gui/master_password_manager'
+            require_relative '../gui/master_password_manager'
             stored = Lich::Common::GUI::MasterPasswordManager.store_master_password(master_password)
             unless stored
               puts 'error: Failed to store master password in keychain'
