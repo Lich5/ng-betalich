@@ -634,6 +634,115 @@ module Lich
           }
         end
 
+        # Creates the encryption management tab for managing encryption-related settings
+        # Provides buttons for changing encryption password and encryption mode
+        #
+        # @param notebook [Gtk::Notebook] The notebook to add the tab to
+        # @return [void]
+        def create_encryption_management_tab(notebook)
+          # Create encryption management content
+          encryption_box = Gtk::Box.new(:vertical, 10)
+          encryption_box.border_width = 10
+
+          # Create header label
+          header_label = Gtk::Label.new
+          header_label.set_markup("<span size='large' weight='bold'>Encryption Management</span>")
+          header_label.set_xalign(0)
+
+          Accessibility.make_accessible(
+            header_label,
+            "Encryption Management Header",
+            "Title for the encryption management section",
+            :label
+          )
+
+          encryption_box.pack_start(header_label, expand: false, fill: false, padding: 0)
+
+          # Add description
+          description = Gtk::Label.new
+          description.set_markup("Manage your encryption settings and passwords")
+          description.set_xalign(0)
+          description.set_line_wrap(true)
+
+          Accessibility.make_accessible(
+            description,
+            "Encryption Management Description",
+            "Description of encryption management options",
+            :label
+          )
+
+          encryption_box.pack_start(description, expand: false, fill: false, padding: 10)
+
+          # Create button box
+          button_box = Gtk::Box.new(:vertical, 10)
+          button_box.border_width = 10
+
+          # Check encryption mode and keychain availability
+          has_keychain = MasterPasswordManager.keychain_available?
+          mode = nil
+          yaml_file = YamlState.yaml_file_path(@data_dir)
+
+          if File.exist?(yaml_file)
+            begin
+              yaml_data = YAML.load_file(yaml_file)
+              mode = yaml_data['encryption_mode']
+            rescue StandardError => e
+              Lich.log "error: Failed to load YAML for encryption management tab: #{e.message}"
+            end
+          end
+
+          # Add "Change Encryption Password" button (only for Enhanced mode)
+          if has_keychain && mode == 'enhanced'
+            @change_encryption_password_button = Gtk::Button.new(label: "Change Encryption Password")
+            @change_encryption_password_button.sensitive = false
+
+            Accessibility.make_button_accessible(
+              @change_encryption_password_button,
+              "Change Encryption Password Button",
+              "Change the encryption password for Enhanced encryption mode"
+            )
+
+            @change_encryption_password_button.signal_connect('clicked') do
+              Gtk.queue do
+                success = PasswordChange.show_change_master_password_dialog(@window, @data_dir)
+                populate_accounts_view(@accounts_store) if success
+                update_change_encryption_password_button_state
+              end
+            end
+
+            button_box.pack_start(@change_encryption_password_button, expand: false, fill: false, padding: 0)
+          end
+
+          # Add "Change Encryption Mode" button (always visible)
+          @change_encryption_mode_button = Gtk::Button.new(label: "Change Encryption Mode...")
+          @change_encryption_mode_button.sensitive = false
+
+          Accessibility.make_button_accessible(
+            @change_encryption_mode_button,
+            "Change Encryption Mode Button",
+            "Change the encryption mode for all saved accounts"
+          )
+
+          @change_encryption_mode_button.signal_connect('clicked') do
+            Gtk.queue do
+              success = EncryptionModeChange.show_change_mode_dialog(@window, @data_dir)
+              populate_accounts_view(@accounts_store) if success
+              update_change_encryption_mode_button_state
+            end
+          end
+
+          button_box.pack_start(@change_encryption_mode_button, expand: false, fill: false, padding: 0)
+
+          encryption_box.pack_start(button_box, expand: false, fill: false, padding: 0)
+
+          # Add spacer
+          spacer = Gtk::Label.new("")
+          encryption_box.pack_start(spacer, expand: true, fill: true, padding: 0)
+
+          # Add tab to notebook
+          notebook.append_page(encryption_box, Gtk::Label.new("Encryption Management"))
+        end
+
         private
 
         # Notifies other tabs of data changes
@@ -1137,115 +1246,6 @@ module Lich
 
           # Select first account if available
           combo.active = 0 if accounts_data.any?
-        end
-
-        # Creates the encryption management tab for managing encryption-related settings
-        # Provides buttons for changing encryption password and encryption mode
-        #
-        # @param notebook [Gtk::Notebook] The notebook to add the tab to
-        # @return [void]
-        def create_encryption_management_tab(notebook)
-          # Create encryption management content
-          encryption_box = Gtk::Box.new(:vertical, 10)
-          encryption_box.border_width = 10
-
-          # Create header label
-          header_label = Gtk::Label.new
-          header_label.set_markup("<span size='large' weight='bold'>Encryption Management</span>")
-          header_label.set_xalign(0)
-
-          Accessibility.make_accessible(
-            header_label,
-            "Encryption Management Header",
-            "Title for the encryption management section",
-            :label
-          )
-
-          encryption_box.pack_start(header_label, expand: false, fill: false, padding: 0)
-
-          # Add description
-          description = Gtk::Label.new
-          description.set_markup("Manage your encryption settings and passwords")
-          description.set_xalign(0)
-          description.set_line_wrap(true)
-
-          Accessibility.make_accessible(
-            description,
-            "Encryption Management Description",
-            "Description of encryption management options",
-            :label
-          )
-
-          encryption_box.pack_start(description, expand: false, fill: false, padding: 10)
-
-          # Create button box
-          button_box = Gtk::Box.new(:vertical, 10)
-          button_box.border_width = 10
-
-          # Check encryption mode and keychain availability
-          has_keychain = MasterPasswordManager.keychain_available?
-          mode = nil
-          yaml_file = YamlState.yaml_file_path(@data_dir)
-
-          if File.exist?(yaml_file)
-            begin
-              yaml_data = YAML.load_file(yaml_file)
-              mode = yaml_data['encryption_mode']
-            rescue StandardError => e
-              Lich.log "error: Failed to load YAML for encryption management tab: #{e.message}"
-            end
-          end
-
-          # Add "Change Encryption Password" button (only for Enhanced mode)
-          if has_keychain && mode == 'enhanced'
-            @change_encryption_password_button = Gtk::Button.new(label: "Change Encryption Password")
-            @change_encryption_password_button.sensitive = false
-
-            Accessibility.make_button_accessible(
-              @change_encryption_password_button,
-              "Change Encryption Password Button",
-              "Change the encryption password for Enhanced encryption mode"
-            )
-
-            @change_encryption_password_button.signal_connect('clicked') do
-              Gtk.queue do
-                success = PasswordChange.show_change_master_password_dialog(@window, @data_dir)
-                populate_accounts_view(@accounts_store) if success
-                update_change_encryption_password_button_state
-              end
-            end
-
-            button_box.pack_start(@change_encryption_password_button, expand: false, fill: false, padding: 0)
-          end
-
-          # Add "Change Encryption Mode" button (always visible)
-          @change_encryption_mode_button = Gtk::Button.new(label: "Change Encryption Mode...")
-          @change_encryption_mode_button.sensitive = false
-
-          Accessibility.make_button_accessible(
-            @change_encryption_mode_button,
-            "Change Encryption Mode Button",
-            "Change the encryption mode for all saved accounts"
-          )
-
-          @change_encryption_mode_button.signal_connect('clicked') do
-            Gtk.queue do
-              success = EncryptionModeChange.show_change_mode_dialog(@window, @data_dir)
-              populate_accounts_view(@accounts_store) if success
-              update_change_encryption_mode_button_state
-            end
-          end
-
-          button_box.pack_start(@change_encryption_mode_button, expand: false, fill: false, padding: 0)
-
-          encryption_box.pack_start(button_box, expand: false, fill: false, padding: 0)
-
-          # Add spacer
-          spacer = Gtk::Label.new("")
-          encryption_box.pack_start(spacer, expand: true, fill: true, padding: 0)
-
-          # Add tab to notebook
-          notebook.append_page(encryption_box, Gtk::Label.new("Encryption Management"))
         end
 
         # Updates the state of the change encryption password button
