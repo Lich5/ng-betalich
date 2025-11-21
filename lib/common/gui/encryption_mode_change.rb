@@ -1,0 +1,347 @@
+# frozen_string_literal: true
+
+require_relative 'yaml_state'
+require_relative 'master_password_manager'
+require_relative 'master_password_prompt_ui'
+require_relative 'accessibility'
+
+module Lich
+  module Common
+    module GUI
+      # Provides encryption mode change functionality for the Lich GUI
+      # Allows users to change between plaintext, standard, and enhanced encryption modes
+      # Reuses existing UI components and domain logic
+      module EncryptionModeChange
+        # Shows a change encryption mode dialog
+        # Displays mode selection with current mode and handles all mode change workflows
+        #
+        # @param parent [Gtk::Window] Parent window
+        # @param data_dir [String] Directory containing account data
+        # @return [Boolean] true if mode changed successfully, false if cancelled
+        def self.show_change_mode_dialog(parent, data_dir)
+          yaml_file = YamlState.yaml_file_path(data_dir)
+
+          # Load current mode
+          begin
+            yaml_data = YAML.load_file(yaml_file)
+            current_mode = yaml_data['encryption_mode']&.to_sym || :plaintext
+          rescue StandardError => e
+            Lich.log "error: Failed to load YAML for mode change dialog: #{e.message}"
+            show_error_dialog(parent, "Failed to load account data: #{e.message}")
+            return false
+          end
+
+          # Create dialog
+          dialog = Gtk::Dialog.new(
+            title: "Change Encryption Mode",
+            parent: parent,
+            flags: :modal,
+            buttons: [
+              ["Cancel", Gtk::ResponseType::CANCEL],
+              ["Change Mode", Gtk::ResponseType::APPLY]
+            ]
+          )
+
+          dialog.set_default_size(450, 350)
+          dialog.border_width = 10
+
+          Accessibility.make_window_accessible(
+            dialog,
+            "Change Encryption Mode Dialog",
+            "Dialog for changing the encryption mode"
+          )
+
+          # Create content area
+          content_area = dialog.content_area
+          content_area.spacing = 10
+
+          # Add header
+          header_label = Gtk::Label.new
+          header_label.set_markup("<span weight='bold'>Change Encryption Mode</span>")
+          header_label.set_xalign(0)
+
+          Accessibility.make_accessible(
+            header_label,
+            "Change Encryption Mode Header",
+            "Title for the encryption mode change dialog",
+            :label
+          )
+
+          content_area.add(header_label)
+
+          # Add current mode display
+          current_mode_label = Gtk::Label.new
+          current_mode_text = mode_display_text(current_mode)
+          current_mode_label.set_markup("Current Mode: <b>#{current_mode_text}</b>")
+          current_mode_label.set_xalign(0)
+
+          Accessibility.make_accessible(
+            current_mode_label,
+            "Current Mode Display",
+            "Shows the current encryption mode",
+            :label
+          )
+
+          content_area.add(current_mode_label)
+
+          # Add separator
+          separator = Gtk::Separator.new(:horizontal)
+          content_area.add(separator)
+
+          # Add mode selection label
+          selection_label = Gtk::Label.new("Select new encryption mode:")
+          selection_label.set_xalign(0)
+
+          Accessibility.make_accessible(
+            selection_label,
+            "Mode Selection Instruction",
+            "Instruction to select a new encryption mode",
+            :label
+          )
+
+          content_area.add(selection_label)
+
+          # Create radio button group for mode selection
+          plaintext_radio = Gtk::RadioButton.new(label: "Plaintext (No Encryption)")
+          plaintext_radio.tooltip_text = "Passwords stored unencrypted (accessibility mode)"
+
+          Accessibility.make_accessible(
+            plaintext_radio,
+            "Plaintext Mode Option",
+            "Select plaintext encryption mode",
+            :button
+          )
+
+          standard_radio = Gtk::RadioButton.new_with_label_from_widget(plaintext_radio,
+                                                                       "Standard Encryption (Account Name)")
+          standard_radio.tooltip_text = "Encrypt with account name"
+
+          Accessibility.make_accessible(
+            standard_radio,
+            "Standard Mode Option",
+            "Select standard encryption mode",
+            :button
+          )
+
+          enhanced_radio = Gtk::RadioButton.new_with_label_from_widget(plaintext_radio,
+                                                                       "Enhanced Encryption (Master Password)")
+          enhanced_radio.tooltip_text = "Encrypt with master password (strongest security)"
+
+          Accessibility.make_accessible(
+            enhanced_radio,
+            "Enhanced Mode Option",
+            "Select enhanced encryption mode",
+            :button
+          )
+
+          # Set currently selected mode
+          case current_mode
+          when :plaintext
+            plaintext_radio.active = true
+          when :standard
+            standard_radio.active = true
+          when :enhanced
+            enhanced_radio.active = true
+          end
+
+          content_area.add(plaintext_radio)
+          content_area.add(standard_radio)
+          content_area.add(enhanced_radio)
+
+          # Add warning note
+          warning_label = Gtk::Label.new
+          warning_label.set_markup("<i>All passwords will be decrypted and re-encrypted\nwith the new method.</i>")
+          warning_label.set_xalign(0)
+          warning_label.set_line_wrap(true)
+
+          Accessibility.make_accessible(
+            warning_label,
+            "Re-encryption Warning",
+            "Warning that all passwords will be re-encrypted",
+            :label
+          )
+
+          content_area.add(warning_label)
+
+          # Track whether mode was changed
+          mode_changed = false
+
+          # Set up response handler
+          dialog.signal_connect('response') do |dlg, response|
+            if response == Gtk::ResponseType::APPLY
+              # Determine selected mode
+              selected_mode = if plaintext_radio.active?
+                                :plaintext
+                              elsif standard_radio.active?
+                                :standard
+                              elsif enhanced_radio.active?
+                                :enhanced
+                              end
+
+              # If mode didn't change, close dialog
+              if selected_mode == current_mode
+                dlg.destroy
+                next
+              end
+
+              # Handle special cases before mode change
+              new_master_password = nil
+
+              # If leaving Enhanced, use streamlined recovery dialog for validation
+              if current_mode == :enhanced
+                recovery_result = MasterPasswordPromptUI.show_recovery_dialog(
+                  yaml_data['master_password_validation_test']
+                )
+                unless recovery_result && recovery_result[:password]
+                  next # User cancelled validation
+                end
+              end
+
+              # If entering Enhanced, get/create password
+              if selected_mode == :enhanced
+                new_master_password = MasterPasswordPromptUI.show_dialog
+                unless new_master_password
+                  next # User cancelled password entry
+                end
+              end
+
+              # If entering Plaintext, confirm warning
+              if selected_mode == :plaintext
+                unless confirm_plaintext_mode_dialog(parent)
+                  next # User cancelled plaintext entry
+                end
+              end
+
+              # Perform mode change
+              dlg.hide # Hide dialog during processing
+
+              success = YamlState.change_encryption_mode(
+                data_dir,
+                selected_mode,
+                new_master_password
+              )
+
+              if success
+                mode_changed = true
+
+                success_dialog = Gtk::MessageDialog.new(
+                  parent: parent,
+                  flags: :modal,
+                  type: :info,
+                  buttons: :ok,
+                  message: "Encryption mode changed successfully."
+                )
+
+                Accessibility.make_window_accessible(
+                  success_dialog,
+                  "Success Message",
+                  "Encryption mode change success notification"
+                )
+
+                success_dialog.run
+                success_dialog.destroy
+                dlg.destroy
+              else
+                dlg.show # Show dialog again on failure
+                error_dialog = Gtk::MessageDialog.new(
+                  parent: parent,
+                  flags: :modal,
+                  type: :error,
+                  buttons: :ok,
+                  message: "Failed to change encryption mode. Please check the logs."
+                )
+
+                Accessibility.make_window_accessible(
+                  error_dialog,
+                  "Error Message",
+                  "Encryption mode change failed notification"
+                )
+
+                error_dialog.run
+                error_dialog.destroy
+              end
+            elsif response == Gtk::ResponseType::CANCEL
+              dlg.destroy
+            end
+          end
+
+          # Show dialog
+          dialog.show_all
+
+          mode_changed
+        end
+
+        class << self
+          private
+
+          # Returns display text for encryption mode
+          def mode_display_text(mode)
+            case mode
+            when :plaintext
+              "Plaintext (No Encryption)"
+            when :standard
+              "Standard Encryption (Account Name)"
+            when :enhanced
+              "Enhanced Encryption (Master Password)"
+            else
+              "Unknown"
+            end
+          end
+
+          # Confirms plaintext mode selection with warning
+          def confirm_plaintext_mode_dialog(parent)
+            dialog = Gtk::MessageDialog.new(
+              parent: parent,
+              flags: :modal,
+              type: :warning,
+              buttons: :none,
+              message: "Plaintext Mode Warning"
+            )
+
+            dialog.secondary_text = "You are about to disable encryption.\n\n" \
+                                   "Plaintext mode stores passwords unencrypted.\n" \
+                                   "Anyone with access to your file system can read your passwords.\n\n" \
+                                   "This mode is provided for accessibility purposes.\n\n" \
+                                   "Continue with Plaintext mode?"
+
+            dialog.add_button("Yes, Disable Encryption", Gtk::ResponseType::YES)
+            dialog.add_button("Cancel", Gtk::ResponseType::CANCEL)
+
+            Accessibility.make_window_accessible(
+              dialog,
+              "Plaintext Mode Warning",
+              "Warning about plaintext mode security implications"
+            )
+
+            response = dialog.run
+            dialog.destroy
+
+            response == Gtk::ResponseType::YES
+          end
+
+          # Shows error dialog
+          def show_error_dialog(parent, message)
+            dialog = Gtk::MessageDialog.new(
+              parent: parent,
+              flags: :modal,
+              type: :error,
+              buttons: :ok,
+              message: "Error"
+            )
+
+            dialog.secondary_text = message
+
+            Accessibility.make_window_accessible(
+              dialog,
+              "Error Dialog",
+              "Error notification"
+            )
+
+            dialog.run
+            dialog.destroy
+          end
+        end
+      end
+    end
+  end
+end

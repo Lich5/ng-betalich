@@ -545,6 +545,38 @@ module Lich
           Lich.log "error: Password prompt failed: #{e.message}"
           nil
         end
+
+        # Gets master password from keychain or prompts user if not available
+        # Used when entering Enhanced mode - checks keychain first, prompts if missing
+        #
+        # @return [String, nil] Master password or nil if unavailable/cancelled
+        def self.get_master_password_from_keychain_or_prompt
+          # Check if password already exists in keychain
+          existing = Lich::Common::GUI::MasterPasswordManager.retrieve_master_password
+          return existing if existing
+
+          # Not in keychain, prompt user to create one
+          puts "Creating new master password for Enhanced encryption mode..."
+          prompt_and_confirm_password("Enter new master password")
+        end
+
+        # Prompts for master password (single prompt, no confirmation)
+        # Used when validating current password when leaving Enhanced mode
+        #
+        # @return [String, nil] Master password or nil if unavailable
+        def self.prompt_for_master_password
+          print "Enter master password: "
+          input = $stdin.gets
+          if input.nil?
+            puts 'error: Unable to read password from STDIN / terminal'
+            Lich.log 'error: Master password prompt failed - stdin unavailable'
+            return nil
+          end
+          input.strip
+        rescue StandardError => e
+          Lich.log "error: Master password prompt failed: #{e.message}"
+          nil
+        end
       end
     end
   end

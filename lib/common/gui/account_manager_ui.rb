@@ -4,6 +4,7 @@ require_relative 'account_manager'
 require_relative 'favorites_manager'
 require_relative 'theme_utils'
 require_relative 'master_password_change'
+require_relative 'encryption_mode_change'
 
 module Lich
   module Common
@@ -241,6 +242,19 @@ module Lich
             button_box.pack_start(@change_encryption_password_button, expand: false, fill: false, padding: 0)
           end
 
+          # Add "Change Encryption Mode" button (always visible)
+          @change_encryption_mode_button = Gtk::Button.new(label: "Change Encryption Mode...")
+          @change_encryption_mode_button.sensitive = false
+
+          # Set accessible properties for screen readers
+          Accessibility.make_button_accessible(
+            @change_encryption_mode_button,
+            "Change Encryption Mode Button",
+            "Change the encryption mode for all saved accounts"
+          )
+
+          button_box.pack_start(@change_encryption_mode_button, expand: false, fill: false, padding: 0)
+
           accounts_box.pack_start(button_box, expand: false, fill: false, padding: 0)
 
           # Add tab to notebook
@@ -385,9 +399,17 @@ module Lich
             end
           end
 
+          # Set up change encryption mode button handler
+          @change_encryption_mode_button.signal_connect('clicked') do
+            success = EncryptionModeChange.show_change_mode_dialog(@window, @data_dir)
+            populate_accounts_view(accounts_store) if success
+            update_change_encryption_mode_button_state
+          end
+
           # Populate accounts view and update button state (only if button exists)
           populate_accounts_view(accounts_store)
           update_encryption_password_button_state(@change_encryption_password_button) if @change_encryption_password_button
+          update_change_encryption_mode_button_state
         end
 
         # Creates the add character tab
@@ -1215,6 +1237,33 @@ module Lich
           Lich.log "error: Error updating encryption password button state: #{e.message}"
           button.visible = false
           button.sensitive = false
+        end
+
+        # Updates the state of the change encryption mode button
+        # Button is always visible but only sensitive when accounts exist
+        #
+        # @return [void]
+        def update_change_encryption_mode_button_state
+          # Button is always visible
+          @change_encryption_mode_button.visible = true
+
+          # Check if YAML file exists with accounts
+          yaml_file = YamlState.yaml_file_path(@data_dir)
+          unless File.exist?(yaml_file)
+            @change_encryption_mode_button.sensitive = false
+            return
+          end
+
+          begin
+            yaml_data = YAML.load_file(yaml_file)
+            account_count = yaml_data['accounts']&.length || 0
+
+            # Button is sensitive only if there are accounts to re-encrypt
+            @change_encryption_mode_button.sensitive = account_count > 0
+          rescue StandardError => e
+            Lich.log "error: Error updating encryption mode button state: #{e.message}"
+            @change_encryption_mode_button.sensitive = false
+          end
         end
 
         # Shows a message dialog

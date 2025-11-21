@@ -3,6 +3,7 @@
 require_relative 'cli_options_registry'
 require_relative 'cli_password_manager'
 require_relative 'cli_conversion'
+require_relative 'cli_encryption_mode_change'
 require_relative 'cli_login'
 
 module Lich
@@ -28,6 +29,8 @@ module Lich
               handle_recover_master_password
             when /^--convert-entries$/
               handle_convert_entries
+            when /^--change-encryption-mode$/, /^-cem$/
+              handle_change_encryption_mode
             end
           end
 
@@ -149,6 +152,27 @@ module Lich
             $stdout.puts 'Conversion failed. Please check the logs for details.'
             exit 1
           end
+        end
+
+        def self.handle_change_encryption_mode
+          idx = ARGV.index { |a| a =~ /^--change-encryption-mode$|^-cem$/ }
+          mode_arg = ARGV[idx + 1]
+
+          if mode_arg.nil?
+            $stdout.puts 'error: Missing encryption mode'
+            $stdout.puts 'Usage: ruby lich.rbw --change-encryption-mode MODE [--master-password PASSWORD]'
+            $stdout.puts '       ruby lich.rbw -cem MODE [-mp PASSWORD]'
+            $stdout.puts 'Modes: plaintext, standard, enhanced'
+            exit 1
+          end
+
+          new_mode = mode_arg.to_sym
+
+          # Check for optional master password (for Enhanced mode, if automating)
+          mp_index = ARGV.index('--master-password') || ARGV.index('-mp')
+          master_password = ARGV[mp_index + 1] if mp_index
+
+          exit Lich::Common::CLI::EncryptionModeChange.change_mode(new_mode, master_password)
         end
       end
     end

@@ -286,7 +286,7 @@ module Lich
 
         def create_recovery_dialog(validation_test = nil)
           # Create modal dialog for master password recovery
-          # Validates both password matching and password correctness (if validation_test provided)
+          # Single password entry - validates against PBKDF2 test
           dialog = Gtk::Dialog.new(
             title: "Recover Master Password",
             parent: nil,
@@ -297,7 +297,7 @@ module Lich
             ]
           )
 
-          dialog.set_default_size(500, 350)
+          dialog.set_default_size(500, 250)
 
           content_box = Gtk::Box.new(:vertical, 12)
           content_box.border_width = 12
@@ -325,56 +325,21 @@ module Lich
           content_box.pack_start(password_entry, expand: false)
 
           # ====================================================================
-          # SECTION 3: Confirmation Password
-          # ====================================================================
-          confirm_label = Gtk::Label.new("Confirm Master Password:")
-          content_box.pack_start(confirm_label, expand: false)
-
-          confirm_entry = Gtk::Entry.new
-          confirm_entry.visibility = false
-          confirm_entry.placeholder_text = "Re-enter password to confirm"
-          content_box.pack_start(confirm_entry, expand: false)
-
-          # ====================================================================
-          # SECTION 4: Password Match Status
-          # ====================================================================
-          match_status = Gtk::Label.new("")
-          match_status.justify = :left
-          content_box.pack_start(match_status, expand: false)
-
-          # ====================================================================
-          # SECTION 5: Show Password Checkbox
+          # SECTION 3: Show Password Checkbox
           # ====================================================================
           show_password_check = Gtk::CheckButton.new("Show password")
           show_password_check.active = false
           content_box.pack_start(show_password_check, expand: false)
 
           # ====================================================================
-          # Real-time password matching feedback
+          # Error Message Label
           # ====================================================================
-          # Helper to update password match status
-          update_match_status = lambda do
-            if password_entry.text.empty? && confirm_entry.text.empty?
-              match_status.markup = ""
-            elsif password_entry.text == confirm_entry.text && !password_entry.text.empty?
-              match_status.markup = "<span foreground='#44ff44'>✓ Passwords match</span>"
-            else
-              match_status.markup = "<span foreground='#ff4444'>✗ Passwords do not match</span>"
-            end
-          end
-
-          password_entry.signal_connect('changed') do
-            update_match_status.call
-          end
-
-          confirm_entry.signal_connect('changed') do
-            update_match_status.call
-          end
+          error_label = Gtk::Label.new("")
+          error_label.justify = :left
+          content_box.pack_start(error_label, expand: false)
 
           show_password_check.signal_connect('toggled') do |_widget|
-            # Toggle visibility for both password entries
             password_entry.visibility = show_password_check.active?
-            confirm_entry.visibility = show_password_check.active?
           end
 
           # Set content area
@@ -392,31 +357,21 @@ module Lich
 
             if response == Gtk::ResponseType::OK
               entered_password = password_entry.text
-              confirm_password = confirm_entry.text
 
               if entered_password.empty?
-                show_error_dialog("Password cannot be empty")
-                next
-              elsif entered_password != confirm_password
-                show_error_dialog("Passwords do not match")
-                # Clear fields and refocus on first password field
-                password_entry.text = ""
-                confirm_entry.text = ""
-                password_entry.grab_focus
+                error_label.markup = "<span foreground='#ff4444'>Password cannot be empty</span>"
                 next
               elsif validation_test && !validation_test.empty?
-                # Validate password correctness if validation_test provided
+                # Validate password correctness against PBKDF2 test
                 unless MasterPasswordManager.validate_master_password(entered_password, validation_test)
-                  show_error_dialog("Incorrect Password", "The password you entered is incorrect. Please try again.")
-                  # Clear fields and refocus on first password field
+                  error_label.markup = "<span foreground='#ff4444'>Incorrect password. Please try again.</span>"
                   password_entry.text = ""
-                  confirm_entry.text = ""
                   password_entry.grab_focus
                   next
                 end
               end
 
-              # All validations passed - password is correct
+              # Validation passed - password is correct
               password = entered_password
 
               # Show success confirmation with Continue/Close buttons
