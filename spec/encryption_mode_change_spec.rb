@@ -166,9 +166,9 @@ RSpec.describe Lich::Common::GUI::EncryptionModeChange do
           .not_to raise_error
       end
 
-      it 'returns false when user cancels dialog' do
+      it 'returns true when dialog is shown (async operation)' do
         result = described_class.show_change_mode_dialog(parent_window, test_data_dir)
-        expect(result).to be false
+        expect(result).to be true
       end
 
       it 'sets up dialog with modal flag' do

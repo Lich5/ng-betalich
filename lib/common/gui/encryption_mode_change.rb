@@ -163,32 +163,31 @@ module Lich
 
           content_area.add(warning_label)
 
-          # Track whether mode was changed
+          # Track mode change result for async updates
           mode_changed = false
-          selected_mode_holder = nil
 
           # Set up response handler
           dialog.signal_connect('response') do |dlg, response|
             if response == Gtk::ResponseType::APPLY
               # Determine selected mode
-              selected_mode_holder = if plaintext_radio.active?
-                                       :plaintext
-                                     elsif standard_radio.active?
-                                       :standard
-                                     elsif enhanced_radio.active?
-                                       :enhanced
-                                     end
+              selected_mode = if plaintext_radio.active?
+                                :plaintext
+                              elsif standard_radio.active?
+                                :standard
+                              elsif enhanced_radio.active?
+                                :enhanced
+                              end
 
-              # If mode didn't change, close dialog
-              if selected_mode_holder == current_mode
+              # If mode didn't change, just close dialog
+              if selected_mode == current_mode
                 dlg.destroy
               else
                 dlg.destroy
-                # Schedule validation/mode change on next GTK iteration
+                # Defer validation/mode change to next GTK iteration
                 # This allows signal handler to complete before showing dialogs
                 GLib::Timeout.add(0) do
-                  perform_mode_change(parent, data_dir, current_mode, selected_mode_holder,
-                                      yaml_data['master_password_validation_test'])
+                  mode_changed = perform_mode_change(parent, data_dir, current_mode, selected_mode,
+                                                     yaml_data['master_password_validation_test'])
                   false
                 end
               end
@@ -200,7 +199,8 @@ module Lich
           # Show dialog
           dialog.show_all
 
-          mode_changed
+          # Return true to indicate dialog was shown (actual result will be async)
+          true
         end
 
         class << self
@@ -208,6 +208,7 @@ module Lich
 
           # Performs mode change with all necessary validations and dialogs
           # Called outside of signal handler to avoid deadlocks
+          # Returns true if mode change was successful, false otherwise
           def perform_mode_change(parent, data_dir, current_mode, selected_mode, validation_test)
             new_master_password = nil
 
@@ -215,7 +216,7 @@ module Lich
             if current_mode == :enhanced
               recovery_result = MasterPasswordPromptUI.show_recovery_dialog(validation_test)
               unless recovery_result && recovery_result[:password]
-                return # User cancelled validation
+                return false # User cancelled validation
               end
             end
 
@@ -223,14 +224,14 @@ module Lich
             if selected_mode == :enhanced
               new_master_password = MasterPasswordPromptUI.show_dialog
               unless new_master_password
-                return # User cancelled password entry
+                return false # User cancelled password entry
               end
             end
 
             # If entering Plaintext, confirm warning
             if selected_mode == :plaintext
               unless confirm_plaintext_mode_dialog(parent)
-                return # User cancelled plaintext entry
+                return false # User cancelled plaintext entry
               end
             end
 
@@ -258,6 +259,7 @@ module Lich
 
               success_dialog.run
               success_dialog.destroy
+              return true
             else
               error_dialog = Gtk::MessageDialog.new(
                 parent: parent,
@@ -275,6 +277,7 @@ module Lich
 
               error_dialog.run
               error_dialog.destroy
+              return false
             end
           end
 
