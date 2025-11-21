@@ -165,100 +165,32 @@ module Lich
 
           # Track whether mode was changed
           mode_changed = false
+          selected_mode_holder = nil
 
           # Set up response handler
           dialog.signal_connect('response') do |dlg, response|
             if response == Gtk::ResponseType::APPLY
               # Determine selected mode
-              selected_mode = if plaintext_radio.active?
-                                :plaintext
-                              elsif standard_radio.active?
-                                :standard
-                              elsif enhanced_radio.active?
-                                :enhanced
-                              end
+              selected_mode_holder = if plaintext_radio.active?
+                                       :plaintext
+                                     elsif standard_radio.active?
+                                       :standard
+                                     elsif enhanced_radio.active?
+                                       :enhanced
+                                     end
 
               # If mode didn't change, close dialog
-              if selected_mode == current_mode
-                dlg.destroy
-                next
-              end
-
-              # Handle special cases before mode change
-              new_master_password = nil
-
-              # If leaving Enhanced, use streamlined recovery dialog for validation
-              if current_mode == :enhanced
-                recovery_result = MasterPasswordPromptUI.show_recovery_dialog(
-                  yaml_data['master_password_validation_test']
-                )
-                unless recovery_result && recovery_result[:password]
-                  next # User cancelled validation
-                end
-              end
-
-              # If entering Enhanced, get/create password
-              if selected_mode == :enhanced
-                new_master_password = MasterPasswordPromptUI.show_dialog
-                unless new_master_password
-                  next # User cancelled password entry
-                end
-              end
-
-              # If entering Plaintext, confirm warning
-              if selected_mode == :plaintext
-                unless confirm_plaintext_mode_dialog(parent)
-                  next # User cancelled plaintext entry
-                end
-              end
-
-              # Perform mode change
-              dlg.hide # Hide dialog during processing
-
-              success = YamlState.change_encryption_mode(
-                data_dir,
-                selected_mode,
-                new_master_password
-              )
-
-              if success
-                mode_changed = true
-
-                success_dialog = Gtk::MessageDialog.new(
-                  parent: parent,
-                  flags: :modal,
-                  type: :info,
-                  buttons: :ok,
-                  message: "Encryption mode changed successfully."
-                )
-
-                Accessibility.make_window_accessible(
-                  success_dialog,
-                  "Success Message",
-                  "Encryption mode change success notification"
-                )
-
-                success_dialog.run
-                success_dialog.destroy
+              if selected_mode_holder == current_mode
                 dlg.destroy
               else
-                dlg.show # Show dialog again on failure
-                error_dialog = Gtk::MessageDialog.new(
-                  parent: parent,
-                  flags: :modal,
-                  type: :error,
-                  buttons: :ok,
-                  message: "Failed to change encryption mode. Please check the logs."
-                )
-
-                Accessibility.make_window_accessible(
-                  error_dialog,
-                  "Error Message",
-                  "Encryption mode change failed notification"
-                )
-
-                error_dialog.run
-                error_dialog.destroy
+                dlg.destroy
+                # Schedule validation/mode change on next GTK iteration
+                # This allows signal handler to complete before showing dialogs
+                GLib::Timeout.add(0) do
+                  perform_mode_change(parent, data_dir, current_mode, selected_mode_holder,
+                                      yaml_data['master_password_validation_test'])
+                  false
+                end
               end
             elsif response == Gtk::ResponseType::CANCEL
               dlg.destroy
@@ -273,6 +205,78 @@ module Lich
 
         class << self
           private
+
+          # Performs mode change with all necessary validations and dialogs
+          # Called outside of signal handler to avoid deadlocks
+          def perform_mode_change(parent, data_dir, current_mode, selected_mode, validation_test)
+            new_master_password = nil
+
+            # If leaving Enhanced, validate with recovery dialog
+            if current_mode == :enhanced
+              recovery_result = MasterPasswordPromptUI.show_recovery_dialog(validation_test)
+              unless recovery_result && recovery_result[:password]
+                return # User cancelled validation
+              end
+            end
+
+            # If entering Enhanced, get/create password
+            if selected_mode == :enhanced
+              new_master_password = MasterPasswordPromptUI.show_dialog
+              unless new_master_password
+                return # User cancelled password entry
+              end
+            end
+
+            # If entering Plaintext, confirm warning
+            if selected_mode == :plaintext
+              unless confirm_plaintext_mode_dialog(parent)
+                return # User cancelled plaintext entry
+              end
+            end
+
+            # Perform mode change
+            success = YamlState.change_encryption_mode(
+              data_dir,
+              selected_mode,
+              new_master_password
+            )
+
+            if success
+              success_dialog = Gtk::MessageDialog.new(
+                parent: parent,
+                flags: :modal,
+                type: :info,
+                buttons: :ok,
+                message: "Encryption mode changed successfully."
+              )
+
+              Accessibility.make_window_accessible(
+                success_dialog,
+                "Success Message",
+                "Encryption mode change success notification"
+              )
+
+              success_dialog.run
+              success_dialog.destroy
+            else
+              error_dialog = Gtk::MessageDialog.new(
+                parent: parent,
+                flags: :modal,
+                type: :error,
+                buttons: :ok,
+                message: "Failed to change encryption mode. Please check the logs."
+              )
+
+              Accessibility.make_window_accessible(
+                error_dialog,
+                "Error Message",
+                "Encryption mode change failed notification"
+              )
+
+              error_dialog.run
+              error_dialog.destroy
+            end
+          end
 
           # Returns display text for encryption mode
           def mode_display_text(mode)
