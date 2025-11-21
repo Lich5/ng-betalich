@@ -189,87 +189,96 @@ module Lich
               end
 
               dlg.destroy
-              new_master_password = nil
+              Lich.log "debug: spawning thread for dialogs and mode change"
 
-              # Validate leaving current mode
-              if current_mode == :enhanced
-                Lich.log "debug: showing recovery dialog for validation"
-                recovery_result = MasterPasswordPromptUI.show_recovery_dialog(
-                  yaml_data['master_password_validation_test']
-                )
-                Lich.log "debug: recovery_result=#{recovery_result.inspect}"
-                unless recovery_result && recovery_result[:password]
-                  Lich.log "debug: recovery cancelled"
-                  next
+              # Spawn thread to run dialogs and mode change
+              # Dialogs use Gtk.queue internally, so they need a non-GTK thread
+              Thread.new do
+                Lich.log "debug: thread starting"
+                new_master_password = nil
+
+                # Validate leaving current mode
+                if current_mode == :enhanced
+                  Lich.log "debug: showing recovery dialog for validation"
+                  recovery_result = MasterPasswordPromptUI.show_recovery_dialog(
+                    yaml_data['master_password_validation_test']
+                  )
+                  Lich.log "debug: recovery_result=#{recovery_result.inspect}"
+                  unless recovery_result && recovery_result[:password]
+                    Lich.log "debug: recovery cancelled"
+                    return
+                  end
                 end
+
+                # Validate entering new mode
+                if selected_mode == :enhanced
+                  Lich.log "debug: showing password dialog"
+                  new_master_password = MasterPasswordPromptUI.show_dialog
+                  Lich.log "debug: password_nil?=#{new_master_password.nil?}"
+                  unless new_master_password
+                    Lich.log "debug: password entry cancelled"
+                    return
+                  end
+                elsif selected_mode == :plaintext
+                  Lich.log "debug: showing plaintext confirmation"
+                  unless confirm_plaintext_mode_dialog(parent)
+                    Lich.log "debug: plaintext confirmation cancelled"
+                    return
+                  end
+                end
+                # selected_mode == :standard needs nothing special
+
+                # All validations passed, queue the actual mode change
+                Lich.log "debug: all validations passed, queuing mode change"
+                Gtk.queue do
+                  Lich.log "debug: in Gtk.queue, calling YamlState.change_encryption_mode"
+                  success = YamlState.change_encryption_mode(
+                    data_dir,
+                    selected_mode,
+                    new_master_password
+                  )
+                  Lich.log "debug: change_encryption_mode returned #{success}"
+
+                  if success
+                    mode_changed = true
+                    success_dialog = Gtk::MessageDialog.new(
+                      parent: parent,
+                      flags: :modal,
+                      type: :info,
+                      buttons: :ok,
+                      message: "Encryption mode changed successfully."
+                    )
+
+                    Accessibility.make_window_accessible(
+                      success_dialog,
+                      "Success Message",
+                      "Encryption mode change success notification"
+                    )
+
+                    success_dialog.run
+                    success_dialog.destroy
+                  else
+                    error_dialog = Gtk::MessageDialog.new(
+                      parent: parent,
+                      flags: :modal,
+                      type: :error,
+                      buttons: :ok,
+                      message: "Failed to change encryption mode. Please check the logs."
+                    )
+
+                    Accessibility.make_window_accessible(
+                      error_dialog,
+                      "Error Message",
+                      "Encryption mode change failed notification"
+                    )
+
+                    error_dialog.run
+                    error_dialog.destroy
+                  end
+                end
+                Lich.log "debug: thread complete"
               end
-
-              # Validate entering new mode
-              if selected_mode == :enhanced
-                Lich.log "debug: showing password dialog"
-                new_master_password = MasterPasswordPromptUI.show_dialog
-                Lich.log "debug: password_nil?=#{new_master_password.nil?}"
-                unless new_master_password
-                  Lich.log "debug: password entry cancelled"
-                  next
-                end
-              elsif selected_mode == :plaintext
-                Lich.log "debug: showing plaintext confirmation"
-                unless confirm_plaintext_mode_dialog(parent)
-                  Lich.log "debug: plaintext confirmation cancelled"
-                  next
-                end
-              end
-              # selected_mode == :standard needs nothing special
-
-              # All validations passed, queue the actual mode change
-              Lich.log "debug: all validations passed, queuing mode change"
-              Gtk.queue do
-                Lich.log "debug: in Gtk.queue, calling YamlState.change_encryption_mode"
-                success = YamlState.change_encryption_mode(
-                  data_dir,
-                  selected_mode,
-                  new_master_password
-                )
-                Lich.log "debug: change_encryption_mode returned #{success}"
-
-                if success
-                  mode_changed = true
-                  success_dialog = Gtk::MessageDialog.new(
-                    parent: parent,
-                    flags: :modal,
-                    type: :info,
-                    buttons: :ok,
-                    message: "Encryption mode changed successfully."
-                  )
-
-                  Accessibility.make_window_accessible(
-                    success_dialog,
-                    "Success Message",
-                    "Encryption mode change success notification"
-                  )
-
-                  success_dialog.run
-                  success_dialog.destroy
-                else
-                  error_dialog = Gtk::MessageDialog.new(
-                    parent: parent,
-                    flags: :modal,
-                    type: :error,
-                    buttons: :ok,
-                    message: "Failed to change encryption mode. Please check the logs."
-                  )
-
-                  Accessibility.make_window_accessible(
-                    error_dialog,
-                    "Error Message",
-                    "Encryption mode change failed notification"
-                  )
-
-                  error_dialog.run
-                  error_dialog.destroy
-                end
-              end
+              Lich.log "debug: thread spawned, signal handler returning"
             elsif response == Gtk::ResponseType::CANCEL
               Lich.log "debug: mode change cancelled"
               dlg.destroy
