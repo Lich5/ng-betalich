@@ -200,9 +200,10 @@ module Lich
 
                 # Validate leaving current mode
                 if current_mode == :enhanced
-                  Lich.log "debug: showing password confirmation dialog for mode change validation"
+                  Lich.log "debug: showing password confirmation dialog for leaving enhanced mode"
                   validation_result = MasterPasswordPromptUI.show_password_confirmation_for_mode_change(
-                    yaml_data['master_password_validation_test']
+                    yaml_data['master_password_validation_test'],
+                    leaving_enhanced: true
                   )
                   Lich.log "debug: validation_result=#{validation_result.inspect}"
                   unless validation_result && validation_result[:password]

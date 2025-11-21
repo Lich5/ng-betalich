@@ -242,8 +242,8 @@ module Lich
           if mode.to_sym == :enhanced && e.message.include?("Master password not found") && validation_test && !validation_test.empty?
             Lich.log "info: Master password missing from Keychain, attempting recovery via user prompt"
 
-            # Show recovery dialog with full validation and success confirmation
-            recovery_result = MasterPasswordPromptUI.show_recovery_dialog(validation_test)
+            # Show appropriate dialog based on context - use data access for conversion, recovery for actual recovery
+            recovery_result = MasterPasswordPromptUI.show_password_for_data_access(validation_test)
 
             if recovery_result.nil? || recovery_result[:password].nil?
               Lich.log "info: User cancelled master password recovery"

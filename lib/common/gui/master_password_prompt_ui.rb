@@ -51,13 +51,47 @@ module Lich
           result
         end
 
-        # Shows password confirmation dialog for encryption mode change
-        # Context-specific wrapper for validating master password during mode change
-        # Uses messaging appropriate to mode change operation (not recovery)
+        # Shows password confirmation for encryption mode change
+        # Messaging varies based on whether user is leaving or entering enhanced mode
         #
         # @param validation_test [Hash, nil] Validation test hash for password correctness check
-        # @return [Hash, nil] { password: String, continue_session: Boolean } if validated, nil if cancelled
-        def self.show_password_confirmation_for_mode_change(validation_test = nil)
+        # @param leaving_enhanced [Boolean] True if transitioning away from enhanced mode
+        # @return [Hash, nil] { password: String, continue_session: Boolean } if confirmed, nil if cancelled
+        def self.show_password_confirmation_for_mode_change(validation_test = nil, leaving_enhanced: false)
+          result = nil
+          mutex = Mutex.new
+          condition = ConditionVariable.new
+
+          if leaving_enhanced
+            message = "<b>Confirm Master Password</b>\n\n" +
+                      "Enter your master password to change encryption modes.\n\n" +
+                      "Your password will be removed from Keychain after the mode change."
+          else
+            message = "<b>Confirm Master Password</b>\n\n" +
+                      "Enter your master password to enable enhanced encryption.\n\n" +
+                      "Your password will be stored securely in your system Keychain."
+          end
+
+          Gtk.queue do
+            result = new.create_password_validation_dialog(
+              validation_test,
+              title: "Confirm Master Password",
+              instructions: message
+            )
+            mutex.synchronize { condition.signal }
+          end
+
+          mutex.synchronize { condition.wait(mutex) }
+          result
+        end
+
+        # Shows password dialog for providing access to encrypted data
+        # Used during data conversion or when password is needed to decrypt existing data
+        # More appropriate than "recovery" when password just needs to be provided for access
+        #
+        # @param validation_test [Hash, nil] Validation test hash for password correctness check
+        # @return [Hash, nil] { password: String, continue_session: Boolean } if provided, nil if cancelled
+        def self.show_password_for_data_access(validation_test = nil)
           result = nil
           mutex = Mutex.new
           condition = ConditionVariable.new
@@ -65,10 +99,10 @@ module Lich
           Gtk.queue do
             result = new.create_password_validation_dialog(
               validation_test,
-              title: "Confirm Master Password",
-              instructions: "<b>Confirm Master Password</b>\n\n" +
-                           "Enter your master password to confirm the encryption mode change.\n\n" +
-                           "This does not remove your password - it simply authorizes the operation."
+              title: "Enter Master Password",
+              instructions: "<b>Provide Master Password</b>\n\n" +
+                           "Your data is encrypted with a master password.\n\n" +
+                           "Enter your master password to access and convert your saved entries."
             )
             mutex.synchronize { condition.signal }
           end
