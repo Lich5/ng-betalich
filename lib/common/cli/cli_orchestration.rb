@@ -39,11 +39,8 @@ module Lich
         end
 
         def self.check_conversion_needed_for_login
-          # Determine data directory
-          data_dir = ENV.fetch('LICH_DATA_DIR', nil) || File.join(Dir.home, '.lich')
-
           # Check if conversion is required
-          if Lich::Common::CLI::CLIConversion.conversion_needed?(data_dir)
+          if Lich::Common::CLI::CLIConversion.conversion_needed?(DATA_DIR)
             Lich::Common::CLI::CLIConversion.print_conversion_help_message
             exit 1
           end
@@ -133,12 +130,9 @@ module Lich
             end
           end
 
-          # Determine data directory
-          data_dir = ENV.fetch('LICH_DATA_DIR', nil) || File.join(Dir.home, '.lich')
-
           # Perform conversion
           success = Lich::Common::CLI::CLIConversion.convert(
-            data_dir,
+            DATA_DIR,
             encryption_mode_str,
             master_password
           )
