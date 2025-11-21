@@ -401,9 +401,11 @@ module Lich
 
           # Set up change encryption mode button handler
           @change_encryption_mode_button.signal_connect('clicked') do
-            success = EncryptionModeChange.show_change_mode_dialog(@window, @data_dir)
-            populate_accounts_view(accounts_store) if success
-            update_change_encryption_mode_button_state
+            Gtk.queue do
+              success = EncryptionModeChange.show_change_mode_dialog(@window, @data_dir)
+              populate_accounts_view(accounts_store) if success
+              update_change_encryption_mode_button_state
+            end
           end
 
           # Populate accounts view and update button state (only if button exists)
