@@ -27,33 +27,6 @@ module Lich
           result
         end
 
-        # Shows the master password recovery dialog
-        # Used when master password is missing from Keychain but encryption data exists
-        # Handles both password matching validation and password correctness validation
-        # Returns a hash with password and session continuation flag after successful recovery
-        #
-        # @param validation_test [Hash, nil] Validation test hash for password correctness check
-        # @return [Hash, nil]
-        #   { password: String, continue_session: Boolean } if password successfully recovered
-        #     - continue_session: true if user clicked [Continue] to resume session
-        #     - continue_session: false if user clicked [Close] after recovery (exit application)
-        #   nil only if user cancelled the initial dialog (before password validation)
-        def self.show_recovery_dialog(validation_test = nil)
-          # Block until dialog completes, using condition variable for sync
-          result = nil
-          mutex = Mutex.new
-          condition = ConditionVariable.new
-
-          Gtk.queue do
-            result = new.create_recovery_dialog(validation_test)
-            mutex.synchronize { condition.signal }
-          end
-
-          # Wait for dialog to complete on main thread
-          mutex.synchronize { condition.wait(mutex) }
-          result
-        end
-
         # Shows the master password recovery success confirmation dialog
         # Displays message that password was saved to Keychain and offers Continue/Close options
         # Called after password validation succeeds
@@ -76,6 +49,63 @@ module Lich
           # Wait for dialog to complete on main thread
           mutex.synchronize { condition.wait(mutex) }
           result
+        end
+
+        # Shows password confirmation dialog for encryption mode change
+        # Context-specific wrapper for validating master password during mode change
+        # Uses messaging appropriate to mode change operation (not recovery)
+        #
+        # @param validation_test [Hash, nil] Validation test hash for password correctness check
+        # @return [Hash, nil] { password: String, continue_session: Boolean } if validated, nil if cancelled
+        def self.show_password_confirmation_for_mode_change(validation_test = nil)
+          result = nil
+          mutex = Mutex.new
+          condition = ConditionVariable.new
+
+          Gtk.queue do
+            result = new.create_password_validation_dialog(
+              validation_test,
+              title: "Confirm Master Password",
+              instructions: "<b>Confirm Master Password</b>\n\n" +
+                           "Enter your master password to confirm the encryption mode change.\n\n" +
+                           "This does not remove your password - it simply authorizes the operation."
+            )
+            mutex.synchronize { condition.signal }
+          end
+
+          mutex.synchronize { condition.wait(mutex) }
+          result
+        end
+
+        # Shows password confirmation dialog for master password recovery
+        # Context-specific wrapper with messaging appropriate to actual password recovery scenario
+        # Used when password is genuinely missing from Keychain
+        #
+        # @param validation_test [Hash, nil] Validation test hash for password correctness check
+        # @return [Hash, nil] { password: String, continue_session: Boolean } if recovered, nil if cancelled
+        def self.show_password_recovery_dialog(validation_test = nil)
+          result = nil
+          mutex = Mutex.new
+          condition = ConditionVariable.new
+
+          Gtk.queue do
+            result = new.create_password_validation_dialog(
+              validation_test,
+              title: "Recover Master Password",
+              instructions: "<b>Recover Master Password</b>\n\n" +
+                           "Your master password was removed from your system Keychain.\n\n" +
+                           "Enter your existing master password to restore access to your encrypted credentials."
+            )
+            mutex.synchronize { condition.signal }
+          end
+
+          mutex.synchronize { condition.wait(mutex) }
+          result
+        end
+
+        # Alias for backward compatibility - show_recovery_dialog now uses the recovery-specific version
+        def self.show_recovery_dialog(validation_test = nil)
+          show_password_recovery_dialog(validation_test)
         end
 
         def create_dialog
@@ -284,11 +314,18 @@ module Lich
           password
         end
 
-        def create_recovery_dialog(validation_test = nil)
-          # Create modal dialog for master password recovery
+        # Core password validation dialog with parameterized messaging
+        # Used by context-specific wrappers to show appropriate title and instructions
+        #
+        # @param validation_test [Hash, nil] Validation test hash for password correctness check
+        # @param title [String] Dialog title
+        # @param instructions [String] Markup text for instructions/context
+        # @return [Hash] { password: String, continue_session: Boolean }
+        def create_password_validation_dialog(validation_test = nil, title: "Validate Master Password", instructions: "Enter your master password:")
+          # Create modal dialog for password validation
           # Single password entry - validates against PBKDF2 test
           dialog = Gtk::Dialog.new(
-            title: "Recover Master Password",
+            title: title,
             parent: nil,
             flags: :modal,
             buttons: [
@@ -303,15 +340,13 @@ module Lich
           content_box.border_width = 12
 
           # ====================================================================
-          # SECTION 1: Recovery Instructions
+          # SECTION 1: Instructions
           # ====================================================================
-          instructions = Gtk::Label.new
-          instructions.markup = "<b>Recover Master Password</b>\n\n" +
-                                "Your master password was removed from your system Keychain.\n\n" +
-                                "Enter your existing master password to restore access to your encrypted credentials."
-          instructions.wrap = true
-          instructions.justify = :left
-          content_box.pack_start(instructions, expand: false)
+          instructions_label = Gtk::Label.new
+          instructions_label.markup = instructions
+          instructions_label.wrap = true
+          instructions_label.justify = :left
+          content_box.pack_start(instructions_label, expand: false)
 
           # ====================================================================
           # SECTION 2: Password Input
@@ -386,6 +421,17 @@ module Lich
 
           dialog.destroy
           { password: password, continue_session: continue_session }
+        end
+
+        # Backward compatibility wrapper - calls create_password_validation_dialog with recovery messaging
+        def create_recovery_dialog(validation_test = nil)
+          create_password_validation_dialog(
+            validation_test,
+            title: "Recover Master Password",
+            instructions: "<b>Recover Master Password</b>\n\n" +
+                         "Your master password was removed from your system Keychain.\n\n" +
+                         "Enter your existing master password to restore access to your encrypted credentials."
+          )
         end
 
         def create_recovery_success_dialog
