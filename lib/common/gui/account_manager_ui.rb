@@ -69,16 +69,6 @@ module Lich
           # Register callback to handle incoming notifications
           @tab_communicator.register_data_change_callback(->(change_type, data) {
             case change_type
-            when :conversion_complete
-              # Recreate accounts tab to show/hide button based on encryption mode from conversion
-              if @notebook && data && data[:encryption_mode]
-                @notebook.remove_page(0) # Remove accounts tab (first page)
-                create_accounts_tab(@notebook, data[:encryption_mode], 0) # Insert back at position 0
-                @notebook.show_all
-                # Defer setting current page to let GTK process the reorder first
-                Gtk.queue { @notebook.set_current_page(0) }
-              end
-              Lich.log "info: Account manager tab recreated for conversion completion"
             when :favorite_toggled
               # Refresh accounts view to reflect favorite changes
               refresh_accounts_display if @accounts_store
@@ -87,6 +77,14 @@ module Lich
               # Refresh accounts view for structural changes
               refresh_accounts_display if @accounts_store
               Lich.log "info: Account manager refreshed for data change: #{change_type}"
+            when :encryption_mode_changed
+              # Recreate encryption management tab to update button visibility/state
+              if @notebook
+                @notebook.remove_page(3) # Remove encryption management tab (4th page)
+                create_encryption_management_tab(@notebook)
+                @notebook.show_all
+                Lich.log "info: Encryption management tab recreated for mode change"
+              end
             end
           })
         end
@@ -112,10 +110,9 @@ module Lich
         # Creates the accounts tab
         #
         # @param notebook [Gtk::Notebook] Notebook to add tab to
-        # @param _encryption_mode [String, nil] Optional encryption mode from notification (unused)
         # @param insert_at_position [Integer, nil] Position to insert tab (default: append)
         # @return [void]
-        def create_accounts_tab(notebook, _encryption_mode = nil, insert_at_position = nil)
+        def create_accounts_tab(notebook, insert_at_position = nil)
           # Store notebook reference for use in callbacks
           @notebook = notebook
 
@@ -726,8 +723,12 @@ module Lich
           @change_encryption_mode_button.signal_connect('clicked') do
             Gtk.queue do
               success = EncryptionModeChange.show_change_mode_dialog(@window, @data_dir)
-              populate_accounts_view(@accounts_store) if success
-              update_change_encryption_mode_button_state
+              if success
+                populate_accounts_view(@accounts_store)
+                update_change_encryption_mode_button_state
+                # Notify that encryption mode has changed to refresh encryption management tab
+                notify_data_changed(:encryption_mode_changed, {})
+              end
             end
           end
 
