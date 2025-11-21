@@ -108,16 +108,15 @@ module Lich
         end
 
         def self.handle_convert_entries
-          encryption_mode_idx = ARGV.index('--encryption-mode')
+          idx = ARGV.index('--convert-entries')
+          encryption_mode_str = ARGV[idx + 1]
 
-          if encryption_mode_idx.nil?
+          if encryption_mode_str.nil?
             lich_script = File.join(LICH_DIR, 'lich.rbw')
             $stdout.puts 'error: Missing required argument'
-            $stdout.puts "Usage: ruby #{lich_script} --convert-entries --encryption-mode [plaintext|standard|enhanced]"
+            $stdout.puts "Usage: ruby #{lich_script} --convert-entries [plaintext|standard|enhanced]"
             exit 1
           end
-
-          encryption_mode_str = ARGV[encryption_mode_idx + 1]
 
           unless %w[plaintext standard enhanced].include?(encryption_mode_str)
             $stdout.puts "error: Invalid encryption mode: #{encryption_mode_str}"
