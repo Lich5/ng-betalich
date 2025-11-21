@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative '../eaccess'
+
 module Lich
   module Common
     module GUI
