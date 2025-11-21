@@ -576,21 +576,6 @@ module Lich
           end
         end
 
-        def show_error_dialog(message, secondary_message = nil)
-          Gtk.queue do
-            dialog = Gtk::MessageDialog.new(
-              parent: nil,
-              flags: :modal,
-              type: :error,
-              buttons: :ok,
-              message: message
-            )
-            dialog.secondary_text = secondary_message if secondary_message
-            dialog.run
-            dialog.destroy
-          end
-        end
-
         # Creates and wires a "Show password" checkbox for password entry fields
         # Sets up accessibility properties and signal handling for visibility toggle
         #
@@ -615,6 +600,21 @@ module Lich
           end
 
           show_password_check
+        end
+
+        def show_error_dialog(message, secondary_message = nil)
+          Gtk.queue do
+            dialog = Gtk::MessageDialog.new(
+              parent: nil,
+              flags: :modal,
+              type: :error,
+              buttons: :ok,
+              message: message
+            )
+            dialog.secondary_text = secondary_message if secondary_message
+            dialog.run
+            dialog.destroy
+          end
         end
       end
     end
