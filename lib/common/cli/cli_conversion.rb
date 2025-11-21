@@ -72,13 +72,13 @@ module Lich
           $stdout.puts "\nRun one of these commands:\n\n"
 
           $stdout.puts "For no encryption (least secure):"
-          $stdout.puts "  ruby #{lich_script} --convert-entries --encryption-mode plaintext\n\n"
+          $stdout.puts "  ruby #{lich_script} --convert-entries plaintext\n\n"
 
           $stdout.puts "For account-based encryption (standard):"
-          $stdout.puts "  ruby #{lich_script} --convert-entries --encryption-mode standard\n\n"
+          $stdout.puts "  ruby #{lich_script} --convert-entries standard\n\n"
 
           $stdout.puts "For master-password encryption (recommended):"
-          $stdout.puts "  ruby #{lich_script} --convert-entries --encryption-mode enhanced --change-master-password YOUR_MASTER_PASSWORD\n\n"
+          $stdout.puts "  ruby #{lich_script} --convert-entries enhanced\n\n"
 
           $stdout.puts '=' * 80 + "\n"
         end
