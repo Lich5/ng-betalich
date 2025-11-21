@@ -31,9 +31,33 @@ module Lich
           # Normalize encryption_mode to symbol if string is passed
           mode = encryption_mode.to_sym
 
+          # Validate preconditions
+          dat_file = File.join(data_dir, 'entry.dat')
+          yaml_file = Lich::Common::GUI::YamlState.yaml_file_path(data_dir)
+
+          unless File.exist?(dat_file)
+            Lich.log "error: entry.dat not found at #{dat_file}"
+            return false
+          end
+
+          if File.exist?(yaml_file)
+            Lich.log "error: entry.yaml already exists at #{yaml_file}"
+            return false
+          end
+
           # Delegate to YamlState for the actual conversion
           # For enhanced mode, migrate_from_legacy will prompt user to create master password
-          Lich::Common::GUI::YamlState.migrate_from_legacy(data_dir, encryption_mode: mode)
+          result = Lich::Common::GUI::YamlState.migrate_from_legacy(data_dir, encryption_mode: mode)
+
+          unless result
+            Lich.log "error: YamlState.migrate_from_legacy returned false"
+          end
+
+          result
+        rescue StandardError => e
+          Lich.log "error: Conversion failed: #{e.class}: #{e.message}"
+          Lich.log "error: Backtrace: #{e.backtrace.join("\n  ")}"
+          false
         end
 
         # Prints helpful conversion message showing user how to run conversion
