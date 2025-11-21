@@ -501,6 +501,50 @@ module Lich
             1
           end
         end
+
+        # Helper: Prompts user for a password with confirmation
+        # Used for creating new master passwords or changing existing ones
+        #
+        # @param prompt [String] Prompt to show user (default: "Enter password")
+        # @return [String, nil] Password if valid, nil if cancelled or error
+        def self.prompt_and_confirm_password(prompt = "Enter password")
+          print "#{prompt}: "
+          input = $stdin.gets
+          if input.nil?
+            puts 'error: Unable to read password from STDIN / terminal'
+            puts 'Please run this command interactively (not in a pipe or automated script without input)'
+            Lich.log 'error: Password prompt failed - stdin unavailable'
+            return nil
+          end
+          password = input.strip
+
+          print "Confirm #{prompt.downcase}: "
+          input = $stdin.gets
+          if input.nil?
+            puts 'error: Unable to read password from STDIN / terminal'
+            puts 'Please run this command interactively (not in a pipe or automated script without input)'
+            Lich.log 'error: Password confirmation failed - stdin unavailable'
+            return nil
+          end
+          confirm_password = input.strip
+
+          unless password == confirm_password
+            puts "error: Passwords do not match"
+            Lich.log "error: Password confirmation mismatch"
+            return nil
+          end
+
+          if password.length < 8
+            puts "error: Password must be at least 8 characters"
+            Lich.log "error: Password too short (minimum 8 characters)"
+            return nil
+          end
+
+          password
+        rescue StandardError => e
+          Lich.log "error: Password prompt failed: #{e.message}"
+          nil
+        end
       end
     end
   end
