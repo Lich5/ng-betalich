@@ -522,6 +522,32 @@ module Lich
           { continue_session: continue_session }
         end
 
+        # Creates and wires a "Show password" checkbox for password entry fields
+        # Sets up accessibility properties and signal handling for visibility toggle
+        #
+        # @param content_box [Gtk::Box] Container to pack the checkbox into
+        # @param entries_to_toggle [Array<Gtk::Entry>] Password entry fields to toggle visibility
+        # @return [Gtk::CheckButton] The created checkbox widget
+        def create_and_wire_show_password_checkbox(content_box, entries_to_toggle)
+          show_password_check = Gtk::CheckButton.new("Show password")
+          show_password_check.active = false
+
+          Accessibility.make_accessible(
+            show_password_check,
+            "Show Password Checkbox",
+            "Toggle to display password characters",
+            :check_button
+          )
+
+          content_box.pack_start(show_password_check, expand: false)
+
+          show_password_check.signal_connect('toggled') do |_widget|
+            entries_to_toggle.each { |entry| entry.visibility = show_password_check.active? }
+          end
+
+          show_password_check
+        end
+
         private
 
         # ======================================================================
@@ -574,32 +600,6 @@ module Lich
           else
             icon_label.markup = "<span foreground='gray'>✗</span>"
           end
-        end
-
-        # Creates and wires a "Show password" checkbox for password entry fields
-        # Sets up accessibility properties and signal handling for visibility toggle
-        #
-        # @param content_box [Gtk::Box] Container to pack the checkbox into
-        # @param entries_to_toggle [Array<Gtk::Entry>] Password entry fields to toggle visibility
-        # @return [Gtk::CheckButton] The created checkbox widget
-        def create_and_wire_show_password_checkbox(content_box, entries_to_toggle)
-          show_password_check = Gtk::CheckButton.new("Show password")
-          show_password_check.active = false
-
-          Accessibility.make_accessible(
-            show_password_check,
-            "Show Password Checkbox",
-            "Toggle to display password characters",
-            :check_button
-          )
-
-          content_box.pack_start(show_password_check, expand: false)
-
-          show_password_check.signal_connect('toggled') do |_widget|
-            entries_to_toggle.each { |entry| entry.visibility = show_password_check.active? }
-          end
-
-          show_password_check
         end
 
         def show_error_dialog(message, secondary_message = nil)
