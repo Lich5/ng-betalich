@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.13.0-beta.0](https://github.com/Lich5/ng-betalich/compare/v5.12.11...v5.13.0-beta.0) (2025-11-22)
+
+
+### Features
+
+* **all:** Refactored Lich Login (GUI / CLI from yaml based file) ([#107](https://github.com/Lich5/ng-betalich/issues/107)) ([9e9cd1a](https://github.com/Lich5/ng-betalich/commit/9e9cd1a6fb56a8e6bf04cca9864ccf174539cf11))
+
+
+### Miscellaneous Chores
+
+* seed prerelease 5.13.0-beta.0 ([9b02356](https://github.com/Lich5/ng-betalich/commit/9b02356202c85e3d9f97621920a4b50dcded7d51))
+
 ## [5.12.11](https://github.com/Lich5/ng-betalich/compare/v5.12.10...v5.12.11) (2025-10-29)
 
 
