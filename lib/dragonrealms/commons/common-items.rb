@@ -1,5 +1,6 @@
 # This module should be 'bottom-level' and only depend on common.
 # Any modules that deal with items and <something> should be somewhere else
+# New comment entry to trigger test ellipsis review - no other changes
 
 module Lich
   module DragonRealms
